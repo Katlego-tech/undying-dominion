@@ -1,7 +1,9 @@
 import { game, loadMap, renderPos, myNecromancer, resetWorld } from './state.js';
 import { createRenderer, TILE } from './render.js';
 import { createInput } from './input.js';
-import { initHud, updateHud, notice, showStory, initStory } from './hud.js';
+import {
+  initHud, updateHud, notice, showStory, initStory, initPause,
+} from './hud.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -91,7 +93,10 @@ function welcome(message) {
   // Frame roughly thirty tiles across, so the legion is readable on any screen.
   game.camera.zoom = Math.min(1.8, Math.max(1, window.innerWidth / (TILE * 30)));
   initHud();
-  if (!nextChapter) initStory();
+  if (!nextChapter) {
+    initStory();
+    initPause();
+  }
   $('join').hidden = true;
 }
 
@@ -115,6 +120,7 @@ function applyState(message, now) {
   game.you = message.you;
   game.players = message.players;
   game.story = message.story ?? null;
+  game.paused = message.paused ?? null;
 
   const units = new Map();
   for (const u of message.units) {

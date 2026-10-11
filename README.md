@@ -54,6 +54,7 @@ Run it from the `server/` directory and the client is served straight from
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
 | `G` | Gather the selected units to your necromancer, or the whole legion when none are selected. Hold to keep them following |
 | `H` | Stop |
+| `P` | Pause the world for everyone. Anyone can resume, with `P` or the Resume button |
 | `Q` / `E` | Select your whole legion / your necromancer |
 | `Space` | Return the camera to your necromancer and follow it again |
 | Arrows, middle-drag, minimap | Look around freely (stops following). Mouse wheel zooms |
@@ -101,14 +102,15 @@ Started in a terminal, the server takes over the window with a live dashboard:
   and trap.
 - **Necromancers:** level, soul, legion, kills and deaths for each player.
 - **Log:** joins, leaves, warnings and the output of your commands.
-- **Header:** the port, the tick time, and a link other players on your network can open.
+- **Header:** the port, the tick time, a link other players on your network can open, and who has
+  paused the world, when someone has.
 
 | Key | Action |
 |---|---|
 | `↑` `↓` | Select a necromancer |
 | `p` | Purge the selected necromancer (asks to confirm): their legion crumbles and they are disconnected |
 | `o` | Open the game in your browser |
-| `:` | Type a console command: `players`, `dump`, `purge <name>`, `help` |
+| `:` | Type a console command: `players`, `dump`, `pause`, `resume`, `purge <name>`, `help` |
 | `q` | Close the Dominion (asks to confirm) |
 
 The dashboard needs a terminal of at least 94 x 26. When output isn't an interactive terminal (piped,
@@ -136,7 +138,14 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "fuse", "units": [4, 5, 6, 8, 9] }
 { "command": "mend", "units": [4] }
 { "command": "trap", "units": [10] }
+{ "command": "pause" }
+{ "command": "resume" }
+{ "command": "reading", "open": true }
 ```
+
+Any player can `pause` the world for everyone, and any player can `resume` it. A pause also lifts
+when the player who paused leaves. `reading` reports a story card opening and closing. A lone
+player reading pauses the world until the card is closed, but with others in the game it runs on.
 
 The server sends three kinds of message:
 
@@ -145,7 +154,9 @@ The server sends three kinds of message:
 - `state`, every tick: your soul, level and notices (`you`), the units, corpses and traps you can
   see, what happened this tick (`events`), the scoreboard (`players`), and `fog`, a base64 bitmask of
   visible tiles, one bit per tile, row by row, lowest bit first. If a client falls behind, it skips
-  stale states rather than queueing them.
+  stale states rather than queueing them. While the world is stopped, `state` also carries
+  `paused`: `{ "by": "Vesper", "reason": "player" }`, with `reason` `player`, `host` or `story`.
+  The tick stands still and `events` stays empty.
 - `story`, in a campaign: a chapter's `briefing`, a line said mid-chapter (`say`), `victory`,
   `defeat` or the `finale`, with the chapter's title, objective and `lines`. During a campaign every
   `state` also carries `story`: chapter, objective and progress. A second `welcome` means the

@@ -19,6 +19,7 @@
         <span class="swatch" id="my-color"></span>
         <span id="my-name">—</span>
         <span class="level">Lv <b id="my-level">1</b></span>
+        <button type="button" class="pause-button" id="pause-button" title="Pause (P)" aria-label="Pause">❚❚</button>
       </div>
       <div class="bar xp"><div id="xp-fill"></div></div>
       <div class="caption"><span id="xp-text">0 / 100 xp</span></div>
@@ -74,6 +75,15 @@
     </article>
   </div>
 
+  <div class="overlay" id="paused" hidden>
+    <div class="fallen-box">
+      <h2>Paused</h2>
+      <p id="paused-by"></p>
+      <button type="button" id="resume-button">Resume</button>
+      <p class="paused-hint">or press <kbd>P</kbd></p>
+    </div>
+  </div>
+
   <div class="overlay" id="fallen" hidden>
     <div class="fallen-box">
       <h2>You have fallen</h2>
@@ -101,6 +111,7 @@
           <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
           <li><kbd>G</kbd> gathers the selected units to your necromancer, or the whole legion if none are selected. Hold it to have them follow.</li>
           <li><kbd>C</kbd> then click to attack-move, <kbd>H</kbd> to stop.</li>
+          <li><kbd>P</kbd> pauses the world for everyone. Anyone can resume.</li>
           <li>Arrows, middle-drag or the minimap to look around. <kbd>Space</kbd> returns to your necromancer.</li>
         </ul>
       </details>

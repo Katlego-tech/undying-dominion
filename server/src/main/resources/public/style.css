@@ -234,6 +234,22 @@ html, body {
 
 /* ---------------------------------------------------------------- overlays */
 
+.pause-button {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bone-dim);
+  font-size: 9px;
+  letter-spacing: -1px;
+  cursor: pointer;
+}
+.pause-button:hover { color: var(--bone); border-color: var(--bone-faint); }
+.paused-hint { margin: 10px 0 0; color: var(--bone-faint); font-size: 12px; }
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -313,6 +329,8 @@ kbd {
   text-shadow: 0 0 24px rgba(248, 113, 113, 0.4);
 }
 .fallen-box p { color: var(--bone-dim); }
+#paused h2 { color: var(--bone); text-shadow: 0 0 24px rgba(167, 139, 250, 0.35); }
+.fallen-box .paused-hint { color: var(--bone-faint); }
 
 @media (max-width: 900px) {
   .scores { display: none; }

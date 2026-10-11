@@ -140,6 +140,84 @@ class GameServerAcceptanceTest {
         assertTrue(response.body().contains("<title>Undying Dominion</title>"));
     }
 
+    @Test
+    void anyPlayerCanPauseTheWorldForEveryoneAndAnyoneCanResumeIt() {
+        TestClient vesper = joined("Vesper");
+        TestClient corvin = joined("Corvin");
+
+        vesper.send("{\"command\":\"pause\"}");
+
+        JSONObject paused = corvin.await("state", m -> m.has("paused"));
+        assertEquals("Vesper", paused.getJSONObject("paused").getString("by"));
+        assertEquals("player", paused.getJSONObject("paused").getString("reason"));
+        long frozenAt = paused.getLong("tick");
+        assertEquals(frozenAt, corvin.await("state", m -> true).getLong("tick"));
+        assertEquals(frozenAt, corvin.await("state", m -> true).getLong("tick"));
+
+        corvin.send("{\"command\":\"resume\"}");
+
+        vesper.await("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
+    }
+
+    @Test
+    void readingTheStoryPausesASoloGame() {
+        TestClient vesper = joined("Vesper");
+
+        vesper.send("{\"command\":\"reading\",\"open\":true}");
+        JSONObject paused = vesper.await("state", m -> m.has("paused"));
+        assertEquals("story", paused.getJSONObject("paused").getString("reason"));
+
+        vesper.send("{\"command\":\"reading\",\"open\":false}");
+        vesper.await("state", m -> !m.has("paused") && m.getLong("tick") > paused.getLong("tick"));
+    }
+
+    @Test
+    void readingTheStoryDoesNotPauseOthers() {
+        TestClient vesper = joined("Vesper");
+        TestClient corvin = joined("Corvin");
+        long before = corvin.await("state", m -> true).getLong("tick");
+
+        vesper.send("{\"command\":\"reading\",\"open\":true}");
+
+        JSONObject later = corvin.await("state", m -> m.getLong("tick") > before + 5);
+        assertFalse(later.has("paused"));
+    }
+
+    @Test
+    void thePauseLiftsWhenWhoeverPausedLeaves() {
+        TestClient vesper = joined("Vesper");
+        TestClient corvin = joined("Corvin");
+        vesper.send("{\"command\":\"pause\"}");
+        long frozenAt = corvin.await("state", m -> m.has("paused")).getLong("tick");
+
+        vesper.abort();
+
+        corvin.await("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
+    }
+
+    @Test
+    void aNecromancerCanJoinAPausedWorld() {
+        TestClient vesper = joined("Vesper");
+        vesper.send("{\"command\":\"pause\"}");
+        vesper.await("state", m -> m.has("paused"));
+
+        TestClient corvin = joined("Corvin");
+
+        JSONObject state = corvin.await("state", m -> m.has("paused"));
+        assertTrue(hasUnit(state, "NECROMANCER", corvin.playerId));
+    }
+
+    @Test
+    void theHostCanPauseAndResume() {
+        TestClient vesper = joined("Vesper");
+
+        server.pauseByHost();
+        assertEquals("host", vesper.await("state", m -> m.has("paused")).getJSONObject("paused").getString("reason"));
+
+        server.resume();
+        vesper.await("state", m -> !m.has("paused"));
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private static boolean hasUnit(JSONObject state, String type, int owner) {

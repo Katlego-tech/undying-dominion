@@ -75,6 +75,12 @@ export function gather(showMarker) {
   return true;
 }
 
+/** Pauses the world for everyone, or resumes it if a player or the host paused it. */
+export function togglePause() {
+  if (!game.paused) game.send({ command: 'pause' });
+  else if (game.paused.reason !== 'story') game.send({ command: 'resume' });
+}
+
 export function fuse() {
   const units = selectedUnits().filter((u) => u.type === 'SKELETON_WARRIOR').map((u) => u.id);
   if (units.length < game.rules.fuseCount) {

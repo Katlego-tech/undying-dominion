@@ -111,7 +111,8 @@ export function updateHud() {
   updateScoreboard();
   updateObjective();
 
-  $('fallen').hidden = alive;
+  $('fallen').hidden = alive || !!game.paused;
+  showPause();
   if (!alive) $('respawn-in').textContent = Math.ceil(you.respawnIn / (1000 / game.tickMs));
 }
 
@@ -177,6 +178,26 @@ export function showCameraHint(freeLook) {
   $('camera-hint').hidden = !freeLook;
 }
 
+// ---------------------------------------------------------------- pause
+
+/** Shows the pause screen when a player or the host stopped the world. A story pause has its own card. */
+function showPause() {
+  const paused = game.paused;
+  const shown = !!paused && paused.reason !== 'story';
+  $('paused').hidden = !shown;
+  document.body.classList.toggle('paused', shown);
+  if (!shown) return;
+  $('paused-by').textContent = paused.reason === 'host'
+    ? 'The keeper of the Dominion has stopped the world.'
+    : game.players.length === 1 ? 'The world waits for you.'
+      : `${paused.by === game.name ? 'You' : paused.by} stopped the world for everyone.`;
+}
+
+export function initPause() {
+  $('pause-button').addEventListener('click', cmd.togglePause);
+  $('resume-button').addEventListener('click', cmd.togglePause);
+}
+
 // ---------------------------------------------------------------- the story
 
 const STORY_KICKERS = {
@@ -210,12 +231,14 @@ export function showStory(message) {
   $('story-close').textContent = message.kind === 'briefing' ? 'Begin' : 'Continue';
   $('story').hidden = false;
   document.body.classList.add('reading');
+  game.send({ command: 'reading', open: true });
 }
 
 export function initStory() {
   const close = () => {
     $('story').hidden = true;
     document.body.classList.remove('reading');
+    game.send({ command: 'reading', open: false });
   };
   $('story-close').addEventListener('click', close);
   window.addEventListener('keydown', (e) => {

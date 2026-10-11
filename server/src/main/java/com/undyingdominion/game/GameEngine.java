@@ -70,6 +70,23 @@ public class GameEngine {
         inbox.add(command);
     }
 
+    /**
+     * Lets players in and out of a paused world without advancing it: joins, leaves and restores
+     * are applied now, and every other command waits, in order, for the next tick.
+     */
+    public void admit() {
+        List<Command> waiting = new ArrayList<>();
+        Command command;
+        while ((command = inbox.poll()) != null) {
+            if (command instanceof Command.Join || command instanceof Command.Leave || command instanceof Command.Restore) {
+                apply(command);
+            } else {
+                waiting.add(command);
+            }
+        }
+        inbox.addAll(waiting);
+    }
+
     /** Advances the world by one step. */
     public void tick() {
         events.clear();

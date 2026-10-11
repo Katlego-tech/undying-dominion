@@ -268,6 +268,11 @@ export function createInput(canvas, minimap, renderer) {
     if (e.target instanceof HTMLInputElement || !game.map || document.body.classList.contains('reading')) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const key = e.key.toLowerCase();
+    if (key === 'p' && !e.repeat) {
+      cmd.togglePause();
+      return;
+    }
+    if (game.paused) return;
     if (key.startsWith('arrow') || Object.hasOwn(WALK_KEYS, key)) {
       held.add(key);
       e.preventDefault();
@@ -323,6 +328,13 @@ export function createInput(canvas, minimap, renderer) {
    * for held arrows, and otherwise keeps the necromancer in view while the camera is following.
    */
   function update(dt, now) {
+    if (game.paused) {
+      // Orders held through a pause would all land at once on resume, so drop them.
+      held.clear();
+      walkTarget = null;
+      gatheredTo = null;
+      return;
+    }
     if (game.map) {
       walk();
       gather();

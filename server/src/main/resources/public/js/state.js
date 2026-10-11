@@ -28,6 +28,7 @@ export const game = {
   selection: new Set(),
   mode: null,           // null | 'attack-move' | 'raise' | 'explode'
   story: null,          // the campaign's progress, from the latest state
+  paused: null,         // { by, reason: 'player' | 'host' | 'story' } while the world is stopped
   effects: [],
   camera: { x: 0, y: 0, zoom: 1, follow: true },  // follow: keep the necromancer in view
   pointer: { sx: 0, sy: 0, tx: -1, ty: -1 },
