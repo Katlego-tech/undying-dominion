@@ -19,6 +19,7 @@
         <span class="swatch" id="my-color"></span>
         <span id="my-name">—</span>
         <span class="level">Lv <b id="my-level">1</b></span>
+        <button type="button" class="pause-button" id="pause-button" title="Pause (P)" aria-label="Pause">❚❚</button>
       </div>
       <div class="bar xp"><div id="xp-fill"></div></div>
       <div class="caption"><span id="xp-text">0 / 100 xp</span></div>
@@ -60,6 +61,7 @@
     <canvas id="minimap" class="panel" width="192" height="128" aria-label="Minimap"></canvas>
 
     <div class="mode-hint" id="mode-hint" hidden></div>
+    <div class="camera-hint" id="camera-hint" hidden>Free look · <kbd>Space</kbd> to follow</div>
   </div>
 
   <div class="overlay story" id="story" hidden>
@@ -71,6 +73,15 @@
       <p class="story-objective" id="story-objective"></p>
       <button type="button" id="story-close">Continue</button>
     </article>
+  </div>
+
+  <div class="overlay" id="paused" hidden>
+    <div class="fallen-box">
+      <h2>Paused</h2>
+      <p id="paused-by"></p>
+      <button type="button" id="resume-button">Resume</button>
+      <p class="paused-hint">or press <kbd>P</kbd></p>
+    </div>
   </div>
 
   <div class="overlay" id="fallen" hidden>
@@ -91,13 +102,17 @@
       <details class="howto">
         <summary>How to play</summary>
         <ul>
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk your necromancer. The camera follows it.</li>
           <li><kbd>1</kbd>–<kbd>4</kbd> summon skeletons beside your necromancer.</li>
-          <li>Left-drag to select, right-click to move or attack.</li>
+          <li>Left-drag to select your legion, right-click to move or attack.</li>
           <li>Everything that dies leaves a corpse. <kbd>R</kbd> then click one to raise it into your legion.</li>
           <li>Five warriors standing together <kbd>F</kbd>use into a Skeleton King.</li>
           <li><kbd>X</kbd> then click a corpse: Corpse Explosion, damage to everything around it.</li>
           <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
-          <li><kbd>A</kbd> then click to attack-move, <kbd>S</kbd> to stop, <kbd>Space</kbd> to find your necromancer.</li>
+          <li><kbd>G</kbd> gathers the selected units to your necromancer, or the whole legion if none are selected. Hold it to have them follow.</li>
+          <li><kbd>C</kbd> then click to attack-move, <kbd>H</kbd> to stop.</li>
+          <li><kbd>P</kbd> pauses the world for everyone. Anyone can resume.</li>
+          <li>Arrows, middle-drag or the minimap to look around. <kbd>Space</kbd> returns to your necromancer.</li>
         </ul>
       </details>
     </form>

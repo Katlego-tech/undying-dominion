@@ -12,9 +12,11 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -53,6 +55,14 @@ public class GameServer {
     private final List<Consumer<GameEngine>> tickListeners = new CopyOnWriteArrayList<>();
     private final List<IntConsumer> joinListeners = new CopyOnWriteArrayList<>();
     private volatile double lastTickMillis;
+
+    /** Who paused the world: a player's id, {@link #HOST}, or null while it runs. Loop thread only. */
+    private Integer pausedBy;
+    private String pausedByName;
+    /** Players with a story card open. A lone player reading pauses the world. Loop thread only. */
+    private final Set<Integer> reading = new HashSet<>();
+    private volatile JSONObject pause;
+    private static final int HOST = -1;
 
     private Javalin app;
 
@@ -161,6 +171,21 @@ public class GameServer {
         return lastTickMillis;
     }
 
+    /** Stops the world for everyone, from the host's console or dashboard. */
+    public void pauseByHost() {
+        runOnLoop(() -> pause(HOST, "the host"));
+    }
+
+    /** Sets the world running again, however it was paused by hand. */
+    public void resume() {
+        runOnLoop(this::lift);
+    }
+
+    /** Why the world is stopped, as sent to players: {@code {by, reason}}; or null while it runs. */
+    public JSONObject pause() {
+        return pause;
+    }
+
     /** Runs a task on the game loop thread before the next tick. */
     public void runOnLoop(Runnable task) {
         loopTasks.add(task);
@@ -206,6 +231,16 @@ public class GameServer {
                 join(connection, message.optString("name", null));
             } else if ("join".equals(command)) {
                 throw new ProtocolException("You have already joined");
+            } else if ("pause".equals(command)) {
+                runOnLoop(() -> pause(playerId, connection.getName()));
+            } else if ("resume".equals(command)) {
+                runOnLoop(this::lift);
+            } else if ("reading".equals(command)) {
+                boolean open = message.optBoolean("open", false);
+                runOnLoop(() -> {
+                    if (open) reading.add(playerId);
+                    else reading.remove(playerId);
+                });
             } else {
                 engine.submit(ProtocolParser.parse(message, playerId));
             }
@@ -241,6 +276,10 @@ public class GameServer {
         if (playerId != null) {
             names.remove(connection.getName().toLowerCase(), connection);
             engine.submit(new Command.Leave(playerId));
+            runOnLoop(() -> {
+                reading.remove(playerId);
+                if (playerId.equals(pausedBy)) lift();
+            });
             log.info("{} left the Dominion", connection.getName());
         }
     }
@@ -256,7 +295,9 @@ public class GameServer {
             }
 
             GameEngine engine = this.engine;
-            engine.tick();
+            pause = currentPause();
+            if (pause == null) engine.tick();
+            else engine.admit();
 
             JSONArray scoreboard = SnapshotWriter.scoreboard(engine);
             for (ClientConnection connection : connections.values()) {
@@ -264,13 +305,14 @@ public class GameServer {
                 if (playerId == null || !connection.isOpen()) continue;
                 Player player = engine.getPlayer(playerId);
                 if (player == null) continue;
-                connection.offerState(SnapshotWriter.state(engine, player, scoreboard, story));
+                connection.offerState(SnapshotWriter.state(engine, player, scoreboard, story, pause));
             }
 
             if (engine.getTick() % engine.getRules().ticksPerSecond() == 0) {
                 worldJson.set(describeWorld());
             }
             lastTickMillis = (System.nanoTime() - started) / 1_000_000.0;
+            if (pause != null) return;
             for (Consumer<GameEngine> listener : tickListeners) {
                 listener.accept(engine);
             }
@@ -278,6 +320,34 @@ public class GameServer {
             // A scheduled task that throws is never run again, so the loop must not let anything out.
             log.error("Tick {} failed", engine.getTick(), t);
         }
+    }
+
+    private void pause(int by, String name) {
+        if (pausedBy != null) return;
+        pausedBy = by;
+        pausedByName = name;
+        log.info("The Dominion is paused by {}", name);
+    }
+
+    private void lift() {
+        if (pausedBy == null) return;
+        log.info("The Dominion resumes");
+        pausedBy = null;
+        pausedByName = null;
+    }
+
+    private JSONObject currentPause() {
+        if (pausedBy != null) {
+            return new JSONObject().put("by", pausedByName).put("reason", pausedBy == HOST ? "host" : "player");
+        }
+        if (!reading.isEmpty() && joinedCount() == 1) {
+            return new JSONObject().put("by", JSONObject.NULL).put("reason", "story");
+        }
+        return null;
+    }
+
+    private long joinedCount() {
+        return connections.values().stream().filter(c -> c.getPlayerId() != null).count();
     }
 
     private String describeWorld() {

@@ -15,6 +15,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Base64;
+import java.util.List;
 
 /** Builds the JSON messages the server sends. Everything except {@link #welcome} runs on the game loop thread. */
 public final class SnapshotWriter {
@@ -99,6 +100,12 @@ public final class SnapshotWriter {
 
     /** As above, with the campaign's story progress when there is one. */
     public static String state(GameEngine engine, Player player, JSONArray scoreboard, JSONObject story) {
+        return state(engine, player, scoreboard, story, null);
+    }
+
+    /** As above, and {@code paused} ({@code {by, reason}}) while the world is stopped. */
+    public static String state(GameEngine engine, Player player, JSONArray scoreboard, JSONObject story,
+                               JSONObject paused) {
         long tick = engine.getTick();
         Visibility sight = Visibility.of(engine.getMap(), engine.getUnits(), player.getId());
 
@@ -140,8 +147,9 @@ public final class SnapshotWriter {
                     .put("y", t.position().y()));
         }
 
+        // A paused engine still holds the last tick's events; they were sent once already.
         JSONArray events = new JSONArray();
-        for (GameEvent e : engine.getEvents()) {
+        for (GameEvent e : paused == null ? engine.getEvents() : List.<GameEvent>of()) {
             boolean seen = switch (e.kind()) {
                 case LEVEL_UP -> true;
                 case ATTACK -> sight.sees(e.x(), e.y()) || sight.sees(e.x2(), e.y2());
@@ -172,6 +180,7 @@ public final class SnapshotWriter {
 
         JSONObject message = new JSONObject();
         if (story != null) message.put("story", story);
+        if (paused != null) message.put("paused", paused);
         return message
                 .put("type", "state")
                 .put("tick", tick)

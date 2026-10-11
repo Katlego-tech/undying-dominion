@@ -69,11 +69,21 @@ public class AdminConsole implements Runnable {
                     Commands:
                       players        list necromancers and their standing
                       dump           show the state of the world
+                      pause          stop the world for everyone
+                      resume         set the world running again
                       purge <name>   destroy a necromancer's legion and remove them
                       chapter <n>    jump the campaign to chapter n
                       quit           close the Dominion""");
             case "players" -> server.runOnLoop(this::printPlayers);
             case "dump" -> server.runOnLoop(this::printDump);
+            case "pause" -> {
+                server.pauseByHost();
+                out.println("The Dominion is paused. Type resume to go on.");
+            }
+            case "resume" -> {
+                server.resume();
+                out.println("The Dominion resumes.");
+            }
             case "purge" -> {
                 if (argument.isEmpty()) {
                     out.println("usage: purge <name>");

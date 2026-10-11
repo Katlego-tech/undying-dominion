@@ -1,17 +1,22 @@
-import { game, unitAtTile, isMine, myNecromancer, renderPos } from './state.js';
+import {
+  game, unitAtTile, isMine, myNecromancer, renderPos, isWalkable,
+} from './state.js';
 import { TILE } from './render.js';
 import * as cmd from './commands.js';
-import { summonHotkey } from './hud.js';
+import { summonHotkey, showCameraHint } from './hud.js';
 
 const PAN_SPEED = 900;     // screen pixels per second
-const EDGE = 10;           // pixels from the window edge that start an edge pan
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 2.2;
+const FOLLOW_INSET = 0.25; // the camera follows once the necromancer is this close to an edge
+const WALK_KEYS = { w: [0, -1], a: [-1, 0], s: [0, 1], d: [1, 0] };
 
 export function createInput(canvas, minimap, renderer) {
   const held = new Set();
   let panning = null;
   let minimapDragging = false;
+  let walkTarget = null;   // the tile the necromancer was last steered to, while WASD is held
+  let gatheredTo = null;   // the necromancer's tile the legion was last called to, while G is held
 
   function updatePointer(e) {
     const p = game.pointer;
@@ -42,9 +47,82 @@ export function createInput(canvas, minimap, renderer) {
     clampCamera();
   }
 
+  function setFollow(follow) {
+    game.camera.follow = follow;
+  }
+
   function centerOnNecromancer() {
     const necromancer = myNecromancer();
     if (necromancer) centerOn(necromancer.x, necromancer.y);
+    setFollow(true);
+  }
+
+  /** Nudges the camera just enough to keep the necromancer inside the central box. */
+  function follow(now) {
+    const necromancer = myNecromancer();
+    if (!necromancer) return;
+    const cam = game.camera;
+    const { width, height } = renderer.viewport();
+    const p = renderPos(necromancer, now);
+    const sx = ((p.x + 0.5) * TILE - cam.x) * cam.zoom;
+    const sy = ((p.y + 0.5) * TILE - cam.y) * cam.zoom;
+    const insetX = width * FOLLOW_INSET;
+    const insetY = height * FOLLOW_INSET;
+    let dx = 0;
+    let dy = 0;
+    if (sx < insetX) dx = sx - insetX;
+    else if (sx > width - insetX) dx = sx - (width - insetX);
+    if (sy < insetY) dy = sy - insetY;
+    else if (sy > height - insetY) dy = sy - (height - insetY);
+    if (dx || dy) {
+      cam.x += dx / cam.zoom;
+      cam.y += dy / cam.zoom;
+      clampCamera();
+    }
+  }
+
+  // ---------------------------------------------------------------- walking
+
+  function walkDirection() {
+    let dx = 0;
+    let dy = 0;
+    for (const [key, [kx, ky]] of Object.entries(WALK_KEYS)) {
+      if (held.has(key)) {
+        dx += kx;
+        dy += ky;
+      }
+    }
+    return [dx, dy];
+  }
+
+  /** Whether one step of (dx, dy) from (x, y) is legal, diagonals included, as the server sees it. */
+  function canStep(x, y, dx, dy) {
+    if (!isWalkable(x + dx, y + dy)) return false;
+    return !(dx && dy) || (isWalkable(x + dx, y) && isWalkable(x, y + dy));
+  }
+
+  /** Steers the necromancer one or two tiles along the held direction, sliding along walls. */
+  function walk() {
+    const [dx, dy] = walkDirection();
+    const necromancer = myNecromancer();
+    if (!dx && !dy) {
+      if (walkTarget && necromancer) cmd.halt();
+      walkTarget = null;
+      return;
+    }
+    if (!necromancer) return;
+    setFollow(true);
+    const { x, y } = necromancer;
+    const steps = [[dx, dy], [dx, 0], [0, dy]].filter(([sx, sy]) => sx || sy);
+    const step = steps.find(([sx, sy]) => canStep(x, y, sx, sy));
+    if (!step) return;
+    const [sx, sy] = step;
+    const far = canStep(x + sx, y + sy, sx, sy);
+    const tx = x + sx * (far ? 2 : 1);
+    const ty = y + sy * (far ? 2 : 1);
+    if (walkTarget && walkTarget.x === tx && walkTarget.y === ty) return;
+    walkTarget = { x: tx, y: ty };
+    cmd.walkTo(tx, ty);
   }
 
   // ---------------------------------------------------------------- mouse
@@ -70,6 +148,7 @@ export function createInput(canvas, minimap, renderer) {
     } else if (e.button === 1) {
       e.preventDefault();
       panning = { sx, sy, x: game.camera.x, y: game.camera.y };
+      setFollow(false);
     } else if (e.button === 2) {
       if (game.mode) {
         cmd.setMode(null);
@@ -87,7 +166,6 @@ export function createInput(canvas, minimap, renderer) {
 
   window.addEventListener('mousemove', (e) => {
     updatePointer(e);
-    game.pointer.inside = e.target === canvas;
     if (game.drag) {
       game.drag.sx1 = e.clientX;
       game.drag.sy1 = e.clientY;
@@ -105,7 +183,6 @@ export function createInput(canvas, minimap, renderer) {
     minimapDragging = false;
   });
 
-  document.addEventListener('mouseleave', () => { game.pointer.inside = false; });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   canvas.addEventListener('dblclick', (e) => {
@@ -166,6 +243,7 @@ export function createInput(canvas, minimap, renderer) {
     const tx = ((e.clientX - rect.left) / rect.width) * game.map.width;
     const ty = ((e.clientY - rect.top) / rect.height) * game.map.height;
     centerOn(tx - 0.5, ty - 0.5);
+    setFollow(false);
   }
   minimap.addEventListener('mousedown', (e) => {
     if (!game.map) return;
@@ -188,13 +266,26 @@ export function createInput(canvas, minimap, renderer) {
 
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || !game.map || document.body.classList.contains('reading')) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
     const key = e.key.toLowerCase();
-    if (key.startsWith('arrow')) {
+    if (key === 'p' && !e.repeat) {
+      cmd.togglePause();
+      return;
+    }
+    if (game.paused) return;
+    if (key.startsWith('arrow') || Object.hasOwn(WALK_KEYS, key)) {
       held.add(key);
       e.preventDefault();
       return;
     }
     if (e.repeat) return;
+    if (key === 'g') {
+      const necromancer = myNecromancer();
+      if (!cmd.gather(true) || !necromancer) return;
+      held.add(key);
+      gatheredTo = `${necromancer.x},${necromancer.y}`;
+      return;
+    }
 
     const summonType = summonHotkey(key);
     if (summonType) {
@@ -202,13 +293,13 @@ export function createInput(canvas, minimap, renderer) {
       return;
     }
     switch (key) {
-      case 'a': cmd.beginAttackMove(); break;
+      case 'c': cmd.beginAttackMove(); break;
       case 'r': cmd.beginRaise(); break;
       case 'x': cmd.beginExplode(); break;
       case 'f': cmd.fuse(); break;
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;
-      case 's': cmd.stop(); break;
+      case 'h': cmd.stop(); break;
       case 'q': cmd.selectLegion(); break;
       case 'e': cmd.selectNecromancer(); break;
       case ' ': e.preventDefault(); centerOnNecromancer(); break;
@@ -222,28 +313,49 @@ export function createInput(canvas, minimap, renderer) {
   window.addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => held.clear());
 
-  /** Called every frame: pans the camera for held arrow keys and the window edges. */
-  function update(dt) {
+  /** While G is held, calls the legion again each time the necromancer reaches a new tile. */
+  function gather() {
+    const necromancer = myNecromancer();
+    if (!held.has('g') || !necromancer) return;
+    const tile = `${necromancer.x},${necromancer.y}`;
+    if (tile === gatheredTo) return;
+    gatheredTo = tile;
+    cmd.gather(false);
+  }
+
+  /**
+   * Called every frame: walks the necromancer for held WASD, gathers the legion for held G, pans
+   * for held arrows, and otherwise keeps the necromancer in view while the camera is following.
+   */
+  function update(dt, now) {
+    if (game.paused) {
+      // Orders held through a pause would all land at once on resume, so drop them.
+      held.clear();
+      walkTarget = null;
+      gatheredTo = null;
+      return;
+    }
+    if (game.map) {
+      walk();
+      gather();
+    }
+
     let dx = 0;
     let dy = 0;
     if (held.has('arrowleft')) dx -= 1;
     if (held.has('arrowright')) dx += 1;
     if (held.has('arrowup')) dy -= 1;
     if (held.has('arrowdown')) dy += 1;
-
-    const { sx, sy, inside } = game.pointer;
-    const { width, height } = renderer.viewport();
-    if (inside && !game.drag && document.hasFocus()) {
-      if (sx < EDGE) dx -= 1;
-      if (sx > width - EDGE) dx += 1;
-      if (sy < EDGE) dy -= 1;
-      if (sy > height - EDGE) dy += 1;
-    }
     if (dx || dy) {
-      game.camera.x += (dx * PAN_SPEED * dt) / game.camera.zoom;
-      game.camera.y += (dy * PAN_SPEED * dt) / game.camera.zoom;
+      const scale = (PAN_SPEED * dt) / Math.hypot(dx, dy) / game.camera.zoom;
+      game.camera.x += dx * scale;
+      game.camera.y += dy * scale;
       clampCamera();
+      setFollow(false);
+    } else if (game.camera.follow) {
+      follow(now);
     }
+    showCameraHint(!game.camera.follow && !!myNecromancer());
   }
 
   return { update, centerOn, centerOnNecromancer, clampCamera };

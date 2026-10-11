@@ -70,6 +70,7 @@ public class Dashboard {
     private int selectedId = -1;
     private final StringBuilder input = new StringBuilder();
     private String status = "";
+    private String paused;
     private long statusUntil;
 
     public Dashboard(GameMap map, String mapName, int port, int maxPlayers, String lanUrl, LogBuffer log, Actions actions) {
@@ -211,6 +212,11 @@ public class Dashboard {
         drawFooter(g, height - 1, width);
     }
 
+    /** Who or what stopped the world, shown in the header; null while it runs. */
+    public void setPaused(String paused) {
+        this.paused = paused;
+    }
+
     private void drawHeader(TextGraphics g, int width) {
         g.setBackgroundColor(HEADER_BG);
         g.setForegroundColor(BONE);
@@ -222,6 +228,7 @@ public class Dashboard {
         int x = 19;
         x = segment(g, x, snapshot.story() != null ? snapshot.story() : mapName, snapshot.story() != null ? GOLD : DIM, width);
         x = segment(g, x, "● open on :" + port, SOUL, width);
+        if (paused != null) x = segment(g, x, "PAUSED · " + paused, GOLD, width);
         x = segment(g, x, "tick " + String.format(Locale.ROOT, "%,d", snapshot.tick()), DIM, width);
         x = segment(g, x, String.format(Locale.ROOT, "%.1f ms", snapshot.tickMillis()), snapshot.tickMillis() > 50 ? BLOOD : DIM, width);
         x = segment(g, x, snapshot.players().size() + "/" + maxPlayers + " necromancers", DIM, width);
@@ -378,7 +385,7 @@ public class Dashboard {
             }
             case COMMAND -> {
                 g.setForegroundColor(SOUL);
-                put(g, 1, y, ":" + input + "█   (players, dump, purge <name>, chapter <n>, help · Enter to run, Esc to cancel)", width - 2);
+                put(g, 1, y, ":" + input + "█   (players, dump, pause, resume, purge <name>, chapter <n>, help · Enter to run, Esc to cancel)", width - 2);
             }
             case NORMAL -> {
                 if (System.currentTimeMillis() < statusUntil) {

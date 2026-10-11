@@ -45,13 +45,14 @@ export function initHud() {
   }));
 
   const abilities = [
-    ['attack-move', 'Attack-move', 'A', cmd.beginAttackMove],
+    ['attack-move', 'Attack-move', 'C', cmd.beginAttackMove],
     ['raise', 'Raise dead', 'R', cmd.beginRaise],
     ['explode', 'Corpse Explosion', 'X', cmd.beginExplode, `<span class="cost">${game.rules.explodeSoulCost} soul</span>`],
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
     ['mend', 'Mend', 'M', cmd.mend],
     ['trap', 'Lay trap', 'T', cmd.layTrap],
-    ['stop', 'Stop', 'S', cmd.stop],
+    ['gather', 'Gather', 'G', () => cmd.gather(true)],
+    ['stop', 'Stop', 'H', cmd.stop],
   ];
   $('ability-buttons').replaceChildren(...abilities.map(([id, text, key, action, extra = '']) => {
     const el = button(text, key, action, extra);
@@ -98,6 +99,7 @@ export function updateHud() {
     fuse: warriors >= game.rules.fuseCount && you.soul >= game.rules.fuseSoulCost,
     mend: selected.some((u) => u.modeEndsIn == null && u.hp < game.unitTypes[u.type].maxHp),
     trap: selected.some((u) => game.unitTypes[u.type].laysTraps && u.modeEndsIn == null),
+    gather: alive && you.legion > 0,
     stop: selected.length > 0,
   };
   for (const el of $('ability-buttons').children) {
@@ -109,7 +111,8 @@ export function updateHud() {
   updateScoreboard();
   updateObjective();
 
-  $('fallen').hidden = alive;
+  $('fallen').hidden = alive || !!game.paused;
+  showPause();
   if (!alive) $('respawn-in').textContent = Math.ceil(you.respawnIn / (1000 / game.tickMs));
 }
 
@@ -170,6 +173,31 @@ export function showModeHint(mode) {
   }
 }
 
+/** Shows the free-look pill while the camera has stopped following the necromancer. */
+export function showCameraHint(freeLook) {
+  $('camera-hint').hidden = !freeLook;
+}
+
+// ---------------------------------------------------------------- pause
+
+/** Shows the pause screen when a player or the host stopped the world. A story pause has its own card. */
+function showPause() {
+  const paused = game.paused;
+  const shown = !!paused && paused.reason !== 'story';
+  $('paused').hidden = !shown;
+  document.body.classList.toggle('paused', shown);
+  if (!shown) return;
+  $('paused-by').textContent = paused.reason === 'host'
+    ? 'The keeper of the Dominion has stopped the world.'
+    : game.players.length === 1 ? 'The world waits for you.'
+      : `${paused.by === game.name ? 'You' : paused.by} stopped the world for everyone.`;
+}
+
+export function initPause() {
+  $('pause-button').addEventListener('click', cmd.togglePause);
+  $('resume-button').addEventListener('click', cmd.togglePause);
+}
+
 // ---------------------------------------------------------------- the story
 
 const STORY_KICKERS = {
@@ -203,12 +231,14 @@ export function showStory(message) {
   $('story-close').textContent = message.kind === 'briefing' ? 'Begin' : 'Continue';
   $('story').hidden = false;
   document.body.classList.add('reading');
+  game.send({ command: 'reading', open: true });
 }
 
 export function initStory() {
   const close = () => {
     $('story').hidden = true;
     document.body.classList.remove('reading');
+    game.send({ command: 'reading', open: false });
   };
   $('story-close').addEventListener('click', close);
   window.addEventListener('keydown', (e) => {

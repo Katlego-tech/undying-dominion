@@ -11,6 +11,7 @@ import com.undyingdominion.ServerOptions;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.net.AdminConsole;
 import com.undyingdominion.net.GameServer;
+import org.json.JSONObject;
 
 import java.awt.Desktop;
 import java.io.IOException;
@@ -114,6 +115,7 @@ public final class ServerTui {
                     dashboard.handle(key);
                 }
                 dashboard.setSnapshot(latest.get());
+                dashboard.setPaused(pauseLabel(server.pause()));
                 screen.doResizeIfNecessary();
                 dashboard.draw(screen);
                 screen.refresh();
@@ -127,6 +129,16 @@ public final class ServerTui {
             realOut.println("The Dominion is closed.");
         }
         System.exit(0);
+    }
+
+    /** "by Vesper", "by you", "story" for the header; null while the world runs. */
+    private static String pauseLabel(JSONObject pause) {
+        if (pause == null) return null;
+        return switch (pause.getString("reason")) {
+            case "host" -> "by you";
+            case "story" -> "a player is reading";
+            default -> "by " + pause.getString("by");
+        };
     }
 
     private static String mapName(ServerOptions options) {
