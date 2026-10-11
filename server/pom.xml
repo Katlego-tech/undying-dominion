@@ -12,7 +12,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <javalin.version>6.7.0</javalin.version>
+        <javalin.version>7.2.3</javalin.version>
         <junit.version>5.10.2</junit.version>
         <surefire.version>3.2.5</surefire.version>
     </properties>

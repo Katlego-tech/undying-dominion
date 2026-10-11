@@ -63,24 +63,24 @@ public class GameServer {
 
     public void start(int port) {
         app = Javalin.create(config -> {
-            config.showJavalinBanner = false;
+            config.startup.showJavalinBanner = false;
             if (Files.isDirectory(DEV_CLIENT)) {
                 config.staticFiles.add(DEV_CLIENT.toAbsolutePath().toString(), Location.EXTERNAL);
             } else {
                 config.staticFiles.add("/public", Location.CLASSPATH);
             }
-        });
 
-        app.ws("/ws", ws -> {
-            ws.onConnect(ctx -> connections.put(ctx.sessionId(), new ClientConnection(ctx)));
-            ws.onMessage(ctx -> onMessage(ctx.sessionId(), ctx.message()));
-            ws.onClose(ctx -> onClose(ctx.sessionId()));
-            ws.onError(ctx -> onClose(ctx.sessionId()));
-        });
+            config.routes.ws("/ws", ws -> {
+                ws.onConnect(ctx -> connections.put(ctx.sessionId(), new ClientConnection(ctx)));
+                ws.onMessage(ctx -> onMessage(ctx.sessionId(), ctx.message()));
+                ws.onClose(ctx -> onClose(ctx.sessionId()));
+                ws.onError(ctx -> onClose(ctx.sessionId()));
+            });
 
-        // Robot Worlds' Web API iteration asked for GET /world: the world's layout as JSON.
-        // Unit positions are left out so the API cannot be used to see through the fog.
-        app.get("/api/world", ctx -> ctx.contentType("application/json").result(worldJson.get()));
+            // Robot Worlds' Web API iteration asked for GET /world: the world's layout as JSON.
+            // Unit positions are left out so the API cannot be used to see through the fog.
+            config.routes.get("/api/world", ctx -> ctx.contentType("application/json").result(worldJson.get()));
+        });
 
         app.start(port);
         worldJson.set(describeWorld());
