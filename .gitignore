@@ -1,0 +1,16 @@
+# Build output
+target/
+
+# Local databases and logs
+*.db
+*.log
+
+# Secrets never go in git
+.env
+.env.*
+
+# Editors and operating systems
+.idea/
+*.iml
+.vscode/
+.DS_Store
