@@ -219,6 +219,19 @@ html, body {
   pointer-events: none;
 }
 
+.camera-hint {
+  position: absolute;
+  right: 16px;
+  bottom: 152px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  color: var(--bone-dim);
+  font-size: 12px;
+  pointer-events: none;
+}
+
 /* ---------------------------------------------------------------- overlays */
 
 .overlay {

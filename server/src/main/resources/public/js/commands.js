@@ -29,6 +29,17 @@ export function moveTo(x, y, attackMove) {
   marker(x, y, attackMove);
 }
 
+/** Steers the necromancer toward a nearby tile without touching the selection or drawing a marker. */
+export function walkTo(x, y) {
+  const necromancer = myNecromancer();
+  if (necromancer) game.send({ command: 'move', units: [necromancer.id], x, y, attackMove: false });
+}
+
+export function halt() {
+  const necromancer = myNecromancer();
+  if (necromancer) game.send({ command: 'stop', units: [necromancer.id] });
+}
+
 export function attack(target) {
   const units = selectedIds();
   if (units.length === 0) return;

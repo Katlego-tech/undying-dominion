@@ -45,13 +45,13 @@ export function initHud() {
   }));
 
   const abilities = [
-    ['attack-move', 'Attack-move', 'A', cmd.beginAttackMove],
+    ['attack-move', 'Attack-move', 'C', cmd.beginAttackMove],
     ['raise', 'Raise dead', 'R', cmd.beginRaise],
     ['explode', 'Corpse Explosion', 'X', cmd.beginExplode, `<span class="cost">${game.rules.explodeSoulCost} soul</span>`],
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
     ['mend', 'Mend', 'M', cmd.mend],
     ['trap', 'Lay trap', 'T', cmd.layTrap],
-    ['stop', 'Stop', 'S', cmd.stop],
+    ['stop', 'Stop', 'H', cmd.stop],
   ];
   $('ability-buttons').replaceChildren(...abilities.map(([id, text, key, action, extra = '']) => {
     const el = button(text, key, action, extra);
@@ -168,6 +168,11 @@ export function showModeHint(mode) {
   for (const el of $('ability-buttons').children) {
     el.classList.toggle('active', mode === el.dataset.ability);
   }
+}
+
+/** Shows the free-look pill while the camera has stopped following the necromancer. */
+export function showCameraHint(freeLook) {
+  $('camera-hint').hidden = !freeLook;
 }
 
 // ---------------------------------------------------------------- the story

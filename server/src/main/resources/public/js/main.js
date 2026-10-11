@@ -174,6 +174,7 @@ function applyState(message, now) {
   const necromancer = myNecromancer();
   if (necromancer && necromancer.id !== followedNecromancer) {
     input.centerOn(necromancer.x, necromancer.y);
+    game.camera.follow = true;
     followedNecromancer = necromancer.id;
   }
   updateHud();
@@ -185,7 +186,7 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  input.update(dt);
+  input.update(dt, now);
   renderer.frame(now);
   requestAnimationFrame(loop);
 }

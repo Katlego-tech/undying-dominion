@@ -29,8 +29,8 @@ export const game = {
   mode: null,           // null | 'attack-move' | 'raise' | 'explode'
   story: null,          // the campaign's progress, from the latest state
   effects: [],
-  camera: { x: 0, y: 0, zoom: 1 },
-  pointer: { sx: 0, sy: 0, tx: -1, ty: -1, inside: false },
+  camera: { x: 0, y: 0, zoom: 1, follow: true },  // follow: keep the necromancer in view
+  pointer: { sx: 0, sy: 0, tx: -1, ty: -1 },
   drag: null,           // { sx0, sy0, sx1, sy1 } while box-selecting
 
   send: () => {},
@@ -56,6 +56,12 @@ export function terrainAt(x, y) {
   const { map } = game;
   if (!map || x < 0 || y < 0 || x >= map.width || y >= map.height) return TERRAIN.RUINS;
   return map.terrain[y * map.width + x];
+}
+
+/** Whether a unit can stand on this tile. Ruins and the abyss block, as on the server. */
+export function isWalkable(x, y) {
+  const terrain = terrainAt(x, y);
+  return terrain !== TERRAIN.RUINS && terrain !== TERRAIN.ABYSS;
 }
 
 export function colorOf(ownerId) {

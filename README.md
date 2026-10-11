@@ -42,19 +42,20 @@ Run it from the `server/` directory and the client is served straight from
 
 | Input | Action |
 |---|---|
+| `W` `A` `S` `D` | Walk your necromancer, diagonals included. The camera follows it |
 | Left-drag, left-click | Select your units. Shift adds. Double-click selects every unit of that kind on screen |
-| Right-click | Move, or attack the enemy under the cursor |
+| Right-click | Move, or attack the enemy under the cursor. Right-click the minimap to march there |
 | `1` `2` `3` `4` | Summon a Skeleton Warrior, Grave Warden, Skeleton Archer or Lich beside your necromancer |
-| `A` then click | Attack-move: march there, fighting anything met on the way |
+| `C` then click | Attack-move: march there, fighting anything met on the way |
 | `R` then click | Raise the corpse there into your legion. Shift-click to keep raising |
 | `F` | Fuse five selected Skeleton Warriors standing together into a Skeleton King |
 | `X` then click | Corpse Explosion: detonate a corpse near your necromancer, hurting every enemy around it |
 | `M` | Mend: the selected units stand still until they are whole again |
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
-| `S` | Stop |
+| `H` | Stop |
 | `Q` / `E` | Select your whole legion / your necromancer |
-| `Space` | Find your necromancer |
-| Arrows, screen edge, middle-drag, minimap | Move the camera. Mouse wheel zooms |
+| `Space` | Return the camera to your necromancer and follow it again |
+| Arrows, middle-drag, minimap | Look around freely (stops following). Mouse wheel zooms |
 
 ### The rules
 
