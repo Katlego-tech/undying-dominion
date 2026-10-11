@@ -51,6 +51,7 @@ export function initHud() {
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
     ['mend', 'Mend', 'M', cmd.mend],
     ['trap', 'Lay trap', 'T', cmd.layTrap],
+    ['gather', 'Gather', 'G', () => cmd.gather(true)],
     ['stop', 'Stop', 'H', cmd.stop],
   ];
   $('ability-buttons').replaceChildren(...abilities.map(([id, text, key, action, extra = '']) => {
@@ -98,6 +99,7 @@ export function updateHud() {
     fuse: warriors >= game.rules.fuseCount && you.soul >= game.rules.fuseSoulCost,
     mend: selected.some((u) => u.modeEndsIn == null && u.hp < game.unitTypes[u.type].maxHp),
     trap: selected.some((u) => game.unitTypes[u.type].laysTraps && u.modeEndsIn == null),
+    gather: alive && you.legion > 0,
     stop: selected.length > 0,
   };
   for (const el of $('ability-buttons').children) {

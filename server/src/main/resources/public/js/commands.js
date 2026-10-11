@@ -52,6 +52,29 @@ export function stop() {
   if (units.length) game.send({ command: 'stop', units });
 }
 
+/**
+ * Marches the selected legion members to the necromancer, or the whole legion when none are
+ * selected. Returns whether anyone was sent.
+ */
+export function gather(showMarker) {
+  const necromancer = myNecromancer();
+  if (!necromancer) {
+    if (showMarker) notice('There is no necromancer to gather to.');
+    return false;
+  }
+  let units = selectedUnits().filter((u) => u.id !== necromancer.id);
+  if (units.length === 0) {
+    units = [...game.units.values()].filter((u) => isMine(u) && u.id !== necromancer.id);
+  }
+  if (units.length === 0) {
+    if (showMarker) notice('You have no legion to gather.');
+    return false;
+  }
+  game.send({ command: 'move', units: units.map((u) => u.id), x: necromancer.x, y: necromancer.y, attackMove: false });
+  if (showMarker) marker(necromancer.x, necromancer.y, false);
+  return true;
+}
+
 export function fuse() {
   const units = selectedUnits().filter((u) => u.type === 'SKELETON_WARRIOR').map((u) => u.id);
   if (units.length < game.rules.fuseCount) {

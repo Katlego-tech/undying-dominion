@@ -16,6 +16,7 @@ export function createInput(canvas, minimap, renderer) {
   let panning = null;
   let minimapDragging = false;
   let walkTarget = null;   // the tile the necromancer was last steered to, while WASD is held
+  let gatheredTo = null;   // the necromancer's tile the legion was last called to, while G is held
 
   function updatePointer(e) {
     const p = game.pointer;
@@ -273,6 +274,13 @@ export function createInput(canvas, minimap, renderer) {
       return;
     }
     if (e.repeat) return;
+    if (key === 'g') {
+      const necromancer = myNecromancer();
+      if (!cmd.gather(true) || !necromancer) return;
+      held.add(key);
+      gatheredTo = `${necromancer.x},${necromancer.y}`;
+      return;
+    }
 
     const summonType = summonHotkey(key);
     if (summonType) {
@@ -300,12 +308,25 @@ export function createInput(canvas, minimap, renderer) {
   window.addEventListener('keyup', (e) => held.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => held.clear());
 
+  /** While G is held, calls the legion again each time the necromancer reaches a new tile. */
+  function gather() {
+    const necromancer = myNecromancer();
+    if (!held.has('g') || !necromancer) return;
+    const tile = `${necromancer.x},${necromancer.y}`;
+    if (tile === gatheredTo) return;
+    gatheredTo = tile;
+    cmd.gather(false);
+  }
+
   /**
-   * Called every frame: walks the necromancer for held WASD, pans for held arrows, and otherwise
-   * keeps the necromancer in view while the camera is following.
+   * Called every frame: walks the necromancer for held WASD, gathers the legion for held G, pans
+   * for held arrows, and otherwise keeps the necromancer in view while the camera is following.
    */
   function update(dt, now) {
-    if (game.map) walk();
+    if (game.map) {
+      walk();
+      gather();
+    }
 
     let dx = 0;
     let dy = 0;

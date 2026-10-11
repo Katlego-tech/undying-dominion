@@ -52,6 +52,7 @@ Run it from the `server/` directory and the client is served straight from
 | `X` then click | Corpse Explosion: detonate a corpse near your necromancer, hurting every enemy around it |
 | `M` | Mend: the selected units stand still until they are whole again |
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
+| `G` | Gather the selected units to your necromancer, or the whole legion when none are selected. Hold to keep them following |
 | `H` | Stop |
 | `Q` / `E` | Select your whole legion / your necromancer |
 | `Space` | Return the camera to your necromancer and follow it again |
