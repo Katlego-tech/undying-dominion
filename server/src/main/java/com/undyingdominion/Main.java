@@ -1,15 +1,13 @@
 package com.undyingdominion;
 
-import com.undyingdominion.game.GameEngine;
-import com.undyingdominion.game.GameRules;
 import com.undyingdominion.net.AdminConsole;
-import com.undyingdominion.net.GameServer;
-import com.undyingdominion.world.GameMap;
-import com.undyingdominion.world.MapConfig;
+import com.undyingdominion.tui.ServerTui;
 
-import java.util.Random;
-
-/** Starts a Dominion: loads the map, starts the game loop and opens the server. */
+/**
+ * Starts a Dominion. In an interactive terminal it runs the full-screen dashboard; with
+ * {@code --plain}, or when output is piped or there is no terminal (a container, a service), it
+ * runs a plain line-by-line console instead.
+ */
 public class Main {
 
     public static void main(String[] args) throws Exception {
@@ -18,25 +16,24 @@ public class Main {
             options = ServerOptions.parse(args);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            System.err.println("Usage: [-p port] [-m map.properties] [-mc max-players] [--seed n] [--no-wild]");
+            System.err.println("Usage: [-p port] [-m map.properties | --campaign folder] [-mc max-players] [--seed n] [--no-wild] [--plain]");
             System.exit(2);
             return;
         }
 
-        GameMap map = MapConfig.load(options.mapLocation());
-        GameRules rules = GameRules.defaults();
-        if (!options.wildCreatures()) rules.maxNeutrals(0);
-        Random random = options.seed() == null ? new Random() : new Random(options.seed());
+        if (options.dashboard() && System.console() != null) {
+            ServerTui.run(options);
+            return;
+        }
 
-        GameEngine engine = new GameEngine(map, rules, random);
-        GameServer server = new GameServer(engine, options.maxPlayers());
-        server.start(options.port());
-
+        Dominion dominion = Dominion.raise(options);
         System.out.printf("* Raising the Dominion.. [map: %d x %d, obstacles: %d, max players: %d]%n",
-                map.getWidth(), map.getHeight(), map.getObstacles().size(), options.maxPlayers());
-        System.out.printf("* Open http://localhost:%d to play. Type help for console commands.%n", server.port());
+                dominion.map().getWidth(), dominion.map().getHeight(), dominion.map().getObstacles().size(),
+                options.maxPlayers());
+        if (dominion.story() != null) System.out.println("* Campaign: " + dominion.story().campaign().title());
+        System.out.printf("* Open http://localhost:%d to play. Type help for console commands.%n", dominion.server().port());
 
-        Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
-        new AdminConsole(server, engine, System.in, System.out, () -> System.exit(0)).start();
+        Runtime.getRuntime().addShutdownHook(new Thread(dominion::close));
+        new AdminConsole(dominion.server(), System.in, System.out, () -> System.exit(0)).withStory(dominion.story()).start();
     }
 }

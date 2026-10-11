@@ -1,7 +1,7 @@
-import { game, loadMap, renderPos, myNecromancer } from './state.js';
+import { game, loadMap, renderPos, myNecromancer, resetWorld } from './state.js';
 import { createRenderer, TILE } from './render.js';
 import { createInput } from './input.js';
-import { initHud, updateHud, notice } from './hud.js';
+import { initHud, updateHud, notice, showStory, initStory } from './hud.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -59,6 +59,7 @@ function connect(name) {
 function handle(message) {
   switch (message.type) {
     case 'welcome': return welcome(message);
+    case 'story': return showStory(message);
     case 'state': return applyState(message, performance.now());
     case 'error':
       if (joined) {
@@ -73,6 +74,12 @@ function handle(message) {
 }
 
 function welcome(message) {
+  // A second welcome means the campaign has moved on to a new chapter and a new map.
+  const nextChapter = joined;
+  if (nextChapter) {
+    resetWorld();
+    followedNecromancer = null;
+  }
   joined = true;
   game.playerId = message.playerId;
   game.name = message.name;
@@ -84,6 +91,7 @@ function welcome(message) {
   // Frame roughly thirty tiles across, so the legion is readable on any screen.
   game.camera.zoom = Math.min(1.8, Math.max(1, window.innerWidth / (TILE * 30)));
   initHud();
+  if (!nextChapter) initStory();
   $('join').hidden = true;
 }
 
@@ -97,6 +105,7 @@ const EFFECTS = {
   MEND: ['mend', 700],
   TRAP_SET: ['trap-set', 500],
   TRAP_SPRUNG: ['spikes', 600],
+  EXPLOSION: ['explosion', 700],
 };
 
 function applyState(message, now) {
@@ -105,6 +114,7 @@ function applyState(message, now) {
   game.lastStateAt = now;
   game.you = message.you;
   game.players = message.players;
+  game.story = message.story ?? null;
 
   const units = new Map();
   for (const u of message.units) {
@@ -153,7 +163,7 @@ function applyState(message, now) {
       }
     } else if (EFFECTS[e.kind]) {
       const [kind, duration] = EFFECTS[e.kind];
-      game.effects.push({ kind, x: e.x, y: e.y, t0: now, duration });
+      game.effects.push({ kind, x: e.x, y: e.y, radius: e.b, t0: now, duration });
     }
   }
   if (game.effects.length > 400) game.effects.splice(0, game.effects.length - 400);

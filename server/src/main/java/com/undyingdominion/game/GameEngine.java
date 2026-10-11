@@ -44,6 +44,8 @@ public class GameEngine {
     private long tick;
 
     private final Map<Integer, Player> players = new LinkedHashMap<>();
+    /** Where necromancers rise, or null for anywhere on the map. */
+    private int[] startArea;
     private final Map<Integer, Unit> units = new LinkedHashMap<>();
     private final Map<Position, Unit> occupancy = new HashMap<>();
     private final Map<Integer, Corpse> corpses = new LinkedHashMap<>();
@@ -102,11 +104,13 @@ public class GameEngine {
 
         switch (command) {
             case Command.Leave leave -> leave(player);
+            case Command.Restore restore -> restore(player, restore);
             case Command.Summon summon -> summon(player, summon.type());
             case Command.Move move -> move(player, move);
             case Command.Attack attack -> attack(player, attack);
             case Command.Stop stop -> commandable(player, stop.unitIds()).forEach(Unit::orderIdle);
             case Command.Raise raise -> raise(player, raise.corpseId());
+            case Command.Explode explode -> explode(player, explode.corpseId());
             case Command.Fuse fuse -> fuse(player, fuse.unitIds());
             case Command.Mend mend -> mend(player, mend.unitIds());
             case Command.SetTrap setTrap -> setTrap(player, setTrap.unitIds());
@@ -129,6 +133,29 @@ public class GameEngine {
         for (Unit unit : units.values()) {
             if (unit.getOwnerId() == player.getId()) unit.collapse();
         }
+    }
+
+    private void restore(Player player, Command.Restore restore) {
+        player.restoreProgress(restore.level(), restore.xp(), restore.kills(), restore.deaths());
+        Unit necromancer = necromancerOf(player);
+        if (necromancer == null) return;
+        for (UnitType type : restore.legion()) {
+            if (legionSize(player) >= player.legionCap()) break;
+            Position spot = freeTileNear(necromancer.getPosition(), 4);
+            if (spot == null) break;
+            addUnit(type, player.getId(), spot, false);
+        }
+    }
+
+    /** The types in a player's legion, to carry into another world. */
+    public List<UnitType> legionOf(int playerId) {
+        List<UnitType> legion = new ArrayList<>();
+        for (Unit unit : units.values()) {
+            if (unit.getOwnerId() == playerId && unit.isAlive() && unit.getType() != UnitType.NECROMANCER) {
+                legion.add(unit.getType());
+            }
+        }
+        return legion;
     }
 
     private void summon(Player player, UnitType type) {
@@ -218,6 +245,41 @@ public class GameEngine {
         events.add(GameEvent.at(GameEvent.Kind.RAISE, unit));
     }
 
+    /**
+     * Corpse Explosion: the necromancer detonates a corpse within raising range, and every enemy within
+     * the blast takes a share of the dead creature's life as damage.
+     */
+    private void explode(Player player, int corpseId) {
+        Corpse corpse = corpses.get(corpseId);
+        if (corpse == null) {
+            player.notice("That corpse has already gone.");
+            return;
+        }
+        Unit necromancer = necromancerOf(player);
+        if (necromancer == null) {
+            player.notice("The dead cannot detonate the dead.");
+            return;
+        }
+        if (necromancer.getPosition().distanceTo(corpse.position()) > rules.raiseRange()) {
+            player.notice("Too far away. Move within " + rules.raiseRange() + " tiles of the corpse.");
+            return;
+        }
+        if (!player.spendSoul(rules.explodeSoulCost())) {
+            player.notice("Corpse Explosion needs " + rules.explodeSoulCost() + " soul energy.");
+            return;
+        }
+        corpses.remove(corpseId);
+        int damage = Math.max(10, corpse.type().maxHp * rules.explodeDamagePercent() / 100);
+        for (Unit unit : units.values()) {
+            if (unit.isAlive() && unit.getOwnerId() != player.getId()
+                    && unit.getPosition().distanceTo(corpse.position()) <= rules.explodeRadius()) {
+                unit.takeDamage(damage, player.getId());
+            }
+        }
+        events.add(new GameEvent(GameEvent.Kind.EXPLOSION, player.getId(), rules.explodeRadius(),
+                corpse.position().x(), corpse.position().y(), 0, 0));
+    }
+
     private void fuse(Player player, List<Integer> unitIds) {
         List<Unit> warriors = ownedUnits(player, unitIds).stream()
                 .filter(u -> u.getType() == UnitType.SKELETON_WARRIOR && !u.isRooted())
@@ -274,7 +336,7 @@ public class GameEngine {
     // ------------------------------------------------------------------ world upkeep
 
     private void spawnNecromancer(Player player) {
-        Position spot = randomFreeTile(6);
+        Position spot = startArea == null ? randomFreeTile(6) : randomFreeTileIn(startArea);
         if (spot == null) spot = randomFreeTile(0);
         if (spot == null) {
             player.setRespawnAtTick(tick + 1);
@@ -517,7 +579,7 @@ public class GameEngine {
     }
 
     private void wander(Unit unit) {
-        if (tick < unit.getNextWanderTick()) return;
+        if (unit.getType().stationary || tick < unit.getNextWanderTick()) return;
         unit.setNextWanderTick(tick + 50 + random.nextInt(100));
         Position here = unit.getPosition();
         Position spot = here.offset(random.nextInt(9) - 4, random.nextInt(9) - 4);
@@ -534,6 +596,7 @@ public class GameEngine {
      *         that someone else is standing on
      */
     private boolean stepToward(Unit unit, Position goal, boolean chasing) {
+        if (unit.getType().stationary) return false;
         if (tick < unit.getMoveReadyTick()) return true;
 
         Predicate<Position> ownTrap = p -> {
@@ -679,6 +742,15 @@ public class GameEngine {
         return null;
     }
 
+    private Position randomFreeTileIn(int[] area) {
+        for (int attempt = 0; attempt < 300; attempt++) {
+            Position p = new Position(area[0] + random.nextInt(area[2] - area[0] + 1),
+                    area[1] + random.nextInt(area[3] - area[1] + 1));
+            if (isFree(p)) return p;
+        }
+        return null;
+    }
+
     private boolean nearANecromancer(Position p, int distance) {
         for (Player player : players.values()) {
             Unit necromancer = necromancerOf(player);
@@ -711,6 +783,25 @@ public class GameEngine {
             if (player.getName().equalsIgnoreCase(name)) return player;
         }
         return null;
+    }
+
+    /** Whether a unit could be placed here: on the map, walkable, empty and not trapped. */
+    public boolean isFree(Position p) {
+        return map.inBounds(p) && map.isWalkable(p) && !occupancy.containsKey(p) && !traps.containsKey(p);
+    }
+
+    /** Makes necromancers rise inside this rectangle, as a chapter's starting ground. */
+    public void setStartArea(int x1, int y1, int x2, int y2) {
+        startArea = new int[]{Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)};
+    }
+
+    /** Makes sure ids handed out from now on are at least {@code next}. Safe from any thread. */
+    public void reservePlayerIds(int next) {
+        nextPlayerId.accumulateAndGet(next, Math::max);
+    }
+
+    public int peekNextPlayerId() {
+        return nextPlayerId.get();
     }
 
     /** Puts a unit down directly. For tests and scripted scenarios. */

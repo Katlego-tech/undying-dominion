@@ -36,7 +36,11 @@ public final class SnapshotWriter {
                     .put("summonCost", type.summonCost)
                     .put("raiseCost", type.raiseCost)
                     .put("neutral", type.neutral)
-                    .put("laysTraps", type.laysTraps()));
+                    .put("laysTraps", type.laysTraps())
+                    .put("look", type.look.name())
+                    .put("level", type.level)
+                    .put("boss", type.boss)
+                    .put("stationary", type.stationary));
         }
         return new JSONObject()
                 .put("type", "welcome")
@@ -51,7 +55,9 @@ public final class SnapshotWriter {
                         .put("fuseRadius", rules.fuseRadius())
                         .put("mendTicks", rules.mendTicks())
                         .put("trapSetTicks", rules.trapSetTicks())
-                        .put("trapDamage", rules.trapDamage()))
+                        .put("trapDamage", rules.trapDamage())
+                        .put("explodeSoulCost", rules.explodeSoulCost())
+                        .put("explodeRadius", rules.explodeRadius()))
                 .put("unitTypes", types)
                 .toString();
     }
@@ -88,6 +94,11 @@ public final class SnapshotWriter {
 
     /** One player's view of the current tick, with everything under their fog left out. */
     public static String state(GameEngine engine, Player player, JSONArray scoreboard) {
+        return state(engine, player, scoreboard, null);
+    }
+
+    /** As above, with the campaign's story progress when there is one. */
+    public static String state(GameEngine engine, Player player, JSONArray scoreboard, JSONObject story) {
         long tick = engine.getTick();
         Visibility sight = Visibility.of(engine.getMap(), engine.getUnits(), player.getId());
 
@@ -159,7 +170,9 @@ public final class SnapshotWriter {
                         ? Math.max(0, player.getRespawnAtTick() - tick) : 0)
                 .put("notices", new JSONArray(player.takeNotices()));
 
-        return new JSONObject()
+        JSONObject message = new JSONObject();
+        if (story != null) message.put("story", story);
+        return message
                 .put("type", "state")
                 .put("tick", tick)
                 .put("you", you)

@@ -307,3 +307,59 @@ kbd {
   .command { left: 16px; right: 16px; transform: none; max-width: none; min-width: 0; bottom: 152px; }
   .notices { bottom: 300px; }
 }
+
+/* ---------------------------------------------------------------- campaign */
+
+.objective {
+  position: absolute;
+  top: 108px;
+  left: 16px;
+  width: 260px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--gold);
+}
+.objective-chapter { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+.objective-text { margin-top: 4px; font-weight: 600; }
+.objective-progress { margin-top: 2px; font-size: 12px; color: var(--bone-dim); font-variant-numeric: tabular-nums; }
+
+.say {
+  position: absolute;
+  top: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 600px));
+  min-width: 320px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: rgba(14, 12, 18, 0.9);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: var(--bone);
+  font: 15px/1.5 var(--ui);
+  text-align: center;
+  pointer-events: none;
+  animation: notice-in 0.3s ease-out;
+}
+
+.story { background: radial-gradient(ellipse at 50% 30%, rgba(26, 20, 36, 0.92), rgba(9, 8, 12, 0.97)); z-index: 5; }
+.story-box { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow: auto; }
+.story-kicker { margin: 0; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+.story-box h2 { margin: 6px 0 2px; font: 700 clamp(28px, 5vw, 40px)/1.15 var(--display); color: var(--bone); }
+.story-source { margin: 0 0 18px; color: var(--bone-faint); font-size: 13px; }
+.story-lines p { margin: 0 0 12px; color: var(--bone); font-size: 16px; line-height: 1.6; animation: notice-in 0.5s ease-out both; }
+.story-lines p:nth-child(2) { animation-delay: 0.15s; }
+.story-lines p:nth-child(3) { animation-delay: 0.3s; }
+.story-lines p:nth-child(4) { animation-delay: 0.45s; }
+.story-lines p:nth-child(5) { animation-delay: 0.6s; }
+.story-objective { margin: 18px 0 0; padding: 10px 14px; border-left: 2px solid var(--gold); background: rgba(251, 191, 36, 0.06); color: var(--bone); }
+.story-objective:empty { display: none; }
+.story-box button {
+  margin-top: 20px;
+  padding: 12px 28px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2dd4bf, #0f766e);
+  color: #041312;
+  font: 700 15px var(--display);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}

@@ -19,18 +19,20 @@ class ServerOptionsTest {
         assertEquals(ServerOptions.DEFAULT_MAX_PLAYERS, options.maxPlayers());
         assertNull(options.seed());
         assertTrue(options.wildCreatures());
+        assertTrue(options.dashboard());
     }
 
     @Test
     void readsEveryFlag() {
         ServerOptions options = ServerOptions.parse(
-                new String[]{"-p", "6000", "-m", "maps/arena.properties", "-mc", "4", "--seed", "42", "--no-wild"});
+                new String[]{"-p", "6000", "-m", "maps/arena.properties", "-mc", "4", "--seed", "42", "--no-wild", "--plain"});
 
         assertEquals(6000, options.port());
         assertEquals("maps/arena.properties", options.mapLocation());
         assertEquals(4, options.maxPlayers());
         assertEquals(42L, options.seed());
         assertFalse(options.wildCreatures());
+        assertFalse(options.dashboard());
     }
 
     @Test

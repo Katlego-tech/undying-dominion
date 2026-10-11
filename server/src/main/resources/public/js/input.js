@@ -62,6 +62,10 @@ export function createInput(canvas, minimap, renderer) {
         if (cmd.raiseAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
         return;
       }
+      if (game.mode === 'explode') {
+        if (cmd.explodeAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
+        return;
+      }
       game.drag = { sx0: sx, sy0: sy, sx1: sx, sy1: sy, additive: e.shiftKey };
     } else if (e.button === 1) {
       e.preventDefault();
@@ -183,7 +187,7 @@ export function createInput(canvas, minimap, renderer) {
   // ---------------------------------------------------------------- keyboard
 
   window.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || !game.map) return;
+    if (e.target instanceof HTMLInputElement || !game.map || document.body.classList.contains('reading')) return;
     const key = e.key.toLowerCase();
     if (key.startsWith('arrow')) {
       held.add(key);
@@ -200,6 +204,7 @@ export function createInput(canvas, minimap, renderer) {
     switch (key) {
       case 'a': cmd.beginAttackMove(); break;
       case 'r': cmd.beginRaise(); break;
+      case 'x': cmd.beginExplode(); break;
       case 'f': cmd.fuse(); break;
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;

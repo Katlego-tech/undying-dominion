@@ -75,6 +75,25 @@ export function raiseAt(x, y) {
   return true;
 }
 
+/** Detonates the corpse on or next to this tile. Returns whether there was one. */
+export function explodeAt(x, y) {
+  const corpse = corpseNear(x, y);
+  if (!corpse) {
+    notice('There is no corpse there.');
+    return false;
+  }
+  game.send({ command: 'explode', corpse: corpse.id });
+  return true;
+}
+
+export function beginExplode() {
+  if (!myNecromancer()) {
+    notice('The dead cannot detonate the dead.');
+    return;
+  }
+  setMode(game.mode === 'explode' ? null : 'explode');
+}
+
 export function beginAttackMove() {
   if (game.selection.size === 0) {
     notice('Select units first.');

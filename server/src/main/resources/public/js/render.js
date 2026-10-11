@@ -1,5 +1,5 @@
 import {
-  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, label, terrainAt,
+  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, terrainAt,
 } from './state.js';
 
 export const TILE = 28;
@@ -14,6 +14,7 @@ const MINIMAP_COLORS = {
   [TERRAIN.RUINS]: [78, 72, 88],
   [TERRAIN.SWAMP]: [30, 52, 42],
   [TERRAIN.ABYSS]: [8, 4, 14],
+  [TERRAIN.FOREST]: [18, 40, 26],
 };
 
 /** A repeatable 0..1 value per tile, so the terrain looks hand-scattered but never changes. */
@@ -59,6 +60,7 @@ export function createRenderer(canvas, minimap) {
   // ---------------------------------------------------------------- terrain, baked once
 
   function buildTerrain() {
+    fogDrawn = -1;
     const { width, height } = game.map;
     terrainCanvas = document.createElement('canvas');
     terrainCanvas.width = width * TILE;
@@ -169,6 +171,21 @@ export function createRenderer(canvas, minimap) {
         t.moveTo(rx, ry); t.lineTo(rx - 1, ry - 9);
         t.moveTo(rx + 3, ry); t.lineTo(rx + 4, ry - 7);
         t.stroke();
+      }
+    } else if (kind === TERRAIN.FOREST) {
+      t.fillStyle = '#0f1f15';
+      t.fillRect(px, py, TILE, TILE);
+      const crowns = [[0.3, 0.35, 0.34], [0.7, 0.45, 0.3], [0.45, 0.75, 0.28]];
+      for (const [i, [cx, cy, cr]] of crowns.entries()) {
+        if (i === 2 && r(5) > 0.6) continue;
+        t.fillStyle = r(10 + i) > 0.5 ? '#1d4429' : '#18391f';
+        t.beginPath();
+        t.arc(px + (cx + (r(20 + i) - 0.5) * 0.15) * TILE, py + cy * TILE, cr * TILE, 0, TAU);
+        t.fill();
+        t.fillStyle = 'rgba(120, 180, 110, 0.12)';
+        t.beginPath();
+        t.arc(px + (cx - 0.06) * TILE, py + (cy - 0.06) * TILE, cr * TILE * 0.45, 0, TAU);
+        t.fill();
       }
     } else {
       t.fillStyle = '#030205';
@@ -375,7 +392,90 @@ export function createRenderer(canvas, minimap) {
     },
   };
 
+  // Creatures from a campaign have no picture of their own; they are drawn by what they look like.
+  const LOOKS = {
+    BEAST: GLYPHS.WOLF,
+    HUMANOID: GLYPHS.KNIGHT,
+    UNDEAD: GLYPHS.SKELETON_WARRIOR,
+    GOBLIN(x, y, r) {
+      ctx.fillStyle = '#65a30d';
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.85, y - r * 0.45);
+      ctx.lineTo(x - r * 0.35, y - r * 0.2);
+      ctx.lineTo(x - r * 0.3, y + r * 0.55);
+      ctx.quadraticCurveTo(x, y + r * 0.85, x + r * 0.3, y + r * 0.55);
+      ctx.lineTo(x + r * 0.35, y - r * 0.2);
+      ctx.lineTo(x + r * 0.85, y - r * 0.45);
+      ctx.lineTo(x + r * 0.3, y - r * 0.7);
+      ctx.lineTo(x - r * 0.3, y - r * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(x - r * 0.15, y - r * 0.15, r * 0.09, 0, TAU);
+      ctx.arc(x + r * 0.15, y - r * 0.15, r * 0.09, 0, TAU);
+      ctx.fill();
+    },
+    PLANT(x, y, r) {
+      line(x, y + r * 0.85, x, y - r * 0.1, '#7c5a3a', r * 0.22);
+      ctx.fillStyle = '#4d7c0f';
+      ctx.beginPath();
+      ctx.arc(x, y - r * 0.35, r * 0.55, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = '#a3e635';
+      ctx.lineWidth = r * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(x + r * 0.3, y - r * 0.2);
+      ctx.quadraticCurveTo(x + r * 0.95, y - r * 0.1, x + r * 0.8, y + r * 0.6);
+      ctx.moveTo(x - r * 0.3, y - r * 0.2);
+      ctx.quadraticCurveTo(x - r * 0.95, y - r * 0.1, x - r * 0.8, y + r * 0.6);
+      ctx.stroke();
+    },
+    BEASTMAN(x, y, r) {
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.5, y - r * 0.85);
+      ctx.lineTo(x - r * 0.25, y - r * 0.45);
+      ctx.lineTo(x + r * 0.25, y - r * 0.45);
+      ctx.lineTo(x + r * 0.5, y - r * 0.85);
+      ctx.lineTo(x + r * 0.55, y + r * 0.2);
+      ctx.lineTo(x, y + r * 0.85);
+      ctx.lineTo(x - r * 0.55, y + r * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fef3c7';
+      ctx.beginPath();
+      ctx.ellipse(x - r * 0.2, y - r * 0.05, r * 0.1, r * 0.06, 0, 0, TAU);
+      ctx.ellipse(x + r * 0.2, y - r * 0.05, r * 0.1, r * 0.06, 0, 0, TAU);
+      ctx.fill();
+    },
+    DEMON(x, y, r) {
+      ctx.fillStyle = '#881337';
+      ctx.shadowColor = '#f43f5e';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.7, y - r * 0.9);
+      ctx.quadraticCurveTo(x - r * 0.45, y - r * 0.35, x - r * 0.15, y - r * 0.5);
+      ctx.lineTo(x + r * 0.15, y - r * 0.5);
+      ctx.quadraticCurveTo(x + r * 0.45, y - r * 0.35, x + r * 0.7, y - r * 0.9);
+      ctx.quadraticCurveTo(x + r * 0.75, y + r * 0.2, x, y + r * 0.85);
+      ctx.quadraticCurveTo(x - r * 0.75, y + r * 0.2, x - r * 0.7, y - r * 0.9);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fda4af';
+      ctx.beginPath();
+      ctx.arc(x - r * 0.2, y - r * 0.05, r * 0.09, 0, TAU);
+      ctx.arc(x + r * 0.2, y - r * 0.05, r * 0.09, 0, TAU);
+      ctx.fill();
+    },
+  };
+
+  function glyphFor(type) {
+    return GLYPHS[type] ?? LOOKS[game.unitTypes[type]?.look] ?? GLYPHS.SKELETON_WARRIOR;
+  }
+
   function unitRadius(type) {
+    if (game.unitTypes[type]?.boss) return TILE * 0.52;
     if (type === 'SKELETON_KING') return TILE * 0.47;
     if (type === 'NECROMANCER') return TILE * 0.42;
     return TILE * 0.36;
@@ -416,7 +516,22 @@ export function createRenderer(canvas, minimap) {
     ctx.fill();
     ctx.stroke();
 
-    (GLYPHS[unit.type] ?? GLYPHS.SKELETON_WARRIOR)(cx, cy, r * 0.82, color);
+    glyphFor(unit.type)(cx, cy, r * 0.82, color);
+
+    if (game.unitTypes[unit.type]?.boss) {
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 3, 0, TAU);
+      ctx.stroke();
+      ctx.font = '600 9px Inter, system-ui, sans-serif';
+      const name = levelledLabel(unit.type);
+      const w = ctx.measureText(name).width;
+      ctx.fillStyle = 'rgba(14, 12, 18, 0.8)';
+      ctx.fillRect(cx - w / 2 - 3, cy - r - 22, w + 6, 12);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(name, cx - w / 2, cy - r - 13);
+    }
 
     if (unit.modeEndsIn != null) {
       const total = unit.order === 'MEND' ? game.rules.mendTicks : game.rules.trapSetTicks;
@@ -442,14 +557,14 @@ export function createRenderer(canvas, minimap) {
     }
   }
 
-  function drawCorpse(corpse, now, raiseable) {
+  function drawCorpse(corpse, now, raiseable, color = '94, 234, 212') {
     const cx = (corpse.x + 0.5) * TILE;
     const cy = (corpse.y + 0.5) * TILE;
     const freshness = Math.min(1, corpse.decaysIn / 120);
     ctx.globalAlpha = 0.35 + 0.5 * freshness;
     if (raiseable) {
       const pulse = 0.5 + 0.5 * Math.sin(now / 220);
-      ctx.fillStyle = `rgba(94, 234, 212, ${0.12 + pulse * 0.18})`;
+      ctx.fillStyle = `rgba(${color}, ${0.12 + pulse * 0.18})`;
       ctx.beginPath();
       ctx.arc(cx, cy, TILE * 0.45, 0, TAU);
       ctx.fill();
@@ -544,6 +659,24 @@ export function createRenderer(canvas, minimap) {
             ctx.fill();
           }
           break;
+        case 'explosion': {
+          const radius = (e.radius + 0.5) * TILE;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, radius * (0.4 + k));
+          g.addColorStop(0, `rgba(254, 215, 170, ${0.9 * (1 - k)})`);
+          g.addColorStop(0.5, `rgba(249, 115, 22, ${0.6 * (1 - k)})`);
+          g.addColorStop(1, 'rgba(249, 115, 22, 0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, radius * (0.4 + k), 0, TAU);
+          ctx.fill();
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * TAU + e.x;
+            const d = k * radius * 1.1;
+            ctx.fillStyle = `rgba(232, 226, 208, ${1 - k})`;
+            ctx.fillRect(x + Math.cos(a) * d - 1.5, y + Math.sin(a) * d - 1.5, 3, 3);
+          }
+          break;
+        }
         case 'marker':
           ctx.strokeStyle = e.hostile ? `rgba(248, 113, 113, ${1 - k})` : `rgba(94, 234, 212, ${1 - k})`;
           ctx.lineWidth = 2;
@@ -601,15 +734,15 @@ export function createRenderer(canvas, minimap) {
 
   // ---------------------------------------------------------------- overlays
 
-  function drawRaiseRange(necromancer, now) {
+  function drawRaiseRange(necromancer, now, color = '94, 234, 212') {
     const p = renderPos(necromancer, now);
     const range = game.rules.raiseRange;
-    ctx.strokeStyle = 'rgba(94, 234, 212, 0.55)';
+    ctx.strokeStyle = `rgba(${color}, 0.55)`;
     ctx.setLineDash([6, 6]);
     ctx.lineWidth = 1.5;
     ctx.strokeRect((p.x - range) * TILE, (p.y - range) * TILE, (range * 2 + 1) * TILE, (range * 2 + 1) * TILE);
     ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(94, 234, 212, 0.04)';
+    ctx.fillStyle = `rgba(${color}, 0.04)`;
     ctx.fillRect((p.x - range) * TILE, (p.y - range) * TILE, (range * 2 + 1) * TILE, (range * 2 + 1) * TILE);
   }
 
@@ -629,7 +762,7 @@ export function createRenderer(canvas, minimap) {
       if (unit.x === tx && unit.y === ty) {
         const maxHp = game.unitTypes[unit.type]?.maxHp ?? unit.hp;
         const owner = unit.owner === 0 ? 'Wild' : game.players.find((p) => p.id === unit.owner)?.name ?? '';
-        text = `${unit.raised ? 'Raised ' : ''}${label(unit.type)} · ${unit.hp}/${maxHp}${owner && !isMine(unit) ? ` · ${owner}` : ''}`;
+        text = `${unit.raised ? 'Raised ' : ''}${levelledLabel(unit.type)} · ${unit.hp}/${maxHp}${owner && !isMine(unit) ? ` · ${owner}` : ''}`;
         break;
       }
     }
@@ -637,7 +770,7 @@ export function createRenderer(canvas, minimap) {
       const corpse = game.corpses.find((c) => c.x === tx && c.y === ty);
       if (corpse) {
         const cost = game.unitTypes[corpse.type]?.raiseCost;
-        text = `${label(corpse.type)} corpse · raise for ${cost} soul · ${Math.ceil(corpse.decaysIn / 10)}s`;
+        text = `${levelledLabel(corpse.type)} corpse · raise ${cost} soul · explode ${game.rules.explodeSoulCost} · ${Math.ceil(corpse.decaysIn / 10)}s`;
       }
     }
     if (!text) return;
@@ -672,12 +805,14 @@ export function createRenderer(canvas, minimap) {
     ctx.drawImage(terrainCanvas, 0, 0);
 
     const necromancer = myNecromancer();
-    if (game.mode === 'raise' && necromancer) drawRaiseRange(necromancer, now);
+    const corpseMode = (game.mode === 'raise' || game.mode === 'explode') && necromancer;
+    const modeColor = game.mode === 'explode' ? '251, 146, 60' : '94, 234, 212';
+    if (corpseMode) drawRaiseRange(necromancer, now, modeColor);
 
     for (const corpse of game.corpses) {
-      const raiseable = game.mode === 'raise' && necromancer
+      const inReach = corpseMode
         && Math.max(Math.abs(corpse.x - necromancer.x), Math.abs(corpse.y - necromancer.y)) <= game.rules.raiseRange;
-      drawCorpse(corpse, now, raiseable);
+      drawCorpse(corpse, now, inReach, modeColor);
     }
     for (const trap of game.traps) drawTrap(trap);
 

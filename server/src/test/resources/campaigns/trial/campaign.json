@@ -1,0 +1,35 @@
+{
+  "title": "A Trial Campaign",
+  "creatures": {
+    "TEST_RAT": {"label": "Test Rat", "level": 1, "hp": 10, "damage": 1, "look": "BEAST", "aggro": 0, "xp": 3},
+    "TEST_SAPLING": {"label": "Test Sapling", "level": 2, "hp": 20, "damage": 2, "look": "PLANT", "stationary": true},
+    "TEST_WARDEN": {"label": "Test Warden", "level": 5, "hp": 200, "damage": 5, "look": "HUMANOID", "boss": true}
+  },
+  "chapters": [
+    {
+      "id": "yard", "title": "The Yard", "source": "A test", "map": "maps/yard.properties",
+      "start": {"area": [1, 1, 3, 3], "soul": 90},
+      "briefing": ["Clear the yard."],
+      "objective": {"kind": "KILL_BOSS", "unit": "TEST_WARDEN", "text": "Defeat the warden"},
+      "spawns": [
+        {"unit": "TEST_RAT", "area": [11, 1, 18, 10], "count": 4},
+        {"unit": "TEST_SAPLING", "at": [[15, 7]]},
+        {"unit": "TEST_WARDEN", "at": [[18, 10]]}
+      ],
+      "triggers": [
+        {"when": "TYPE_CLEARED", "unit": "TEST_RAT", "say": ["The rats are gone."],
+         "spawns": [{"unit": "TEST_RAT", "at": [[12, 2]]}]},
+        {"when": "BOSS_HP_BELOW", "unit": "TEST_WARDEN", "percent": 50, "say": ["The warden staggers."]}
+      ],
+      "victory": ["The yard is quiet."]
+    },
+    {
+      "id": "hall", "title": "The Hall", "source": "A test", "map": "maps/hall.properties",
+      "start": {"area": [1, 1, 2, 2]},
+      "briefing": ["Hold the hall."],
+      "objective": {"kind": "SURVIVE", "seconds": 3, "text": "Hold for three seconds"},
+      "timeLimitSeconds": 0,
+      "victory": ["Held."]
+    }
+  ]
+}

@@ -41,6 +41,14 @@
       <ol id="score-list"></ol>
     </section>
 
+    <section class="panel objective" id="objective" hidden>
+      <div class="objective-chapter" id="objective-chapter"></div>
+      <div class="objective-text" id="objective-text"></div>
+      <div class="objective-progress" id="objective-progress"></div>
+    </section>
+
+    <div class="say" id="say" aria-live="polite" hidden></div>
+
     <section class="notices" id="notices" aria-live="polite"></section>
 
     <section class="panel command" id="command">
@@ -52,6 +60,17 @@
     <canvas id="minimap" class="panel" width="192" height="128" aria-label="Minimap"></canvas>
 
     <div class="mode-hint" id="mode-hint" hidden></div>
+  </div>
+
+  <div class="overlay story" id="story" hidden>
+    <article class="story-box">
+      <p class="story-kicker" id="story-kicker"></p>
+      <h2 id="story-title"></h2>
+      <p class="story-source" id="story-source"></p>
+      <div class="story-lines" id="story-lines"></div>
+      <p class="story-objective" id="story-objective"></p>
+      <button type="button" id="story-close">Continue</button>
+    </article>
   </div>
 
   <div class="overlay" id="fallen" hidden>
@@ -76,6 +95,7 @@
           <li>Left-drag to select, right-click to move or attack.</li>
           <li>Everything that dies leaves a corpse. <kbd>R</kbd> then click one to raise it into your legion.</li>
           <li>Five warriors standing together <kbd>F</kbd>use into a Skeleton King.</li>
+          <li><kbd>X</kbd> then click a corpse: Corpse Explosion, damage to everything around it.</li>
           <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
           <li><kbd>A</kbd> then click to attack-move, <kbd>S</kbd> to stop, <kbd>Space</kbd> to find your necromancer.</li>
         </ul>

@@ -6,6 +6,7 @@ const $ = (id) => document.getElementById(id);
 const MODE_HINTS = {
   'attack-move': 'Attack-move: click where to march. Right-click or Esc cancels.',
   raise: 'Raise the dead: click a corpse inside the dashed square. Shift-click to keep raising.',
+  explode: 'Corpse Explosion: click a corpse inside the dashed square. Everything around it takes the blast.',
 };
 
 let summonOrder = [];
@@ -46,6 +47,7 @@ export function initHud() {
   const abilities = [
     ['attack-move', 'Attack-move', 'A', cmd.beginAttackMove],
     ['raise', 'Raise dead', 'R', cmd.beginRaise],
+    ['explode', 'Corpse Explosion', 'X', cmd.beginExplode, `<span class="cost">${game.rules.explodeSoulCost} soul</span>`],
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
     ['mend', 'Mend', 'M', cmd.mend],
     ['trap', 'Lay trap', 'T', cmd.layTrap],
@@ -92,6 +94,7 @@ export function updateHud() {
   const enabled = {
     'attack-move': selected.length > 0,
     raise: alive,
+    explode: alive && you.soul >= game.rules.explodeSoulCost,
     fuse: warriors >= game.rules.fuseCount && you.soul >= game.rules.fuseSoulCost,
     mend: selected.some((u) => u.modeEndsIn == null && u.hp < game.unitTypes[u.type].maxHp),
     trap: selected.some((u) => game.unitTypes[u.type].laysTraps && u.modeEndsIn == null),
@@ -104,6 +107,7 @@ export function updateHud() {
 
   $('selection').innerHTML = describeSelection(selected);
   updateScoreboard();
+  updateObjective();
 
   $('fallen').hidden = alive;
   if (!alive) $('respawn-in').textContent = Math.ceil(you.respawnIn / (1000 / game.tickMs));
@@ -164,4 +168,62 @@ export function showModeHint(mode) {
   for (const el of $('ability-buttons').children) {
     el.classList.toggle('active', mode === el.dataset.ability);
   }
+}
+
+// ---------------------------------------------------------------- the story
+
+const STORY_KICKERS = {
+  briefing: (m) => `${m.campaign} · Chapter ${m.chapter} of ${m.chapters}`,
+  victory: (m) => `Chapter ${m.chapter} complete · the story continues in a moment`,
+  finale: () => 'The end of the arc',
+  defeat: (m) => `Chapter ${m.chapter} · failed`,
+};
+
+let sayTimer = null;
+
+/** Shows a story message from the server: a full card, or for "say" a banner over the battlefield. */
+export function showStory(message) {
+  if (message.kind === 'say') {
+    const box = $('say');
+    box.textContent = message.lines.join(' ');
+    box.hidden = false;
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => { box.hidden = true; }, 5500 + message.lines.join(' ').length * 35);
+    return;
+  }
+  $('story-kicker').textContent = (STORY_KICKERS[message.kind] ?? (() => ''))(message);
+  $('story-title').textContent = message.kind === 'finale' ? message.campaign : message.title;
+  $('story-source').textContent = message.source;
+  $('story-lines').replaceChildren(...message.lines.map((line) => {
+    const p = document.createElement('p');
+    p.textContent = line;
+    return p;
+  }));
+  $('story-objective').textContent = message.kind === 'briefing' ? `Objective: ${message.objective}` : '';
+  $('story-close').textContent = message.kind === 'briefing' ? 'Begin' : 'Continue';
+  $('story').hidden = false;
+  document.body.classList.add('reading');
+}
+
+export function initStory() {
+  const close = () => {
+    $('story').hidden = true;
+    document.body.classList.remove('reading');
+  };
+  $('story-close').addEventListener('click', close);
+  window.addEventListener('keydown', (e) => {
+    if (!$('story').hidden && (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ')) {
+      e.preventDefault();
+      close();
+    }
+  });
+}
+
+function updateObjective() {
+  const story = game.story;
+  $('objective').hidden = !story;
+  if (!story) return;
+  $('objective-chapter').textContent = `Chapter ${story.chapter}/${story.chapters} · ${story.title}`;
+  $('objective-text').textContent = story.outcome === 'WON' ? 'Chapter complete' : story.objective;
+  $('objective-progress').textContent = story.progress;
 }
