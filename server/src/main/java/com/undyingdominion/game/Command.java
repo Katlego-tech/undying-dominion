@@ -16,6 +16,12 @@ public sealed interface Command {
 
     record Leave(int playerId) implements Command {}
 
+    /**
+     * Gives a player back what they carried out of the previous chapter: their progress, and their
+     * legion, which rises again around their necromancer. Server-side only.
+     */
+    record Restore(int playerId, int level, int xp, int kills, int deaths, List<UnitType> legion) implements Command {}
+
     record Summon(int playerId, UnitType type) implements Command {}
 
     /** Walk to a tile. With {@code attackMove}, fight anything met on the way. */
@@ -27,6 +33,9 @@ public sealed interface Command {
 
     /** Raise a corpse near the necromancer into the legion. */
     record Raise(int playerId, int corpseId) implements Command {}
+
+    /** Detonate a corpse near the necromancer, hurting every enemy around it. */
+    record Explode(int playerId, int corpseId) implements Command {}
 
     /** Fuse skeleton warriors standing together into a Skeleton King. */
     record Fuse(int playerId, List<Integer> unitIds) implements Command {}

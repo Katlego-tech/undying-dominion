@@ -25,6 +25,10 @@ public final class GameRules {
     /** Robot Worlds' mine took three hits. */
     private int trapDamage = 30;
     private int maxTrapsPerPlayer = 8;
+    private int explodeSoulCost = 10;
+    /** A corpse blast hurts enemies for this percentage of the dead creature's life. */
+    private int explodeDamagePercent = 40;
+    private int explodeRadius = 2;
     private int maxNeutrals = 14;
     private int neutralSpawnIntervalTicks = 40;
     /** Wild creatures never spawn closer than this to a necromancer. */
@@ -47,6 +51,9 @@ public final class GameRules {
     public int trapSetTicks()              { return trapSetTicks; }
     public int trapDamage()                { return trapDamage; }
     public int maxTrapsPerPlayer()         { return maxTrapsPerPlayer; }
+    public int explodeSoulCost()           { return explodeSoulCost; }
+    public int explodeDamagePercent()      { return explodeDamagePercent; }
+    public int explodeRadius()             { return explodeRadius; }
     public int maxNeutrals()               { return maxNeutrals; }
     public int neutralSpawnIntervalTicks() { return neutralSpawnIntervalTicks; }
     public int neutralSpawnClearance()     { return neutralSpawnClearance; }

@@ -1,7 +1,7 @@
 // Everything the client knows, in one place. The server is authoritative: this is only ever a
 // mirror of the last state it sent, plus what the player is doing with the mouse.
 
-export const TERRAIN = { GROUND: 0, RUINS: 1, SWAMP: 2, ABYSS: 3 };
+export const TERRAIN = { GROUND: 0, RUINS: 1, SWAMP: 2, ABYSS: 3, FOREST: 4 };
 
 export const WILD_COLOR = '#b4a48c';
 
@@ -26,7 +26,8 @@ export const game = {
   fogVersion: 0,
 
   selection: new Set(),
-  mode: null,           // null | 'attack-move' | 'raise'
+  mode: null,           // null | 'attack-move' | 'raise' | 'explode'
+  story: null,          // the campaign's progress, from the latest state
   effects: [],
   camera: { x: 0, y: 0, zoom: 1 },
   pointer: { sx: 0, sy: 0, tx: -1, ty: -1, inside: false },
@@ -113,4 +114,20 @@ export function selectedUnits() {
 
 export function label(type) {
   return game.unitTypes[type]?.label ?? type;
+}
+
+/** The name with its level, as the story's monsters are shown: "Lv 14 Cave Spider". */
+export function levelledLabel(type) {
+  const t = game.unitTypes[type];
+  return t?.level ? `Lv ${t.level} ${t.label}` : label(type);
+}
+
+/** Forgets everything about the previous map, when a campaign moves on to its next chapter. */
+export function resetWorld() {
+  game.units = new Map();
+  game.corpses = [];
+  game.traps = [];
+  game.effects = [];
+  game.selection.clear();
+  game.mode = null;
 }

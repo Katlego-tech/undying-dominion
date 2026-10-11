@@ -1,0 +1,59 @@
+package com.undyingdominion;
+
+import com.undyingdominion.game.GameEngine;
+import com.undyingdominion.game.GameRules;
+import com.undyingdominion.net.GameServer;
+import com.undyingdominion.story.Campaign;
+import com.undyingdominion.story.StoryDirector;
+import com.undyingdominion.world.GameMap;
+import com.undyingdominion.world.MapConfig;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Random;
+
+/**
+ * One running world: the server hosting it and, for a campaign, the director telling its story.
+ * {@code story} is null in a free-for-all.
+ */
+public record Dominion(GameServer server, StoryDirector story) {
+
+    /** Loads the map or campaign, builds the engine and opens the server. Throws if the port cannot be taken. */
+    public static Dominion raise(ServerOptions options) throws IOException {
+        Random random = options.seed() == null ? new Random() : new Random(options.seed());
+        GameEngine engine;
+        StoryDirector story = null;
+        if (options.campaignFolder() != null) {
+            story = new StoryDirector(Campaign.load(Path.of(options.campaignFolder())), random);
+            engine = story.firstEngine();
+        } else {
+            GameMap map = MapConfig.load(options.mapLocation());
+            GameRules rules = GameRules.defaults();
+            if (!options.wildCreatures()) rules.maxNeutrals(0);
+            engine = new GameEngine(map, rules, random);
+        }
+
+        GameServer server = new GameServer(engine, options.maxPlayers());
+        try {
+            server.start(options.port());
+        } catch (RuntimeException e) {
+            server.stop();
+            throw e;
+        }
+        if (story != null) story.attach(server);
+        return new Dominion(server, story);
+    }
+
+    /** The current world. In a campaign it changes from chapter to chapter. */
+    public GameEngine engine() {
+        return server.engine();
+    }
+
+    public GameMap map() {
+        return server.engine().getMap();
+    }
+
+    public void close() {
+        server.stop();
+    }
+}

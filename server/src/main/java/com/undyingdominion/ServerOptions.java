@@ -12,6 +12,19 @@ public class ServerOptions {
     private String mapLocation = DEFAULT_MAP;
     private Long seed;
     private boolean wildCreatures = true;
+    private boolean dashboard = true;
+    private String campaignFolder;
+
+    /** Options built in code rather than read from the command line. */
+    public static ServerOptions of(int port, int maxPlayers, String mapLocation, Long seed, boolean wildCreatures) {
+        ServerOptions options = new ServerOptions();
+        options.port = port;
+        options.maxPlayers = maxPlayers;
+        options.mapLocation = mapLocation;
+        options.seed = seed;
+        options.wildCreatures = wildCreatures;
+        return options;
+    }
 
     public static ServerOptions parse(String[] args) {
         ServerOptions options = new ServerOptions();
@@ -25,6 +38,8 @@ public class ServerOptions {
                 case "-m", "--map" -> options.mapLocation = value(args, ++i, flag);
                 case "--seed" -> options.seed = parseLong(value(args, ++i, flag), flag);
                 case "--no-wild" -> options.wildCreatures = false;
+                case "--plain" -> options.dashboard = false;
+                case "--campaign" -> options.campaignFolder = value(args, ++i, flag);
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
         }
@@ -64,4 +79,8 @@ public class ServerOptions {
     public String mapLocation()   { return mapLocation; }
     public Long seed()            { return seed; }
     public boolean wildCreatures(){ return wildCreatures; }
+    /** A folder holding campaign.json, to play its story instead of a free-for-all. Null if none. */
+    public String campaignFolder() { return campaignFolder; }
+    /** Whether to run the full-screen terminal dashboard. Ignored when there is no interactive terminal. */
+    public boolean dashboard()    { return dashboard; }
 }

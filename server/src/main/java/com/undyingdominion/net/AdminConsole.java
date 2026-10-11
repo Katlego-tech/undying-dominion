@@ -3,6 +3,7 @@ package com.undyingdominion.net;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.game.Unit;
+import com.undyingdominion.story.StoryDirector;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,17 +20,22 @@ import java.util.TreeMap;
 public class AdminConsole implements Runnable {
 
     private final GameServer server;
-    private final GameEngine engine;
     private final InputStream in;
     private final PrintStream out;
     private final Runnable onQuit;
+    private StoryDirector story;
 
-    public AdminConsole(GameServer server, GameEngine engine, InputStream in, PrintStream out, Runnable onQuit) {
+    public AdminConsole(GameServer server, InputStream in, PrintStream out, Runnable onQuit) {
         this.server = server;
-        this.engine = engine;
         this.in = in;
         this.out = out;
         this.onQuit = onQuit;
+    }
+
+    /** Enables the {@code chapter} command when the server is playing a campaign. */
+    public AdminConsole withStory(StoryDirector story) {
+        this.story = story;
+        return this;
     }
 
     /** Starts reading commands on a background thread. */
@@ -52,7 +58,7 @@ public class AdminConsole implements Runnable {
     }
 
     /** Handles one console line. Returns false once the server is shutting down. */
-    boolean handle(String line) {
+    public boolean handle(String line) {
         if (line.isEmpty()) return true;
         String[] parts = line.split("\\s+", 2);
         String command = parts[0].toLowerCase();
@@ -64,6 +70,7 @@ public class AdminConsole implements Runnable {
                       players        list necromancers and their standing
                       dump           show the state of the world
                       purge <name>   destroy a necromancer's legion and remove them
+                      chapter <n>    jump the campaign to chapter n
                       quit           close the Dominion""");
             case "players" -> server.runOnLoop(this::printPlayers);
             case "dump" -> server.runOnLoop(this::printDump);
@@ -72,6 +79,20 @@ public class AdminConsole implements Runnable {
                     out.println("usage: purge <name>");
                 } else {
                     server.runOnLoop(() -> purge(argument));
+                }
+            }
+            case "chapter" -> {
+                if (story == null) {
+                    out.println("This Dominion is not playing a campaign.");
+                } else {
+                    server.runOnLoop(() -> {
+                        try {
+                            story.jumpTo(Integer.parseInt(argument));
+                            out.println("Chapter " + argument + ": " + story.current().title());
+                        } catch (IllegalArgumentException e) {
+                            out.println("usage: chapter <n>. " + e.getMessage());
+                        }
+                    });
                 }
             }
             case "quit" -> {
@@ -85,6 +106,7 @@ public class AdminConsole implements Runnable {
     }
 
     private void printPlayers() {
+        GameEngine engine = server.engine();
         if (engine.getPlayers().isEmpty()) {
             out.println("No necromancers in the Dominion.");
             return;
@@ -98,6 +120,7 @@ public class AdminConsole implements Runnable {
     }
 
     private void printDump() {
+        GameEngine engine = server.engine();
         out.printf("Tick %d. Map %d x %d with %d obstacles.%n", engine.getTick(),
                 engine.getMap().getWidth(), engine.getMap().getHeight(), engine.getMap().getObstacles().size());
         Map<String, Integer> census = new TreeMap<>();
@@ -111,6 +134,7 @@ public class AdminConsole implements Runnable {
     }
 
     private void purge(String name) {
+        GameEngine engine = server.engine();
         Player player = engine.findPlayer(name);
         if (player == null) {
             out.println("No necromancer named '" + name + "'.");

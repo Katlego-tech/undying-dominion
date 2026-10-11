@@ -20,7 +20,8 @@ mvn package
 java -jar target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
-Open <http://localhost:5000>, pick a name and rise. Open a second tab to fight yourself.
+The terminal becomes the server dashboard. Open <http://localhost:5000>, pick a name and rise.
+Open a second tab to fight yourself.
 
 Run it from the `server/` directory and the client is served straight from
 `src/main/resources/public`, so client edits show on a browser refresh without rebuilding.
@@ -34,6 +35,8 @@ Run it from the `server/` directory and the client is served straight from
 | `-mc` | `--max-clients` | `8` | Most necromancers at once |
 | | `--seed` | random | Seed the world for a repeatable game |
 | | `--no-wild` | off | No wild creatures |
+| | `--plain` | off | Plain line console instead of the dashboard |
+| | `--campaign` | none | Play a story campaign from a folder instead of a free-for-all (see Campaigns) |
 
 ## How to play
 
@@ -45,6 +48,7 @@ Run it from the `server/` directory and the client is served straight from
 | `A` then click | Attack-move: march there, fighting anything met on the way |
 | `R` then click | Raise the corpse there into your legion. Shift-click to keep raising |
 | `F` | Fuse five selected Skeleton Warriors standing together into a Skeleton King |
+| `X` then click | Corpse Explosion: detonate a corpse near your necromancer, hurting every enemy around it |
 | `M` | Mend: the selected units stand still until they are whole again |
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
 | `S` | Stop |
@@ -83,19 +87,31 @@ Run it from the `server/` directory and the client is served straight from
 | Terrain | Movement | Sight and missiles |
 |---|---|---|
 | Ruins | blocked | blocked |
+| Forest | normal | blocked |
 | Swamp | half speed | clear |
 | Abyss | blocked | clear |
 
-## Server console
+## Server dashboard
 
-The terminal running the server takes commands:
+Started in a terminal, the server takes over the window with a live dashboard:
 
-| Command | Effect |
+- **World:** the whole battlefield without fog, two tiles per character cell, with every unit, corpse
+  and trap.
+- **Necromancers:** level, soul, legion, kills and deaths for each player.
+- **Log:** joins, leaves, warnings and the output of your commands.
+- **Header:** the port, the tick time, and a link other players on your network can open.
+
+| Key | Action |
 |---|---|
-| `players` | List necromancers with level, soul, legion and kills |
-| `dump` | Census of every unit, corpse and trap in the world |
-| `purge <name>` | Destroy a necromancer's legion and disconnect them |
-| `quit` | Close the Dominion |
+| `↑` `↓` | Select a necromancer |
+| `p` | Purge the selected necromancer (asks to confirm): their legion crumbles and they are disconnected |
+| `o` | Open the game in your browser |
+| `:` | Type a console command: `players`, `dump`, `purge <name>`, `help` |
+| `q` | Close the Dominion (asks to confirm) |
+
+The dashboard needs a terminal of at least 94 x 26. When output isn't an interactive terminal (piped,
+a service, a container without `-t`), or with `--plain`, the server runs a plain line console instead,
+reading the same commands plus `quit` from standard input.
 
 ## Web API
 
@@ -114,6 +130,7 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "attack", "units": [4, 7], "target": 31 }
 { "command": "stop", "units": [4] }
 { "command": "raise", "corpse": 12 }
+{ "command": "explode", "corpse": 12 }
 { "command": "fuse", "units": [4, 5, 6, 8, 9] }
 { "command": "mend", "units": [4] }
 { "command": "trap", "units": [10] }
@@ -127,6 +144,10 @@ The server sends three kinds of message:
   see, what happened this tick (`events`), the scoreboard (`players`), and `fog`, a base64 bitmask of
   visible tiles, one bit per tile, row by row, lowest bit first. If a client falls behind, it skips
   stale states rather than queueing them.
+- `story`, in a campaign: a chapter's `briefing`, a line said mid-chapter (`say`), `victory`,
+  `defeat` or the `finale`, with the chapter's title, objective and `lines`. During a campaign every
+  `state` also carries `story`: chapter, objective and progress. A second `welcome` means the
+  campaign has moved to the next chapter's map.
 - `error`, when a message can't be acted on: `Unsupported command`, `Could not parse arguments`,
   `Join the Dominion first`, `Too many of you in this world` (name taken) or
   `No more space in this world` (server full).
@@ -146,6 +167,62 @@ obstacle.swamp.1=10,22,16,27
 obstacle.abyss.1=23,6,24,13
 ```
 
+## Campaigns
+
+A campaign tells a story as a series of chapters, each a map with its own creatures, timed waves,
+scripted moments and goal. Start one with `--campaign <folder>`. Everyone connected plays the
+chapter together, sees its briefing, and follows its objective in the HUD. When the chapter is won,
+everyone moves on to the next map, keeping their level, record and legion. A chapter that runs out
+of time starts again.
+
+The folder holds a `campaign.json` and the map files it names:
+
+```json
+{
+  "title": "The Barrow Wars",
+  "creatures": {
+    "CAVE_SPIDER": {"label": "Cave Spider", "level": 3, "hp": 30, "damage": 4, "look": "BEAST"},
+    "SPIDER_QUEEN": {"label": "Spider Queen", "level": 6, "hp": 600, "damage": 15, "splash": 1,
+                     "look": "BEAST", "boss": true}
+  },
+  "chapters": [{
+    "id": "nest", "title": "The Nest", "source": "Chapter one", "map": "maps/nest.properties",
+    "start": {"area": [2, 2, 5, 5], "soul": 100},
+    "briefing": ["Something is breeding under the hill."],
+    "objective": {"kind": "KILL_BOSS", "unit": "SPIDER_QUEEN", "text": "Slay the Spider Queen"},
+    "spawns": [{"unit": "CAVE_SPIDER", "area": [10, 2, 30, 20], "count": 12},
+               {"unit": "SPIDER_QUEEN", "at": [[28, 18]]}],
+    "triggers": [{"when": "BOSS_HP_BELOW", "unit": "SPIDER_QUEEN", "percent": 50,
+                  "say": ["The queen shrieks. The walls start to move."],
+                  "spawns": [{"unit": "CAVE_SPIDER", "area": [20, 10, 30, 20], "count": 8}]}],
+    "victory": ["The nest is silent."],
+    "timeLimitSeconds": 600
+  }]
+}
+```
+
+- **Creatures** need a `label` and `hp`. Optional: `level`, `damage`, `range`, `attackCooldown` and
+  `moveCooldown` (ticks), `aggro`, `vision`, `splash`, `soul`, `xp`, `raise` (cost, -1 for never),
+  `look` (`BEAST`, `GOBLIN`, `PLANT`, `HUMANOID`, `BEASTMAN`, `DEMON`, `UNDEAD`), `boss`, `stationary`.
+- **Objectives:** `CLEAR_ALL`, `KILL_BOSS` (`unit` may list several types: `"A,B,C"`), `KILL_COUNT`
+  (`count`) or `SURVIVE` (`seconds`).
+- **Triggers** fire once: `AT_SECOND` (`seconds`), `BOSS_HP_BELOW` (`unit`, `percent`) or
+  `TYPE_CLEARED` (`unit`, after it has appeared and every one has fallen). Each can `say` lines of
+  story and bring more `spawns`.
+- **Spawns** are scattered across an `area` (kept clear of the start) or placed `at` exact tiles.
+  Loading fails on a creature placed inside a wall, so mistakes surface before anyone plays.
+
+## Drawing maps
+
+The jar can draw any map, or every chapter of a campaign with its start and creatures marked, to PNG:
+
+```bash
+java -cp target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar \
+     com.undyingdominion.tools.MapRenderer src/main/resources/maps/default.properties barrow.png
+java -cp target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar \
+     com.undyingdominion.tools.MapRenderer --campaign path/to/campaign renders/
+```
+
 ## Development
 
 ```bash
@@ -159,9 +236,13 @@ scenarios over real WebSockets.
 ```text
 server/src/main/java/com/undyingdominion/
 ├── Main.java, ServerOptions.java   startup and command-line options
+├── Dominion.java                   one running world: map, engine and server together
 ├── world/      the map: terrain, line of sight, A* pathfinding, map files
 ├── game/       the simulation: engine, units, players, commands, fog of war
-└── net/        Javalin server, WebSocket protocol, snapshots, admin console
+├── net/        Javalin server, WebSocket protocol, snapshots, admin console
+├── story/      campaigns: chapters, triggers, objectives, the director that runs them
+├── tools/      the map renderer
+└── tui/        the terminal dashboard (Lanterna)
 server/src/main/resources/
 ├── maps/       map files
 └── public/     the browser client (index.html, style.css, js/)

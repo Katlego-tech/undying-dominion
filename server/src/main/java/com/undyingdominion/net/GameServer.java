@@ -12,14 +12,18 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 /**
  * Hosts one Dominion: runs the game loop, serves the browser client, and speaks the WebSocket
@@ -35,7 +39,8 @@ public class GameServer {
     /** When run from the server directory, serve the client straight from source so edits show on reload. */
     private static final Path DEV_CLIENT = Path.of("src/main/resources/public");
 
-    private final GameEngine engine;
+    private volatile GameEngine engine;
+    private volatile JSONObject story;
     private final int maxPlayers;
 
     private final Map<String, ClientConnection> connections = new ConcurrentHashMap<>();
@@ -44,6 +49,10 @@ public class GameServer {
     private final Queue<Runnable> loopTasks = new ConcurrentLinkedQueue<>();
     private final AtomicReference<String> worldJson = new AtomicReference<>("{}");
     private final ScheduledExecutorService loop = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "game-loop"));
+
+    private final List<Consumer<GameEngine>> tickListeners = new CopyOnWriteArrayList<>();
+    private final List<IntConsumer> joinListeners = new CopyOnWriteArrayList<>();
+    private volatile double lastTickMillis;
 
     private Javalin app;
 
@@ -84,6 +93,74 @@ public class GameServer {
         return app.port();
     }
 
+    /**
+     * Calls {@code listener} on the game loop thread after every tick. It may read the engine but
+     * must be quick, since the next tick waits for it.
+     */
+    public void addTickListener(Consumer<GameEngine> listener) {
+        tickListeners.add(listener);
+    }
+
+    /** Calls {@code listener} with a player's id right after they join and are sent the welcome. */
+    public void addJoinListener(IntConsumer listener) {
+        joinListeners.add(listener);
+    }
+
+    /** The world currently being played. Changes when a campaign moves on to its next chapter. */
+    public GameEngine engine() {
+        return engine;
+    }
+
+    /** Story progress included in every player's state, or null outside a campaign. */
+    public void setStory(JSONObject story) {
+        this.story = story;
+    }
+
+    public void sendTo(int playerId, String json) {
+        for (ClientConnection connection : connections.values()) {
+            if (Integer.valueOf(playerId).equals(connection.getPlayerId())) connection.send(json);
+        }
+    }
+
+    public void broadcast(String json) {
+        for (ClientConnection connection : connections.values()) {
+            if (connection.getPlayerId() != null) connection.send(json);
+        }
+    }
+
+    /**
+     * Swaps in a new world, as a campaign does between chapters. Everyone connected is joined into it
+     * with the level, experience and record they had, and sent a fresh welcome for the new map.
+     * Must be called on the game loop thread, for example from a tick listener.
+     */
+    public void replaceEngine(GameEngine next) {
+        GameEngine previous = engine;
+        int highestId = 0;
+        for (ClientConnection connection : connections.values()) {
+            Integer id = connection.getPlayerId();
+            if (id != null) highestId = Math.max(highestId, id);
+        }
+        next.reservePlayerIds(Math.max(highestId + 1, previous.peekNextPlayerId()));
+        engine = next;
+        for (ClientConnection connection : connections.values()) {
+            Integer id = connection.getPlayerId();
+            if (id == null) continue;
+            Player before = previous.getPlayer(id);
+            next.submit(new Command.Join(id, connection.getName()));
+            if (before != null) {
+                next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
+                        before.getDeaths(), previous.legionOf(id)));
+            }
+            connection.send(SnapshotWriter.welcome(id, connection.getName(), next.getMap(), next.getRules()));
+        }
+        worldJson.set(describeWorld());
+    }
+
+    /** How long the last tick took, including sending every player's state. */
+    public double lastTickMillis() {
+        return lastTickMillis;
+    }
+
     /** Runs a task on the game loop thread before the next tick. */
     public void runOnLoop(Runnable task) {
         loopTasks.add(task);
@@ -94,7 +171,13 @@ public class GameServer {
         for (ClientConnection connection : connections.values()) {
             connection.close(1001, "The Dominion has fallen silent");
         }
-        if (app != null) app.stop();
+        if (app != null) {
+            try {
+                app.stop();
+            } catch (RuntimeException e) {
+                log.warn("Server did not stop cleanly: {}", e.getMessage());
+            }
+        }
     }
 
     /** Ends a player's session from the server side, e.g. the console's purge. */
@@ -145,6 +228,9 @@ public class GameServer {
         connection.send(SnapshotWriter.welcome(playerId, name, engine.getMap(), engine.getRules()));
         engine.submit(new Command.Join(playerId, name));
         log.info("{} joined the Dominion", name);
+        for (IntConsumer listener : joinListeners) {
+            listener.accept(playerId);
+        }
     }
 
     private void onClose(String sessionId) {
@@ -162,12 +248,14 @@ public class GameServer {
     // ------------------------------------------------------------------ game loop thread
 
     private void step() {
+        long started = System.nanoTime();
         try {
             Runnable task;
             while ((task = loopTasks.poll()) != null) {
                 task.run();
             }
 
+            GameEngine engine = this.engine;
             engine.tick();
 
             JSONArray scoreboard = SnapshotWriter.scoreboard(engine);
@@ -176,11 +264,15 @@ public class GameServer {
                 if (playerId == null || !connection.isOpen()) continue;
                 Player player = engine.getPlayer(playerId);
                 if (player == null) continue;
-                connection.offerState(SnapshotWriter.state(engine, player, scoreboard));
+                connection.offerState(SnapshotWriter.state(engine, player, scoreboard, story));
             }
 
             if (engine.getTick() % engine.getRules().ticksPerSecond() == 0) {
                 worldJson.set(describeWorld());
+            }
+            lastTickMillis = (System.nanoTime() - started) / 1_000_000.0;
+            for (Consumer<GameEngine> listener : tickListeners) {
+                listener.accept(engine);
             }
         } catch (Throwable t) {
             // A scheduled task that throws is never run again, so the loop must not let anything out.

@@ -11,7 +11,9 @@ public enum Terrain {
     /** Bog. Passable, but every step takes twice as long (was LAKE). */
     SWAMP(true, false, 2),
     /** A bottomless rift. Impassable, but you can see and shoot across it (was PIT). */
-    ABYSS(false, false, 1);
+    ABYSS(false, false, 1),
+    /** Dense trees. Passable, but nothing can be seen or shot through them. */
+    FOREST(true, true, 1);
 
     public final boolean walkable;
     public final boolean blocksSight;

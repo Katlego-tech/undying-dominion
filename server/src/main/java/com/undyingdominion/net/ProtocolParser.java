@@ -51,6 +51,7 @@ public final class ProtocolParser {
                 case "attack" -> new Command.Attack(playerId, unitIds(message), message.getInt("target"));
                 case "stop" -> new Command.Stop(playerId, unitIds(message));
                 case "raise" -> new Command.Raise(playerId, message.getInt("corpse"));
+                case "explode" -> new Command.Explode(playerId, message.getInt("corpse"));
                 case "fuse" -> new Command.Fuse(playerId, unitIds(message));
                 case "mend" -> new Command.Mend(playerId, unitIds(message));
                 case "trap" -> new Command.SetTrap(playerId, unitIds(message));

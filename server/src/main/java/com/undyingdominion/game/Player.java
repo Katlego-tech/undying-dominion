@@ -59,6 +59,15 @@ public class Player {
         return levelled;
     }
 
+    /** Carries progress over from an earlier world. */
+    public void restoreProgress(int level, int xp, int kills, int deaths) {
+        this.level = Math.max(1, Math.min(MAX_LEVEL, level));
+        this.xp = xp;
+        this.kills = kills;
+        this.deaths = deaths;
+        this.soul = Math.min(soul, soulMax());
+    }
+
     public void notice(String message) {
         notices.add(message);
     }

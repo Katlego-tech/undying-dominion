@@ -27,7 +27,9 @@ public record GameEvent(Kind kind, int a, int b, int x, int y, int x2, int y2) {
         /** a = unit that stepped on it, at x,y */
         TRAP_SPRUNG,
         /** a = player id, b = new level */
-        LEVEL_UP
+        LEVEL_UP,
+        /** a = player id, b = blast radius, at x,y */
+        EXPLOSION
     }
 
     public static GameEvent attack(Unit attacker, Unit target) {

@@ -187,6 +187,38 @@ class GameEngineTest {
         assertNotNull(necromancerOf(vesper));
     }
 
+    @Test
+    void corpseExplosionHurtsEveryEnemyAroundTheCorpse() {
+        Corpse corpse = corpseOfWolfAt(3);
+        Unit near = engine.spawn(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position().offset(1, 0));
+        Unit far = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 6, 4);
+        // On the far side of the corpse from the knight, out of its reach this tick.
+        Unit own = engine.spawn(UnitType.SKELETON_WARRIOR, vesper.getId(), corpse.position().offset(-1, 0));
+        vesper.setSoul(50);
+
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id()));
+        engine.tick();
+
+        int blast = UnitType.WOLF.maxHp * engine.getRules().explodeDamagePercent() / 100;
+        assertTrue(engine.getCorpses().isEmpty());
+        assertEquals(50 - engine.getRules().explodeSoulCost(), vesper.getSoul());
+        assertTrue(near.getHp() <= UnitType.KNIGHT.maxHp - blast, "the knight beside it was caught");
+        assertEquals(UnitType.KNIGHT.maxHp, far.getHp());
+        assertEquals(UnitType.SKELETON_WARRIOR.maxHp, own.getHp(), "your own units are spared");
+    }
+
+    @Test
+    void aCorpseTooFarAwayCannotBeDetonated() {
+        Corpse corpse = corpseOfWolfAt(engine.getRules().raiseRange() + 2);
+        vesper.takeNotices();
+
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id()));
+        engine.tick();
+
+        assertEquals(1, engine.getCorpses().size());
+        assertTrue(vesper.takeNotices().stream().anyMatch(n -> n.startsWith("Too far away")));
+    }
+
     // ------------------------------------------------------------------ mend, from Robot Worlds' repair
 
     @Test
