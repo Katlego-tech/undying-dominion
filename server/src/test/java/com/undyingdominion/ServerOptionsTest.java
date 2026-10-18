@@ -20,6 +20,7 @@ class ServerOptionsTest {
         assertNull(options.seed());
         assertTrue(options.wildCreatures());
         assertTrue(options.dashboard());
+        assertEquals(ServerOptions.DEFAULT_DB, options.database());
     }
 
     @Test
@@ -33,6 +34,12 @@ class ServerOptionsTest {
         assertEquals(42L, options.seed());
         assertFalse(options.wildCreatures());
         assertFalse(options.dashboard());
+    }
+
+    @Test
+    void readsWhereSavesAreKept() {
+        assertEquals("/tmp/elsewhere.db", ServerOptions.parse(new String[]{"--db", "/tmp/elsewhere.db"}).database());
+        assertThrows(IllegalArgumentException.class, () -> ServerOptions.parse(new String[]{"--db"}));
     }
 
     @Test

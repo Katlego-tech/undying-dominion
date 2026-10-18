@@ -6,6 +6,7 @@ public class ServerOptions {
     public static final int DEFAULT_PORT = 5000;
     public static final int DEFAULT_MAX_PLAYERS = 8;
     public static final String DEFAULT_MAP = "classpath:/maps/default.properties";
+    public static final String DEFAULT_DB = "undying-dominion.db";
 
     private int port = DEFAULT_PORT;
     private int maxPlayers = DEFAULT_MAX_PLAYERS;
@@ -14,6 +15,7 @@ public class ServerOptions {
     private boolean wildCreatures = true;
     private boolean dashboard = true;
     private String campaignFolder;
+    private String database = DEFAULT_DB;
 
     /** Options built in code rather than read from the command line. */
     public static ServerOptions of(int port, int maxPlayers, String mapLocation, Long seed, boolean wildCreatures) {
@@ -40,6 +42,7 @@ public class ServerOptions {
                 case "--no-wild" -> options.wildCreatures = false;
                 case "--plain" -> options.dashboard = false;
                 case "--campaign" -> options.campaignFolder = value(args, ++i, flag);
+                case "--db" -> options.database = value(args, ++i, flag);
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
         }
@@ -81,6 +84,8 @@ public class ServerOptions {
     public boolean wildCreatures(){ return wildCreatures; }
     /** A folder holding campaign.json, to play its story instead of a free-for-all. Null if none. */
     public String campaignFolder() { return campaignFolder; }
+    /** The SQLite file saves are kept in. Relative paths are from the working directory. */
+    public String database()      { return database; }
     /** Whether to run the full-screen terminal dashboard. Ignored when there is no interactive terminal. */
     public boolean dashboard()    { return dashboard; }
 }
