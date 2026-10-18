@@ -49,6 +49,8 @@ public class GameServer {
     /** Lower-cased names in use. Guarded by itself so the full check and the claim happen together. */
     private final Map<String, ClientConnection> names = new ConcurrentHashMap<>();
     private final Queue<Runnable> loopTasks = new ConcurrentLinkedQueue<>();
+    /** Run after the step's tick (or admit), when joins queued alongside them have been applied. */
+    private final Queue<Runnable> afterStepTasks = new ConcurrentLinkedQueue<>();
     private final AtomicReference<String> worldJson = new AtomicReference<>("{}");
     private final ScheduledExecutorService loop = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "game-loop"));
 
@@ -63,6 +65,13 @@ public class GameServer {
     private final Set<Integer> reading = new HashSet<>();
     private volatile JSONObject pause;
     private static final int HOST = -1;
+    private volatile SaveHandler saveHandler;
+
+    /** What to do when a player asks to save. Called on the game loop thread. */
+    @FunctionalInterface
+    public interface SaveHandler {
+        void save(int playerId, String name, boolean force);
+    }
 
     private Javalin app;
 
@@ -119,6 +128,11 @@ public class GameServer {
     /** The world currently being played. Changes when a campaign moves on to its next chapter. */
     public GameEngine engine() {
         return engine;
+    }
+
+    /** Who answers players' save requests. Without one, save is an unsupported command. */
+    public void setSaveHandler(SaveHandler handler) {
+        this.saveHandler = handler;
     }
 
     /** Story progress included in every player's state, or null outside a campaign. */
@@ -235,6 +249,11 @@ public class GameServer {
                 runOnLoop(() -> pause(playerId, connection.getName()));
             } else if ("resume".equals(command)) {
                 runOnLoop(this::lift);
+            } else if ("save".equals(command) && saveHandler != null) {
+                SaveHandler handler = saveHandler;
+                String name = message.optString("name", null);
+                boolean force = message.optBoolean("force", false);
+                afterStepTasks.add(() -> handler.save(playerId, name, force));
             } else if ("reading".equals(command)) {
                 boolean open = message.optBoolean("open", false);
                 runOnLoop(() -> {
@@ -298,6 +317,9 @@ public class GameServer {
             pause = currentPause();
             if (pause == null) engine.tick();
             else engine.admit();
+            while ((task = afterStepTasks.poll()) != null) {
+                task.run();
+            }
 
             JSONArray scoreboard = SnapshotWriter.scoreboard(engine);
             for (ClientConnection connection : connections.values()) {
@@ -346,7 +368,8 @@ public class GameServer {
         return null;
     }
 
-    private long joinedCount() {
+    /** Players who have joined, as opposed to sockets still at the name screen. */
+    public long joinedCount() {
         return connections.values().stream().filter(c -> c.getPlayerId() != null).count();
     }
 

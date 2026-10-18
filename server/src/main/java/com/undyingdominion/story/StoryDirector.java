@@ -82,6 +82,9 @@ public class StoryDirector {
 
     public Campaign campaign() { return campaign; }
 
+    /** The generator shared with every chapter's engine, so a save can carry its exact state. */
+    public Random random() { return random; }
+
     /** How long the victory screen stays up before the next chapter. Ten seconds unless changed. */
     public StoryDirector secondsBetweenChapters(int seconds) {
         this.secondsBetweenChapters = seconds;

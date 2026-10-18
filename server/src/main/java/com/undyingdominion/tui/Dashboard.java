@@ -385,7 +385,7 @@ public class Dashboard {
             }
             case COMMAND -> {
                 g.setForegroundColor(SOUL);
-                put(g, 1, y, ":" + input + "█   (players, dump, pause, resume, purge <name>, chapter <n>, help · Enter to run, Esc to cancel)", width - 2);
+                put(g, 1, y, ":" + input + "█   (players, dump, pause, resume, purge <name>, chapter <n>, save <name>, saves, help · Enter to run, Esc to cancel)", width - 2);
             }
             case NORMAL -> {
                 if (System.currentTimeMillis() < statusUntil) {

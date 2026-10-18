@@ -34,6 +34,7 @@ public class Main {
         System.out.printf("* Open http://localhost:%d to play. Type help for console commands.%n", dominion.server().port());
 
         Runtime.getRuntime().addShutdownHook(new Thread(dominion::close));
-        new AdminConsole(dominion.server(), System.in, System.out, () -> System.exit(0)).withStory(dominion.story()).start();
+        new AdminConsole(dominion.server(), System.in, System.out, () -> System.exit(0))
+                .withStory(dominion.story()).withSaves(dominion.saves()).start();
     }
 }

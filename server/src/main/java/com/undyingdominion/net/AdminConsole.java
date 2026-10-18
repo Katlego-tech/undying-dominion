@@ -3,6 +3,8 @@ package com.undyingdominion.net;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.game.Unit;
+import com.undyingdominion.persistence.SaveService;
+import com.undyingdominion.persistence.SaveSummary;
 import com.undyingdominion.story.StoryDirector;
 
 import java.io.BufferedReader;
@@ -10,6 +12,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -24,6 +29,7 @@ public class AdminConsole implements Runnable {
     private final PrintStream out;
     private final Runnable onQuit;
     private StoryDirector story;
+    private SaveService saves;
 
     public AdminConsole(GameServer server, InputStream in, PrintStream out, Runnable onQuit) {
         this.server = server;
@@ -35,6 +41,12 @@ public class AdminConsole implements Runnable {
     /** Enables the {@code chapter} command when the server is playing a campaign. */
     public AdminConsole withStory(StoryDirector story) {
         this.story = story;
+        return this;
+    }
+
+    /** Enables {@code save} and {@code saves}. */
+    public AdminConsole withSaves(SaveService saves) {
+        this.saves = saves;
         return this;
     }
 
@@ -73,6 +85,8 @@ public class AdminConsole implements Runnable {
                       resume         set the world running again
                       purge <name>   destroy a necromancer's legion and remove them
                       chapter <n>    jump the campaign to chapter n
+                      save <name>    save a solo campaign (save --force <name> replaces one)
+                      saves          list saved games
                       quit           close the Dominion""");
             case "players" -> server.runOnLoop(this::printPlayers);
             case "dump" -> server.runOnLoop(this::printDump);
@@ -105,6 +119,8 @@ public class AdminConsole implements Runnable {
                     });
                 }
             }
+            case "save" -> save(argument);
+            case "saves" -> printSaves();
             case "quit" -> {
                 out.println("Closing the Dominion.");
                 onQuit.run();
@@ -141,6 +157,39 @@ public class AdminConsole implements Runnable {
         }
         census.forEach((group, count) -> out.printf("  %3d  %s%n", count, group));
         out.printf("Corpses: %d. Traps: %d.%n", engine.getCorpses().size(), engine.getTraps().size());
+    }
+
+    private void save(String argument) {
+        if (saves == null) {
+            out.println("Saving is not available here.");
+            return;
+        }
+        boolean force = argument.startsWith("--force");
+        String name = force ? argument.substring("--force".length()).trim() : argument;
+        if (name.isEmpty()) {
+            out.println("usage: save <name>, or save --force <name> to replace one");
+            return;
+        }
+        server.runOnLoop(() -> saves.save(name, force, message -> out.println(message.equals(SaveService.nameTaken(name))
+                ? "A save called \"" + name + "\" already exists. Use save --force " + name + " to replace it"
+                : message)));
+    }
+
+    private void printSaves() {
+        if (saves == null) {
+            out.println("Saving is not available here.");
+            return;
+        }
+        try {
+            List<SaveSummary> list = saves.list();
+            if (list.isEmpty()) out.println("No saved games.");
+            DateTimeFormatter when = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+            for (SaveSummary s : list) {
+                out.println(s.name() + " · " + s.campaignTitle() + " · chapter " + s.chapter() + " · " + when.format(s.savedAt()));
+            }
+        } catch (RuntimeException e) {
+            out.println("The saves could not be read: " + e.getMessage());
+        }
     }
 
     private void purge(String name) {
