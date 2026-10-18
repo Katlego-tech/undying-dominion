@@ -79,6 +79,23 @@ public class Player {
         return taken;
     }
 
+    public PlayerState capture() {
+        return new PlayerState(id, name, color, necromancerId, respawnAtTick, soul, xp, level, kills, deaths);
+    }
+
+    /** The level goes back before the soul, because the soul is capped by the level. */
+    static Player restore(PlayerState state) {
+        Player player = new Player(state.id(), state.name(), state.color(), 0);
+        player.necromancerId = state.necromancerId();
+        player.respawnAtTick = state.respawnAtTick();
+        player.level = state.level();
+        player.xp = state.xp();
+        player.kills = state.kills();
+        player.deaths = state.deaths();
+        player.setSoul(state.soul());
+        return player;
+    }
+
     public int getId()              { return id; }
     public String getName()         { return name; }
     public String getColor()        { return color; }

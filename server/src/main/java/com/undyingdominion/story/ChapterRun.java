@@ -53,6 +53,37 @@ public class ChapterRun {
         placeAll(chapter.spawns());
     }
 
+    /** A chapter carrying on from a capture. Its creatures are already on the field, so nothing is placed. */
+    private ChapterRun(Chapter chapter, GameEngine engine, Random random, ChapterRunState state) {
+        this.chapter = chapter;
+        this.engine = engine;
+        this.random = random;
+        this.ticksPerSecond = engine.getRules().ticksPerSecond();
+        this.startTick = state.startTick();
+        creatures.addAll(state.creatures());
+        for (int index : state.firedTriggers()) fired.add(chapter.triggers().get(index));
+        seenTypes.addAll(state.seenTypes());
+        pendingLines.addAll(state.pendingLines());
+        kills = state.kills();
+        bossSeen = state.bossSeen();
+        outcome = state.outcome();
+    }
+
+    public static ChapterRun rebuild(Chapter chapter, GameEngine engine, Random random, ChapterRunState state) {
+        return new ChapterRun(chapter, engine, random, state);
+    }
+
+    /** The chapter's progress. Sets become sorted lists, so equal progress captures equal. */
+    public ChapterRunState capture() {
+        List<Integer> firedTriggers = new ArrayList<>();
+        List<Trigger> triggers = chapter.triggers();
+        for (int i = 0; i < triggers.size(); i++) {
+            if (fired.contains(triggers.get(i))) firedTriggers.add(i);
+        }
+        return new ChapterRunState(startTick, creatures.stream().sorted().toList(), List.copyOf(firedTriggers),
+                seenTypes.stream().sorted().toList(), List.copyOf(pendingLines), kills, bossSeen, outcome);
+    }
+
     /** Fixed placements go down first, so scattered creatures never take a boss's tile. */
     private void placeAll(List<Spawn> spawns) {
         for (Spawn spawn : spawns) placeFixed(spawn);
