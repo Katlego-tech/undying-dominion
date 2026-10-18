@@ -16,6 +16,8 @@ public class ServerOptions {
     private boolean dashboard = true;
     private String campaignFolder;
     private String database = DEFAULT_DB;
+    private String resume;
+    private boolean mapGiven;
 
     /** Options built in code rather than read from the command line. */
     public static ServerOptions of(int port, int maxPlayers, String mapLocation, Long seed, boolean wildCreatures) {
@@ -37,14 +39,21 @@ public class ServerOptions {
             switch (flag) {
                 case "-p", "--port" -> options.port = range(value(args, ++i, flag), flag, 0, 65535);
                 case "-mc", "--max-clients" -> options.maxPlayers = range(value(args, ++i, flag), flag, 1, 64);
-                case "-m", "--map" -> options.mapLocation = value(args, ++i, flag);
+                case "-m", "--map" -> {
+                    options.mapLocation = value(args, ++i, flag);
+                    options.mapGiven = true;
+                }
                 case "--seed" -> options.seed = parseLong(value(args, ++i, flag), flag);
                 case "--no-wild" -> options.wildCreatures = false;
                 case "--plain" -> options.dashboard = false;
                 case "--campaign" -> options.campaignFolder = value(args, ++i, flag);
                 case "--db" -> options.database = value(args, ++i, flag);
+                case "--resume" -> options.resume = value(args, ++i, flag);
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
+        }
+        if (options.resume != null && (options.campaignFolder != null || options.mapGiven)) {
+            throw new IllegalArgumentException("--resume takes its world from the save; drop --campaign and --map");
         }
         return options;
     }
@@ -84,6 +93,8 @@ public class ServerOptions {
     public boolean wildCreatures(){ return wildCreatures; }
     /** A folder holding campaign.json, to play its story instead of a free-for-all. Null if none. */
     public String campaignFolder() { return campaignFolder; }
+    /** The name of a saved game to carry on from instead of starting a fresh world. Null if none. */
+    public String resume()        { return resume; }
     /** The SQLite file saves are kept in. Relative paths are from the working directory. */
     public String database()      { return database; }
     /** Whether to run the full-screen terminal dashboard. Ignored when there is no interactive terminal. */

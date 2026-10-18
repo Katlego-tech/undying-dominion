@@ -16,7 +16,8 @@ public class Main {
             options = ServerOptions.parse(args);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            System.err.println("Usage: [-p port] [-m map.properties | --campaign folder] [-mc max-players] [--seed n] [--no-wild] [--plain]");
+            System.err.println("Usage: [-p port] [-m map.properties | --campaign folder | --resume save] [--db saves.db]"
+                    + " [-mc max-players] [--seed n] [--no-wild] [--plain]");
             System.exit(2);
             return;
         }
@@ -26,7 +27,14 @@ public class Main {
             return;
         }
 
-        Dominion dominion = Dominion.raise(options);
+        Dominion dominion;
+        try {
+            dominion = Dominion.raise(options);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(2);
+            return;
+        }
         System.out.printf("* Raising the Dominion.. [map: %d x %d, obstacles: %d, max players: %d]%n",
                 dominion.map().getWidth(), dominion.map().getHeight(), dominion.map().getObstacles().size(),
                 options.maxPlayers());

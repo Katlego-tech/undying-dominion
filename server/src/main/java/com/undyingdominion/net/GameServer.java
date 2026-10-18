@@ -66,6 +66,10 @@ public class GameServer {
     private volatile JSONObject pause;
     private static final int HOST = -1;
     private volatile SaveHandler saveHandler;
+    /** A resumed game's player, kept for the first join. The world is held until then. Guarded by {@link #names}. */
+    private Integer heldSeatId;
+    private String heldSeatName;
+    private volatile boolean held;
 
     /** What to do when a player asks to save. Called on the game loop thread. */
     @FunctionalInterface
@@ -128,6 +132,19 @@ public class GameServer {
     /** The world currently being played. Changes when a campaign moves on to its next chapter. */
     public GameEngine engine() {
         return engine;
+    }
+
+    /**
+     * Keeps a resumed game's player for whoever joins first, and holds the world still until then. On
+     * that join they become the saved player, name and all, and the world waits for them to resume it.
+     * Call before {@link #start}.
+     */
+    public void holdSeat(int playerId, String name) {
+        synchronized (names) {
+            heldSeatId = playerId;
+            heldSeatName = name;
+        }
+        held = true;
     }
 
     /** Who answers players' save requests. Without one, save is an unsupported command. */
@@ -270,13 +287,29 @@ public class GameServer {
 
     private void join(ClientConnection connection, String requestedName) throws ProtocolException {
         String name = ProtocolParser.validName(requestedName);
-        String key = name.toLowerCase();
+        Integer seat = null;
         synchronized (names) {
+            if (heldSeatId != null) {
+                seat = heldSeatId;
+                name = heldSeatName;
+                heldSeatId = null;
+                heldSeatName = null;
+            }
+            String key = name.toLowerCase();
             if (names.containsKey(key)) throw new ProtocolException("Too many of you in this world");
             if (names.size() >= maxPlayers) throw new ProtocolException("No more space in this world");
             names.put(key, connection);
         }
-        int playerId = engine.allocatePlayerId();
+        if (seat != null) {
+            int id = seat;
+            String seatName = name;
+            // The hold becomes the player's own pause in one step, so no tick slips in between.
+            runOnLoop(() -> {
+                pause(id, seatName);
+                held = false;
+            });
+        }
+        int playerId = seat != null ? seat : engine.allocatePlayerId();
         connection.joined(playerId, name);
         // Queued before the engine hears of the player, so the welcome always precedes the first state.
         connection.send(SnapshotWriter.welcome(playerId, name, engine.getMap(), engine.getRules()));
@@ -359,6 +392,9 @@ public class GameServer {
     }
 
     private JSONObject currentPause() {
+        if (held) {
+            return new JSONObject().put("by", JSONObject.NULL).put("reason", "resume");
+        }
         if (pausedBy != null) {
             return new JSONObject().put("by", pausedByName).put("reason", pausedBy == HOST ? "host" : "player");
         }

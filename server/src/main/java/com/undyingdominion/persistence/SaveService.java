@@ -1,12 +1,15 @@
 package com.undyingdominion.persistence;
 
 import com.undyingdominion.net.GameServer;
+import com.undyingdominion.story.Campaign;
 import com.undyingdominion.story.StoryDirector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
@@ -71,6 +74,39 @@ public final class SaveService {
             String message = outcome;
             server.runOnLoop(() -> reply.accept(message));
         });
+    }
+
+    /** A save that passed every check, and the director rebuilt from it. */
+    public record Resumed(SaveGame save, StoryDirector director) {}
+
+    /**
+     * Startup: reads the save and checks it can still be played. Every refusal is an
+     * IllegalArgumentException carrying the message the host sees, before the port is opened.
+     */
+    public static Resumed resume(SaveDao dao, String name) {
+        SaveGame save;
+        try {
+            save = dao.read(name).orElseThrow(() -> new IllegalArgumentException("No save called \"" + name + "\""));
+        } catch (SaveFormatException e) {
+            throw new IllegalArgumentException("This save was made by an older version of the game and can't be resumed", e);
+        }
+
+        Path folder = Path.of(save.campaignFolder());
+        if (!Files.isRegularFile(folder.resolve("campaign.json"))) {
+            throw new IllegalArgumentException("The campaign for this save is no longer at " + folder);
+        }
+        Campaign campaign;
+        String now;
+        try {
+            campaign = Campaign.load(folder);
+            now = CampaignFingerprint.of(campaign);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalArgumentException("The campaign has changed since this save was made", e);
+        }
+        if (!now.equals(save.fingerprint())) {
+            throw new IllegalArgumentException("The campaign has changed since this save was made");
+        }
+        return new Resumed(save, StoryDirector.resume(campaign, RandomState.restore(save.random()), save.story(), save.engine()));
     }
 
     public List<SaveSummary> list() {
