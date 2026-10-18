@@ -73,7 +73,7 @@ public final class ServerTui {
 
         AtomicReference<Boolean> running = new AtomicReference<>(true);
         AdminConsole console = new AdminConsole(server, InputStream.nullInputStream(), captured,
-                () -> running.set(false)).withStory(dominion.story());
+                () -> running.set(false)).withStory(dominion.story()).withSaves(dominion.saves());
         String lanUrl = lanAddress() == null ? null : "http://" + lanAddress() + ":" + port;
 
         Dashboard[] holder = new Dashboard[1];

@@ -1,5 +1,6 @@
 package com.undyingdominion.story;
 
+import com.undyingdominion.game.EngineState;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameRules;
 import com.undyingdominion.net.GameServer;
@@ -33,14 +34,38 @@ public class StoryDirector {
     private ChapterRun run;
     private long moveOnAtTick = -1;
     private int moveOnTo;
+    /** The engine rebuilt from a save, handed out by {@link #firstEngine()} instead of a fresh one. */
+    private GameEngine resumed;
 
     public StoryDirector(Campaign campaign, Random random) {
         this.campaign = campaign;
         this.random = random;
     }
 
-    /** The engine for the first chapter, before any server exists. */
+    /** A campaign carrying on from a save, in the chapter it was saved in. */
+    public static StoryDirector resume(Campaign campaign, Random random, StoryState story, EngineState engine) {
+        StoryDirector director = new StoryDirector(campaign, random);
+        Chapter chapter = campaign.chapters().get(story.chapterIndex());
+        try {
+            director.resumed = GameEngine.rebuild(campaign.loadMap(chapter), rulesFor(chapter), random, engine);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        director.index = story.chapterIndex();
+        director.moveOnAtTick = story.moveOnAtTick();
+        director.moveOnTo = story.moveOnTo();
+        director.run = ChapterRun.rebuild(chapter, director.resumed, random, story.run());
+        return director;
+    }
+
+    /** Where the campaign has got to. Loop thread only, once attached. */
+    public StoryState capture() {
+        return new StoryState(index, moveOnAtTick, moveOnTo, run.capture());
+    }
+
+    /** The engine for the first chapter, before any server exists; or, after {@link #resume}, the rebuilt one. */
     public GameEngine firstEngine() {
+        if (resumed != null) return resumed;
         GameEngine engine = engineFor(0);
         run = new ChapterRun(campaign.chapters().get(0), engine, random);
         return engine;
@@ -56,6 +81,9 @@ public class StoryDirector {
     }
 
     public Campaign campaign() { return campaign; }
+
+    /** The generator shared with every chapter's engine, so a save can carry its exact state. */
+    public Random random() { return random; }
 
     /** How long the victory screen stays up before the next chapter. Ten seconds unless changed. */
     public StoryDirector secondsBetweenChapters(int seconds) {
@@ -115,12 +143,15 @@ public class StoryDirector {
 
     private GameEngine engineFor(int chapterIndex) {
         Chapter chapter = campaign.chapters().get(chapterIndex);
-        GameRules rules = GameRules.defaults().maxNeutrals(0).startingSoul(chapter.startingSoul());
         try {
-            return new GameEngine(campaign.loadMap(chapter), rules, random);
+            return new GameEngine(campaign.loadMap(chapter), rulesFor(chapter), random);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static GameRules rulesFor(Chapter chapter) {
+        return GameRules.defaults().maxNeutrals(0).startingSoul(chapter.startingSoul());
     }
 
     private void publishStatus() {

@@ -776,6 +776,40 @@ public class GameEngine {
         return false;
     }
 
+    // ------------------------------------------------------------------ saving
+
+    /** Everything needed to rebuild this world, between ticks. Loop thread only. */
+    public EngineState capture() {
+        return new EngineState(tick, nextPlayerId.get(), nextUnitId, nextCorpseId, nextTrapId,
+                startArea == null ? null : List.of(startArea[0], startArea[1], startArea[2], startArea[3]),
+                players.values().stream().map(Player::capture).toList(),
+                units.values().stream().map(Unit::capture).toList(),
+                List.copyOf(corpses.values()),
+                List.copyOf(traps.values()));
+    }
+
+    /** A world carrying on from a capture, on the map and rules it was captured with. */
+    public static GameEngine rebuild(GameMap map, GameRules rules, Random random, EngineState state) {
+        GameEngine engine = new GameEngine(map, rules, random);
+        engine.tick = state.tick();
+        engine.nextPlayerId.set(state.nextPlayerId());
+        engine.nextUnitId = state.nextUnitId();
+        engine.nextCorpseId = state.nextCorpseId();
+        engine.nextTrapId = state.nextTrapId();
+        List<Integer> area = state.startArea();
+        if (area != null) engine.startArea = new int[]{area.get(0), area.get(1), area.get(2), area.get(3)};
+        for (PlayerState player : state.players()) engine.players.put(player.id(), Player.restore(player));
+        // Placed in the order they were created, as addUnit and stepTo would have filled the occupancy.
+        for (UnitState saved : state.units()) {
+            Unit unit = Unit.restore(saved);
+            engine.units.put(unit.getId(), unit);
+            engine.occupancy.put(unit.getPosition(), unit);
+        }
+        for (Corpse corpse : state.corpses()) engine.corpses.put(corpse.id(), corpse);
+        for (Trap trap : state.traps()) engine.traps.put(trap.position(), trap);
+        return engine;
+    }
+
     // ------------------------------------------------------------------ read access for snapshots and tests
 
     public long getTick()                 { return tick; }

@@ -81,6 +81,11 @@ export function togglePause() {
   else if (game.paused.reason !== 'story') game.send({ command: 'resume' });
 }
 
+/** Saves a solo campaign under a name; with force, replaces a save of that name. */
+export function saveGame(name, force) {
+  game.send({ command: 'save', name, force });
+}
+
 export function fuse() {
   const units = selectedUnits().filter((u) => u.type === 'SKELETON_WARRIOR').map((u) => u.id);
   if (units.length < game.rules.fuseCount) {

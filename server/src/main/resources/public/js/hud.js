@@ -186,6 +186,8 @@ function showPause() {
   const shown = !!paused && paused.reason !== 'story';
   $('paused').hidden = !shown;
   document.body.classList.toggle('paused', shown);
+  // The server only lets a lone player in a campaign save, so the form only shows then.
+  $('save-form').hidden = !shown || !game.story || game.players.length !== 1;
   if (!shown) return;
   $('paused-by').textContent = paused.reason === 'host'
     ? 'The keeper of the Dominion has stopped the world.'
@@ -196,6 +198,29 @@ function showPause() {
 export function initPause() {
   $('pause-button').addEventListener('click', cmd.togglePause);
   $('resume-button').addEventListener('click', cmd.togglePause);
+  $('save-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('save-replace').hidden = true;
+    cmd.saveGame($('save-name').value, false);
+  });
+  $('save-replace').addEventListener('click', () => {
+    $('save-replace').hidden = true;
+    cmd.saveGame($('save-name').value, true);
+  });
+}
+
+/** The server's replies to a save, word for word (docs/design/persistence.md §6). */
+const SAVE_REPLIES = ['Saved "', 'A save called "', 'Saving only works', 'Save names are', 'The save could not'];
+
+/** Shows a save reply under the form too, since the pause screen covers the notices. */
+export function saveReply(text) {
+  if (!SAVE_REPLIES.some((start) => text.startsWith(start))) return;
+  const taken = text.startsWith('A save called "');
+  const status = $('save-status');
+  // The Replace button is the way to force it, so only the first sentence is needed here.
+  status.textContent = taken ? text.slice(0, text.indexOf('. ') + 1) : text;
+  status.classList.toggle('refused', !text.startsWith('Saved "'));
+  $('save-replace').hidden = !taken;
 }
 
 // ---------------------------------------------------------------- the story

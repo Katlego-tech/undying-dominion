@@ -162,6 +162,36 @@ public class Unit {
 
     public Deque<Position> path() { return path; }
 
+    // --- Saving ---
+
+    public UnitState capture() {
+        return new UnitState(id, type.name(), ownerId, raised, position, facingX, facingY, hp, order, destination,
+                targetId, autoTarget, modeEndsTick, List.copyOf(path), pathGoal, pathComputedTick, blockedTicks,
+                moveReadyTick, attackReadyTick, nextWanderTick, lastHitByOwner, hasBeenHit);
+    }
+
+    static Unit restore(UnitState state) {
+        Unit unit = new Unit(state.id(), UnitType.valueOf(state.type()), state.ownerId(), state.position(), state.raised());
+        unit.facingX = state.facingX();
+        unit.facingY = state.facingY();
+        unit.hp = state.hp();
+        unit.order = state.order();
+        unit.destination = state.destination();
+        unit.targetId = state.targetId();
+        unit.autoTarget = state.autoTarget();
+        unit.modeEndsTick = state.modeEndsTick();
+        unit.path.addAll(state.path());
+        unit.pathGoal = state.pathGoal();
+        unit.pathComputedTick = state.pathComputedTick();
+        unit.blockedTicks = state.blockedTicks();
+        unit.moveReadyTick = state.moveReadyTick();
+        unit.attackReadyTick = state.attackReadyTick();
+        unit.nextWanderTick = state.nextWanderTick();
+        unit.lastHitByOwner = state.lastHitByOwner();
+        unit.hasBeenHit = state.hasBeenHit();
+        return unit;
+    }
+
     // --- Accessors ---
 
     public int getId()              { return id; }
