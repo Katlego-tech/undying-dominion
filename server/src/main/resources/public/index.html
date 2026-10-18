@@ -81,6 +81,16 @@
       <p id="paused-by"></p>
       <button type="button" id="resume-button">Resume</button>
       <p class="paused-hint">or press <kbd>P</kbd></p>
+      <form class="save-form" id="save-form" autocomplete="off" hidden>
+        <label for="save-name">Save this game as</label>
+        <div class="save-row">
+          <input id="save-name" name="save-name" maxlength="32" pattern="[A-Za-z0-9_\-]{1,32}"
+                 title="1 to 32 letters, digits, - or _" placeholder="barrow-1" spellcheck="false" required>
+          <button type="submit" id="save-button">Save</button>
+        </div>
+        <button type="button" class="save-replace" id="save-replace" hidden>Replace the old save</button>
+        <p class="save-status" id="save-status" aria-live="polite"></p>
+      </form>
     </div>
   </div>
 

@@ -2,7 +2,7 @@ import { game, loadMap, renderPos, myNecromancer, resetWorld } from './state.js'
 import { createRenderer, TILE } from './render.js';
 import { createInput } from './input.js';
 import {
-  initHud, updateHud, notice, showStory, initStory, initPause,
+  initHud, updateHud, notice, saveReply, showStory, initStory, initPause,
 } from './hud.js';
 
 const $ = (id) => document.getElementById(id);
@@ -174,7 +174,10 @@ function applyState(message, now) {
   }
   if (game.effects.length > 400) game.effects.splice(0, game.effects.length - 400);
 
-  for (const text of message.you.notices) notice(text);
+  for (const text of message.you.notices) {
+    notice(text);
+    saveReply(text);
+  }
 
   // Find the necromancer on joining, and again each time it rises from death somewhere new.
   const necromancer = myNecromancer();

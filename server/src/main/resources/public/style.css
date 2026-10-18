@@ -332,11 +332,50 @@ kbd {
 #paused h2 { color: var(--bone); text-shadow: 0 0 24px rgba(167, 139, 250, 0.35); }
 .fallen-box .paused-hint { color: var(--bone-faint); }
 
+/* Saving sits under Resume as a quiet second job: outlined, so Resume stays the one lit button. */
+.save-form {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--panel-edge);
+  text-align: left;
+}
+.save-form label { display: block; margin-bottom: 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-dim); }
+.save-row { display: flex; gap: 8px; }
+#save-name {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 226, 208, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+}
+#save-name:focus { border-color: var(--soul); box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18); }
+#paused .save-form button {
+  width: auto;
+  margin: 0;
+  padding: 9px 16px;
+  border: 1px solid var(--soul-deep);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--soul);
+  font: 600 13px var(--ui);
+  letter-spacing: 0.02em;
+}
+#paused .save-form button:hover { border-color: var(--soul); }
+#paused .save-form button:focus-visible { outline: 2px solid var(--soul); outline-offset: 2px; }
+#paused .save-form .save-replace { margin-top: 8px; width: 100%; border-color: rgba(251, 191, 36, 0.4); color: var(--gold); }
+#paused .save-form .save-replace:hover { border-color: var(--gold); }
+.save-status { min-height: 18px; margin: 8px 0 0; font-size: 13px; color: var(--bone-dim); }
+.save-status.refused { color: var(--blood); }
+
 @media (max-width: 900px) {
   .scores { display: none; }
   .soul { left: auto; right: 16px; transform: none; width: auto; min-width: 0; }
   .command { left: 16px; right: 16px; transform: none; max-width: none; min-width: 0; bottom: 152px; }
   .notices { bottom: 300px; }
+  /* On a narrow screen the HUD crowds the middle, so the pause card brings its own panel. */
+  #paused .fallen-box { padding: 20px 16px; border: 1px solid var(--panel-edge); border-radius: var(--radius); background: var(--panel); backdrop-filter: blur(6px); }
 }
 
 /* ---------------------------------------------------------------- campaign */
