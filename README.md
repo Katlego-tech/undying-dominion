@@ -8,7 +8,7 @@ One authoritative Java server runs the world at 10 ticks a second and speaks JSO
 The browser client is plain JavaScript on a canvas, with no build step. Anything that speaks the
 protocol can play, including bots.
 
-> Early vertical slice. The core loop is playable; art, balance and persistence are still to come.
+> Early vertical slice. The core loop is playable and solo campaigns can be saved; art and balance are still to come.
 
 ## Quick start
 
@@ -37,6 +37,8 @@ Run it from the `server/` directory and the client is served straight from
 | | `--no-wild` | off | No wild creatures |
 | | `--plain` | off | Plain line console instead of the dashboard |
 | | `--campaign` | none | Play a story campaign from a folder instead of a free-for-all (see Campaigns) |
+| | `--resume` | none | Carry on from a saved game instead (see Saving). Takes its campaign from the save, so it can't be combined with `--campaign` or `--map` |
+| | `--db` | `undying-dominion.db` | The SQLite file saved games are kept in |
 
 ## How to play
 
@@ -110,7 +112,7 @@ Started in a terminal, the server takes over the window with a live dashboard:
 | `↑` `↓` | Select a necromancer |
 | `p` | Purge the selected necromancer (asks to confirm): their legion crumbles and they are disconnected |
 | `o` | Open the game in your browser |
-| `:` | Type a console command: `players`, `dump`, `pause`, `resume`, `purge <name>`, `help` |
+| `:` | Type a console command: `players`, `dump`, `pause`, `resume`, `purge <name>`, `chapter <n>`, `save <name>`, `save --force <name>`, `saves`, `help` |
 | `q` | Close the Dominion (asks to confirm) |
 
 The dashboard needs a terminal of at least 94 x 26. When output isn't an interactive terminal (piped,
@@ -141,11 +143,16 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "pause" }
 { "command": "resume" }
 { "command": "reading", "open": true }
+{ "command": "save", "name": "crypt", "force": false }
 ```
 
 Any player can `pause` the world for everyone, and any player can `resume` it. A pause also lifts
 when the player who paused leaves. `reading` reports a story card opening and closing. A lone
 player reading pauses the world until the card is closed, but with others in the game it runs on.
+`save` saves a solo campaign (see Saving). The reply comes back as a notice in `you.notices`:
+`Saved "crypt": chapter 2, The Hall.`, or a refusal such as `Saving only works in a story campaign`,
+`Saving only works with one player in the world`, `Save names are 1 to 32 letters, digits, - or _`
+or `A save called "crypt" already exists. Save again with force to replace it`.
 
 The server sends three kinds of message:
 
@@ -225,6 +232,22 @@ The folder holds a `campaign.json` and the map files it names:
 - **Spawns** are scattered across an `area` (kept clear of the start) or placed `at` exact tiles.
   Loading fails on a creature placed inside a wall, so mistakes surface before anyone plays.
 
+## Saving
+
+A campaign played alone can be saved and carried on later. A save holds the whole game: the chapter
+and its progress, every unit, corpse and trap, your soul, level and record, and the world's random
+state, so it plays on exactly as it would have. A free-for-all can't be saved, and neither can a
+campaign with more than one player in it.
+
+- **Save** from the pause screen: press `P`, type a name (1 to 32 letters, digits, `-` or `_`) and
+  choose **Save**. If that name is taken, **Replace the old save** overwrites it. The host can also
+  type `save <name>` (or `save --force <name>`) at the console, and `saves` lists every save.
+- **Resume** by starting the server with `--resume <name>`, and the same `--db` if you changed it.
+  Whoever joins first becomes the saved necromancer, name and all, and the world waits, paused,
+  until they press `P`.
+- A save made against a campaign whose files have since changed is refused, because its creatures
+  and maps no longer line up.
+
 ## Drawing maps
 
 The jar can draw any map, or every chapter of a campaign with its start and creatures marked, to PNG:
@@ -254,6 +277,7 @@ server/src/main/java/com/undyingdominion/
 ├── game/       the simulation: engine, units, players, commands, fog of war
 ├── net/        Javalin server, WebSocket protocol, snapshots, admin console
 ├── story/      campaigns: chapters, triggers, objectives, the director that runs them
+├── persistence/ saving and resuming: the save document, its JSON, the SQLite DAO
 ├── tools/      the map renderer
 └── tui/        the terminal dashboard (Lanterna)
 server/src/main/resources/
