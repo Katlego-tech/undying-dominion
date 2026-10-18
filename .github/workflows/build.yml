@@ -1,7 +1,9 @@
 name: Build
 
-# Builds the server and runs every test, including the acceptance tests that start real
-# servers and play over real WebSockets, on every push and on pull requests into main.
+# Runs scripts/gate.sh, the same gate the pre-push hook runs: the build and every test (including
+# the acceptance tests that start real servers and play over real WebSockets), the placeholder and
+# secret sweeps, the dependency vulnerability scan and the duplication check. Every check lives in
+# the gate, never here, so this file only installs the tools the gate needs.
 
 on:
   push:
@@ -16,13 +18,14 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  OSV_SCANNER_VERSION: v2.5.1
+  OSV_SCANNER_SHA256: f9f25499a2c8cc367b3af45df2ea7eeca7fbccceab9c35079968f4b3652194be
+
 jobs:
-  verify:
+  gate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: server
     steps:
       # Actions are pinned to a commit, so an upstream release can't change the build.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -31,5 +34,18 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Build and test
-        run: mvn -B verify
+      # The release binary is checked against its published checksum before it runs.
+      - name: Install osv-scanner
+        run: |
+          mkdir -p "$RUNNER_TOOL_CACHE/osv-scanner"
+          bin="$RUNNER_TOOL_CACHE/osv-scanner/osv-scanner"
+          curl -fsSL -o "$bin" \
+            "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
+          chmod +x "$bin"
+          echo "$RUNNER_TOOL_CACHE/osv-scanner" >> "$GITHUB_PATH"
+      # Node (for the duplication check's npx) comes with the runner image.
+      - name: Install dependencies
+        run: bash scripts/gate.sh --install-deps
+      - name: Gate
+        run: bash scripts/gate.sh
