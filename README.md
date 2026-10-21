@@ -312,7 +312,7 @@ campaign with more than one player in it.
 - **Autosave:** every time a chapter begins (won, lost and started again, or jumped to), a solo
   campaign is saved as `autosave`, replacing the last one. You'll see `Autosaved: chapter 4, The Trial
   Tower.` A lost fight or a dropped connection never costs more than the current chapter: resume
-  it with `--resume autosave`. A save you name yourself is never touched by it.
+  it with `--resume autosave`. The name is reserved, so a save you name yourself is never replaced by it.
 - **Resume** by starting the server with `--resume <name>`, and the same `--db` if you changed it.
   Whoever joins first becomes the saved necromancer, name and all, and the world waits, paused,
   until they press `P`.

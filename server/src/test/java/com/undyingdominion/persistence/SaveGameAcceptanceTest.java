@@ -115,6 +115,15 @@ class SaveGameAcceptanceTest {
     }
 
     @Test
+    void theAutosaveNameIsReservedForTheAutosave() throws Exception {
+        dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
+        TestSocket vesper = join("Vesper");
+        vesper.send("{\"command\":\"save\",\"name\":\"autosave\"}");
+        vesper.awaitNotice("That name is kept for the autosave. Choose another");
+        assertTrue(dominion.saves().list().isEmpty());
+    }
+
+    @Test
     void thereIsNoAutosaveWithTwoPlayers() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
         TestSocket vesper = join("Vesper");

@@ -150,7 +150,8 @@ public class StoryDirector {
     /**
      * Calls {@code listener} with the chapter's number each time a chapter begins after the first:
      * one won and moved on from, one lost and started again, or one the host jumped to. Game loop
-     * thread. The players are joined into the new world by the end of the next step, not yet.
+     * thread. The players' joins into the new world are queued, not applied: they land with the next
+     * tick or admit, which is why the autosave waits for {@code runAfterStep}.
      */
     public void onChapterBegins(IntConsumer listener) {
         chapterListeners.add(listener);
