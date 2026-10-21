@@ -1,0 +1,1439 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Undying Dominion",
+    "version": "0.1.0",
+    "description": "The WebSocket protocol of an Undying Dominion server. Every message is one JSON object. A client sends commands, each naming a `command`; the server sends `welcome`, `state` every tick (10 Hz), `story` in a campaign, and `error`. Join first (or rejoin), then play. The server is authoritative: commands are requests, and the next state shows what happened. Served by every server at `/asyncapi.json`."
+  },
+  "servers": {
+    "local": {
+      "host": "localhost:5000",
+      "protocol": "ws",
+      "pathname": "/ws",
+      "description": "A server started with java -jar."
+    },
+    "docker": {
+      "host": "localhost:5050",
+      "protocol": "ws",
+      "pathname": "/ws",
+      "description": "The Docker image."
+    }
+  },
+  "channels": {
+    "dominion": {
+      "address": "/ws",
+      "messages": {
+        "join": {
+          "$ref": "#/components/messages/join"
+        },
+        "rejoin": {
+          "$ref": "#/components/messages/rejoin"
+        },
+        "summon": {
+          "$ref": "#/components/messages/summon"
+        },
+        "move": {
+          "$ref": "#/components/messages/move"
+        },
+        "attack": {
+          "$ref": "#/components/messages/attack"
+        },
+        "stop": {
+          "$ref": "#/components/messages/stop"
+        },
+        "raise": {
+          "$ref": "#/components/messages/raise"
+        },
+        "explode": {
+          "$ref": "#/components/messages/explode"
+        },
+        "fuse": {
+          "$ref": "#/components/messages/fuse"
+        },
+        "mend": {
+          "$ref": "#/components/messages/mend"
+        },
+        "trap": {
+          "$ref": "#/components/messages/trap"
+        },
+        "pause": {
+          "$ref": "#/components/messages/pause"
+        },
+        "resume": {
+          "$ref": "#/components/messages/resume"
+        },
+        "reading": {
+          "$ref": "#/components/messages/reading"
+        },
+        "save": {
+          "$ref": "#/components/messages/save"
+        },
+        "welcome": {
+          "$ref": "#/components/messages/welcome"
+        },
+        "state": {
+          "$ref": "#/components/messages/state"
+        },
+        "story": {
+          "$ref": "#/components/messages/story"
+        },
+        "error": {
+          "$ref": "#/components/messages/error"
+        }
+      }
+    }
+  },
+  "operations": {
+    "sendJoin": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/join"
+        }
+      ]
+    },
+    "sendRejoin": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/rejoin"
+        }
+      ]
+    },
+    "sendSummon": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/summon"
+        }
+      ]
+    },
+    "sendMove": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/move"
+        }
+      ]
+    },
+    "sendAttack": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/attack"
+        }
+      ]
+    },
+    "sendStop": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/stop"
+        }
+      ]
+    },
+    "sendRaise": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/raise"
+        }
+      ]
+    },
+    "sendExplode": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/explode"
+        }
+      ]
+    },
+    "sendFuse": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/fuse"
+        }
+      ]
+    },
+    "sendMend": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/mend"
+        }
+      ]
+    },
+    "sendTrap": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/trap"
+        }
+      ]
+    },
+    "sendPause": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/pause"
+        }
+      ]
+    },
+    "sendResume": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/resume"
+        }
+      ]
+    },
+    "sendReading": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/reading"
+        }
+      ]
+    },
+    "sendSave": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/save"
+        }
+      ]
+    },
+    "receiveWelcome": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/welcome"
+        }
+      ]
+    },
+    "receiveState": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/state"
+        }
+      ]
+    },
+    "receiveStory": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/story"
+        }
+      ]
+    },
+    "receiveError": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/error"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "join": {
+        "name": "join",
+        "summary": "Take a place in the world. Accepted only on a socket that hasn't joined.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "join"
+            },
+            "name": {
+              "type": "string",
+              "description": "1 to 16 letters, digits, spaces, _ or -."
+            }
+          },
+          "required": [
+            "command",
+            "name"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "join",
+              "name": "Vesper"
+            }
+          }
+        ]
+      },
+      "rejoin": {
+        "name": "rejoin",
+        "summary": "Take back your place after a dropped connection, with the token from your last welcome. Accepted only on a socket that hasn't joined.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "rejoin"
+            },
+            "token": {
+              "type": "string",
+              "description": "22 characters, URL-safe Base64."
+            }
+          },
+          "required": [
+            "command",
+            "token"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "rejoin",
+              "token": "q3V9cX0bTqKk1yH6m2wJ8A"
+            }
+          }
+        ]
+      },
+      "summon": {
+        "name": "summon",
+        "summary": "Summon a unit beside your necromancer, paying its summonCost in soul.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "summon"
+            },
+            "unit": {
+              "type": "string",
+              "description": "A unit type with summonCost >= 0, e.g. SKELETON_WARRIOR."
+            }
+          },
+          "required": [
+            "command",
+            "unit"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "summon",
+              "unit": "SKELETON_WARRIOR"
+            }
+          }
+        ]
+      },
+      "move": {
+        "name": "move",
+        "summary": "March units to a tile. With attackMove they fight whatever they meet on the way.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "move"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            },
+            "x": {
+              "type": "integer"
+            },
+            "y": {
+              "type": "integer"
+            },
+            "attackMove": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "command",
+            "units",
+            "x",
+            "y"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "move",
+              "units": [
+                4,
+                7
+              ],
+              "x": 20,
+              "y": 11,
+              "attackMove": true
+            }
+          }
+        ]
+      },
+      "attack": {
+        "name": "attack",
+        "summary": "Attack one unit.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "attack"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            },
+            "target": {
+              "type": "integer",
+              "description": "A unit id."
+            }
+          },
+          "required": [
+            "command",
+            "units",
+            "target"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "attack",
+              "units": [
+                4,
+                7
+              ],
+              "target": 31
+            }
+          }
+        ]
+      },
+      "stop": {
+        "name": "stop",
+        "summary": "Stop units where they stand.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "stop"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            }
+          },
+          "required": [
+            "command",
+            "units"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "stop",
+              "units": [
+                4
+              ]
+            }
+          }
+        ]
+      },
+      "raise": {
+        "name": "raise",
+        "summary": "Raise a corpse within raiseRange of your necromancer into your legion, paying its raiseCost.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "raise"
+            },
+            "corpse": {
+              "type": "integer",
+              "description": "A corpse id."
+            }
+          },
+          "required": [
+            "command",
+            "corpse"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "raise",
+              "corpse": 12
+            }
+          }
+        ]
+      },
+      "explode": {
+        "name": "explode",
+        "summary": "Corpse Explosion: blast a corpse within raiseRange, damaging everything within explodeRadius.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "explode"
+            },
+            "corpse": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command",
+            "corpse"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "explode",
+              "corpse": 12
+            }
+          }
+        ]
+      },
+      "fuse": {
+        "name": "fuse",
+        "summary": "Fuse fuseCount Skeleton Warriors standing within fuseRadius into a Skeleton King.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "fuse"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            }
+          },
+          "required": [
+            "command",
+            "units"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "fuse",
+              "units": [
+                4,
+                5,
+                6,
+                8,
+                9
+              ]
+            }
+          }
+        ]
+      },
+      "mend": {
+        "name": "mend",
+        "summary": "Mend units: rooted for mendTicks, then fully healed.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "mend"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            }
+          },
+          "required": [
+            "command",
+            "units"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "mend",
+              "units": [
+                4
+              ]
+            }
+          }
+        ]
+      },
+      "trap": {
+        "name": "trap",
+        "summary": "Grave Wardens lay a hidden trap where they stand, rooted for trapSetTicks.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "trap"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            }
+          },
+          "required": [
+            "command",
+            "units"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "trap",
+              "units": [
+                10
+              ]
+            }
+          }
+        ]
+      },
+      "pause": {
+        "name": "pause",
+        "summary": "Pause the world for everyone.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "pause"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "pause"
+            }
+          }
+        ]
+      },
+      "resume": {
+        "name": "resume",
+        "summary": "Set the world running again, however it was paused by hand.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "resume"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "resume"
+            }
+          }
+        ]
+      },
+      "reading": {
+        "name": "reading",
+        "summary": "A story card opened or closed. A lone reader pauses the world.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "reading"
+            },
+            "open": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "command",
+            "open"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "reading",
+              "open": true
+            }
+          }
+        ]
+      },
+      "save": {
+        "name": "save",
+        "summary": "Save a solo campaign. The reply comes back as a notice in you.notices.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "save"
+            },
+            "name": {
+              "type": "string",
+              "description": "1 to 32 letters, digits, - or _."
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Replace a save with this name."
+            }
+          },
+          "required": [
+            "command",
+            "name"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "save",
+              "name": "crypt",
+              "force": false
+            }
+          }
+        ]
+      },
+      "welcome": {
+        "name": "welcome",
+        "summary": "After a successful join or rejoin, and on every chapter change: everything about the world that doesn't change, and your token.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "welcome"
+            },
+            "playerId": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "token": {
+              "type": "string",
+              "description": "Your bearer secret for rejoin. The same for as long as you hold your place."
+            },
+            "tickRate": {
+              "type": "integer",
+              "description": "Ticks per second."
+            },
+            "map": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "integer"
+                },
+                "height": {
+                  "type": "integer"
+                },
+                "obstacles": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      },
+                      "x2": {
+                        "type": "integer"
+                      },
+                      "y2": {
+                        "type": "integer"
+                      },
+                      "terrain": {
+                        "type": "string",
+                        "enum": [
+                          "GROUND",
+                          "RUINS",
+                          "SWAMP",
+                          "ABYSS",
+                          "FOREST"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "description": "Tiles, with [0,0] at the top left. Everything not covered by an obstacle is GROUND."
+            },
+            "rules": {
+              "type": "object",
+              "properties": {
+                "raiseRange": {
+                  "type": "integer"
+                },
+                "fuseCount": {
+                  "type": "integer"
+                },
+                "fuseSoulCost": {
+                  "type": "integer"
+                },
+                "fuseRadius": {
+                  "type": "integer"
+                },
+                "mendTicks": {
+                  "type": "integer"
+                },
+                "trapSetTicks": {
+                  "type": "integer"
+                },
+                "trapDamage": {
+                  "type": "integer"
+                },
+                "explodeSoulCost": {
+                  "type": "integer"
+                },
+                "explodeRadius": {
+                  "type": "integer"
+                }
+              }
+            },
+            "unitTypes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "maxHp": {
+                    "type": "integer"
+                  },
+                  "damage": {
+                    "type": "integer"
+                  },
+                  "range": {
+                    "type": "integer"
+                  },
+                  "moveCooldown": {
+                    "type": "integer"
+                  },
+                  "visionRange": {
+                    "type": "integer"
+                  },
+                  "summonCost": {
+                    "type": "integer"
+                  },
+                  "raiseCost": {
+                    "type": "integer"
+                  },
+                  "level": {
+                    "type": "integer"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "neutral": {
+                    "type": "boolean"
+                  },
+                  "laysTraps": {
+                    "type": "boolean"
+                  },
+                  "boss": {
+                    "type": "boolean"
+                  },
+                  "stationary": {
+                    "type": "boolean"
+                  },
+                  "look": {
+                    "type": "string",
+                    "description": "How the client draws it, e.g. BEAST or UNDEAD."
+                  }
+                },
+                "description": "summonCost and raiseCost are -1 where the unit can't be summoned or raised."
+              }
+            }
+          },
+          "required": [
+            "type",
+            "playerId",
+            "name",
+            "token",
+            "tickRate",
+            "map",
+            "rules",
+            "unitTypes"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "welcome",
+              "playerId": 3,
+              "name": "Vesper",
+              "token": "q3V9cX0bTqKk1yH6m2wJ8A",
+              "tickRate": 10,
+              "map": {
+                "width": 48,
+                "height": 32,
+                "obstacles": [
+                  {
+                    "x1": 23,
+                    "y1": 6,
+                    "x2": 24,
+                    "y2": 13,
+                    "terrain": "ABYSS"
+                  }
+                ]
+              },
+              "rules": {
+                "raiseRange": 6,
+                "fuseCount": 5,
+                "fuseSoulCost": 40,
+                "fuseRadius": 3,
+                "mendTicks": 30,
+                "trapSetTicks": 30,
+                "trapDamage": 30,
+                "explodeSoulCost": 10,
+                "explodeRadius": 2
+              },
+              "unitTypes": {
+                "SKELETON_WARRIOR": {
+                  "label": "Skeleton Warrior",
+                  "maxHp": 60,
+                  "damage": 8,
+                  "range": 1,
+                  "moveCooldown": 3,
+                  "visionRange": 6,
+                  "summonCost": 20,
+                  "raiseCost": 15,
+                  "neutral": false,
+                  "laysTraps": false,
+                  "look": "UNDEAD",
+                  "level": 1,
+                  "boss": false,
+                  "stationary": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      "state": {
+        "name": "state",
+        "summary": "Every tick, your view of the world: only what your units can see. A client that falls behind skips stale states.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "state"
+            },
+            "tick": {
+              "type": "integer"
+            },
+            "you": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "soul": {
+                  "type": "integer"
+                },
+                "soulMax": {
+                  "type": "integer"
+                },
+                "level": {
+                  "type": "integer"
+                },
+                "xp": {
+                  "type": "integer"
+                },
+                "xpNext": {
+                  "type": "integer"
+                },
+                "legion": {
+                  "type": "integer"
+                },
+                "legionCap": {
+                  "type": "integer"
+                },
+                "necromancerId": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "null while fallen."
+                },
+                "respawnIn": {
+                  "type": "integer",
+                  "description": "Ticks until your necromancer rises again; 0 while standing."
+                },
+                "notices": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Messages for you since the last state, including replies to save."
+                }
+              }
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "owner": {
+                    "type": "integer",
+                    "description": "A player id, or 0 for wild creatures."
+                  },
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  },
+                  "hp": {
+                    "type": "integer"
+                  },
+                  "order": {
+                    "type": "string",
+                    "enum": [
+                      "IDLE",
+                      "MOVE",
+                      "ATTACK_MOVE",
+                      "ATTACK",
+                      "MEND",
+                      "SET_TRAP"
+                    ]
+                  },
+                  "raised": {
+                    "type": "boolean",
+                    "description": "Present and true for a unit raised from a corpse."
+                  },
+                  "modeEndsIn": {
+                    "type": "integer",
+                    "description": "Present while rooted mending or laying a trap: ticks left."
+                  }
+                }
+              }
+            },
+            "corpses": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  },
+                  "decaysIn": {
+                    "type": "integer",
+                    "description": "Ticks until it crumbles."
+                  }
+                }
+              }
+            },
+            "traps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "owner": {
+                    "type": "integer"
+                  },
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "ATTACK",
+                      "DEATH",
+                      "SUMMON",
+                      "RAISE",
+                      "FUSE",
+                      "MEND",
+                      "TRAP_SET",
+                      "TRAP_SPRUNG",
+                      "LEVEL_UP",
+                      "EXPLOSION"
+                    ]
+                  },
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  },
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  },
+                  "x2": {
+                    "type": "integer"
+                  },
+                  "y2": {
+                    "type": "integer"
+                  }
+                },
+                "description": "ATTACK: a hits b, from x,y to x2,y2. DEATH, SUMMON, RAISE, FUSE, MEND, TRAP_SET, TRAP_SPRUNG: unit a at x,y. LEVEL_UP: player a reached level b. EXPLOSION: player a, radius b, at x,y."
+              },
+              "description": "What happened this tick, where you could see it. Empty while paused."
+            },
+            "players": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "level": {
+                    "type": "integer"
+                  },
+                  "kills": {
+                    "type": "integer"
+                  },
+                  "deaths": {
+                    "type": "integer"
+                  },
+                  "alive": {
+                    "type": "boolean",
+                    "description": "Whether their necromancer is standing."
+                  },
+                  "away": {
+                    "type": "boolean",
+                    "description": "Their connection dropped and their place is held for them."
+                  }
+                }
+              },
+              "description": "The scoreboard."
+            },
+            "fog": {
+              "type": "string",
+              "description": "Base64 bitmask of visible tiles, one bit per tile, row by row, lowest bit first."
+            },
+            "story": {
+              "type": "object",
+              "properties": {
+                "campaign": {
+                  "type": "string"
+                },
+                "chapter": {
+                  "type": "integer"
+                },
+                "chapters": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "objective": {
+                  "type": "string"
+                },
+                "progress": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "PLAYING",
+                    "WON",
+                    "LOST"
+                  ]
+                }
+              },
+              "description": "Present in a campaign."
+            },
+            "paused": {
+              "type": "object",
+              "properties": {
+                "by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Who paused it, for player and host pauses."
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "player",
+                    "host",
+                    "story",
+                    "resume",
+                    "away"
+                  ]
+                }
+              },
+              "description": "Present while the world is stopped."
+            }
+          },
+          "required": [
+            "type",
+            "tick",
+            "you",
+            "units",
+            "corpses",
+            "traps",
+            "events",
+            "players",
+            "fog"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "state",
+              "tick": 120,
+              "you": {
+                "id": 3,
+                "soul": 64,
+                "soulMax": 100,
+                "level": 1,
+                "xp": 0,
+                "xpNext": 100,
+                "legion": 1,
+                "legionCap": 10,
+                "necromancerId": 9,
+                "respawnIn": 0,
+                "notices": []
+              },
+              "units": [
+                {
+                  "id": 9,
+                  "type": "NECROMANCER",
+                  "owner": 3,
+                  "x": 10,
+                  "y": 7,
+                  "hp": 220,
+                  "order": "IDLE"
+                }
+              ],
+              "corpses": [],
+              "traps": [],
+              "events": [],
+              "players": [
+                {
+                  "id": 3,
+                  "name": "Vesper",
+                  "color": "#a78bfa",
+                  "level": 1,
+                  "kills": 0,
+                  "deaths": 0,
+                  "alive": true,
+                  "away": false
+                }
+              ],
+              "fog": "AAAA"
+            }
+          }
+        ]
+      },
+      "story": {
+        "name": "story",
+        "summary": "In a campaign: a chapter's briefing, a line said mid-chapter, victory, defeat or the finale.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "story"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "briefing",
+                "say",
+                "victory",
+                "defeat",
+                "finale"
+              ]
+            },
+            "campaign": {
+              "type": "string"
+            },
+            "chapter": {
+              "type": "integer"
+            },
+            "chapters": {
+              "type": "integer"
+            },
+            "title": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "objective": {
+              "type": "string"
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "kind",
+            "lines"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "story",
+              "kind": "briefing",
+              "campaign": "A Trial Campaign",
+              "chapter": 1,
+              "chapters": 2,
+              "title": "The Yard",
+              "source": "A test",
+              "objective": "Defeat the warden",
+              "lines": [
+                "Clear the yard."
+              ]
+            }
+          }
+        ]
+      },
+      "error": {
+        "name": "error",
+        "summary": "A message that couldn't be acted on. The socket stays open unless the server closes it.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "message": {
+              "type": "string",
+              "examples": [
+                "Unsupported command",
+                "Could not parse arguments",
+                "Join the Dominion first",
+                "You have already joined",
+                "Too many of you in this world",
+                "No more space in this world",
+                "That session has ended. Join again",
+                "Names are 1 to 16 letters, digits, spaces, _ or -"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "error",
+              "message": "No more space in this world"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
