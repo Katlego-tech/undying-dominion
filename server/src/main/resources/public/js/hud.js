@@ -8,6 +8,12 @@ const MODE_HINTS = {
   raise: 'Raise the dead: click a corpse inside the dashed square. Shift-click to keep raising.',
   explode: 'Corpse Explosion: click a corpse inside the dashed square. Everything around it takes the blast.',
 };
+const TOUCH_MODE_HINTS = {
+  'attack-move': 'Attack-move: tap where to march. Tap here to cancel.',
+  raise: 'Raise the dead: tap a corpse inside the dashed square. Tap here to cancel.',
+  explode: 'Corpse Explosion: tap a corpse inside the dashed square. Tap here to cancel.',
+};
+const touch = () => document.body.classList.contains('touch');
 
 let summonOrder = [];
 let lastScoreboard = '';
@@ -118,7 +124,8 @@ export function updateHud() {
 
 function describeSelection(selected) {
   if (selected.length === 0) {
-    return myNecromancer() ? 'Nothing selected · <b>Q</b> selects your legion, <b>E</b> your necromancer' : 'Nothing selected';
+    if (!myNecromancer() || touch()) return 'Nothing selected';
+    return 'Nothing selected · <b>Q</b> selects your legion, <b>E</b> your necromancer';
   }
   if (selected.length === 1) {
     const u = selected[0];
@@ -175,7 +182,7 @@ export function notice(text) {
 export function showModeHint(mode) {
   const hint = $('mode-hint');
   hint.hidden = !mode;
-  hint.textContent = MODE_HINTS[mode] ?? '';
+  hint.textContent = (touch() ? TOUCH_MODE_HINTS : MODE_HINTS)[mode] ?? '';
   for (const el of $('ability-buttons').children) {
     el.classList.toggle('active', mode === el.dataset.ability);
   }

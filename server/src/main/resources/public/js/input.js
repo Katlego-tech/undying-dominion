@@ -10,6 +10,10 @@ const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 2.2;
 const FOLLOW_INSET = 0.25; // the camera follows once the necromancer is this close to an edge
 const WALK_KEYS = { w: [0, -1], a: [-1, 0], s: [0, 1], d: [1, 0] };
+const TAP_SLOP = 10;       // screen pixels a finger may wander and still count as a tap
+const HOLD_MS = 350;       // press this long without moving to box-select instead of pan
+const DOUBLE_TAP_MS = 300;
+const STICK_DEAD_ZONE = 14;
 
 export function createInput(canvas, minimap, renderer) {
   const held = new Set();
@@ -17,6 +21,7 @@ export function createInput(canvas, minimap, renderer) {
   let minimapDragging = false;
   let walkTarget = null;   // the tile the necromancer was last steered to, while WASD is held
   let gatheredTo = null;   // the necromancer's tile the legion was last called to, while G is held
+  let stick = [0, 0];      // the thumb stick's direction, as WASD would give it
 
   function updatePointer(e) {
     const p = game.pointer;
@@ -84,15 +89,15 @@ export function createInput(canvas, minimap, renderer) {
   // ---------------------------------------------------------------- walking
 
   function walkDirection() {
-    let dx = 0;
-    let dy = 0;
+    let [dx, dy] = stick;
     for (const [key, [kx, ky]] of Object.entries(WALK_KEYS)) {
       if (held.has(key)) {
         dx += kx;
         dy += ky;
       }
     }
-    return [dx, dy];
+    // The stick and WASD together still make one step per axis.
+    return [Math.sign(dx), Math.sign(dy)];
   }
 
   /** Whether one step of (dx, dy) from (x, y) is legal, diagonals included, as the server sees it. */
@@ -187,7 +192,10 @@ export function createInput(canvas, minimap, renderer) {
 
   canvas.addEventListener('dblclick', (e) => {
     updatePointer(e);
-    const unit = unitAtTile(game.pointer.tx, game.pointer.ty);
+    selectSameTypeOnScreen(unitAtTile(game.pointer.tx, game.pointer.ty));
+  });
+
+  function selectSameTypeOnScreen(unit) {
     if (!unit || !isMine(unit)) return;
     const { width, height } = renderer.viewport();
     const { x, y, zoom } = game.camera;
@@ -197,7 +205,7 @@ export function createInput(canvas, minimap, renderer) {
       const sy = ((other.y + 0.5) * TILE - y) * zoom;
       if (sx >= 0 && sy >= 0 && sx <= width && sy <= height) game.selection.add(other.id);
     }
-  });
+  }
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -235,6 +243,220 @@ export function createInput(canvas, minimap, renderer) {
       if (cx >= left && cx <= right && cy >= top && cy <= bottom) game.selection.add(unit.id);
     }
   }
+
+  // ---------------------------------------------------------------- touch
+
+  if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+
+  const fingers = new Map();  // pointerId → latest {x, y}
+  let gesture = null;         // what the fingers on the world are doing
+  let lastTap = null;
+
+  /** The tile under a screen point. */
+  function tileAt(sx, sy) {
+    const { x, y, zoom } = game.camera;
+    return { tx: Math.floor((sx / zoom + x) / TILE), ty: Math.floor((sy / zoom + y) / TILE) };
+  }
+
+  function beginPinch() {
+    const [a, b] = [...fingers.values()];
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const cam = game.camera;
+    gesture = {
+      kind: 'pinch',
+      distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      zoom: cam.zoom,
+      worldX: mx / cam.zoom + cam.x,
+      worldY: my / cam.zoom + cam.y,
+    };
+    setFollow(false);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    e.preventDefault();  // no compatibility mouse events: a tap is not also a click
+    document.body.classList.add('touch');
+    canvas.setPointerCapture(e.pointerId);
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.size === 2) {
+      clearTimeout(gesture?.timer);
+      game.drag = null;
+      beginPinch();
+      return;
+    }
+    if (fingers.size > 2) return;
+    gesture = { kind: 'press', x0: e.clientX, y0: e.clientY, camX: game.camera.x, camY: game.camera.y };
+    gesture.timer = setTimeout(() => {
+      if (gesture?.kind !== 'press') return;
+      gesture.kind = 'hold';
+      game.drag = { sx0: gesture.x0, sy0: gesture.y0, sx1: gesture.x0, sy1: gesture.y0, additive: false };
+      navigator.vibrate?.(12);
+    }, HOLD_MS);
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'touch' || !fingers.has(e.pointerId)) return;
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!gesture) return;
+    const cam = game.camera;
+    if (gesture.kind === 'pinch' && fingers.size >= 2) {
+      const [a, b] = [...fingers.values()];
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      cam.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, gesture.zoom * (distance / gesture.distance)));
+      cam.x = gesture.worldX - mx / cam.zoom;
+      cam.y = gesture.worldY - my / cam.zoom;
+      clampCamera();
+      return;
+    }
+    const moved = Math.hypot(e.clientX - gesture.x0, e.clientY - gesture.y0) > TAP_SLOP;
+    if (gesture.kind === 'press' && moved) {
+      clearTimeout(gesture.timer);
+      gesture.kind = 'pan';
+      setFollow(false);
+    }
+    if (gesture.kind === 'pan') {
+      cam.x = gesture.camX - (e.clientX - gesture.x0) / cam.zoom;
+      cam.y = gesture.camY - (e.clientY - gesture.y0) / cam.zoom;
+      clampCamera();
+    } else if (gesture.kind === 'hold' && game.drag) {
+      game.drag.sx1 = e.clientX;
+      game.drag.sy1 = e.clientY;
+      game.drag.moved ||= moved;
+    }
+  });
+
+  function endFinger(e) {
+    if (e.pointerType !== 'touch' || !fingers.has(e.pointerId)) return;
+    const was = gesture;
+    fingers.delete(e.pointerId);
+    if (fingers.size > 0) {
+      // Lifting one finger of a pinch ends it without the other finger turning into a tap.
+      gesture = was?.kind === 'pinch' ? { kind: 'done' } : was;
+      return;
+    }
+    gesture = null;
+    if (!was) return;
+    clearTimeout(was.timer);
+    if (e.type === 'pointercancel') {
+      game.drag = null;
+      return;
+    }
+    if (was.kind === 'hold') {
+      const dragged = game.drag?.moved;
+      if (dragged) {
+        // A box that came back to a point picks the unit there, so give finishDrag this finger's tile.
+        Object.assign(game.pointer, { sx: e.clientX, sy: e.clientY }, tileAt(e.clientX, e.clientY));
+        finishDrag(performance.now());
+      } else {
+        game.drag = null;
+        const { tx, ty } = tileAt(was.x0, was.y0);
+        const unit = unitAtTile(tx, ty);
+        if (unit && isMine(unit)) {
+          if (game.selection.has(unit.id)) game.selection.delete(unit.id);
+          else game.selection.add(unit.id);
+        }
+      }
+    } else if (was.kind === 'press') {
+      tap(was.x0, was.y0);
+    }
+  }
+  canvas.addEventListener('pointerup', endFinger);
+  canvas.addEventListener('pointercancel', endFinger);
+
+  /** A tap on the world: act in a targeting mode, select one of yours, or order the selection. */
+  function tap(sx, sy) {
+    const { tx, ty } = tileAt(sx, sy);
+    const now = performance.now();
+    const unit = unitAtTile(tx, ty);
+    const double = lastTap && now - lastTap.at < DOUBLE_TAP_MS && unit && lastTap.unitId === unit.id;
+    lastTap = { at: now, unitId: unit?.id ?? null };
+
+    if (game.mode === 'attack-move') {
+      cmd.moveTo(tx, ty, true);
+      cmd.setMode(null);
+      return;
+    }
+    if (game.mode === 'raise') {
+      if (cmd.raiseAt(tx, ty)) cmd.setMode(null);
+      return;
+    }
+    if (game.mode === 'explode') {
+      if (cmd.explodeAt(tx, ty)) cmd.setMode(null);
+      return;
+    }
+    if (unit && isMine(unit)) {
+      if (double) {
+        selectSameTypeOnScreen(unit);
+      } else {
+        game.selection.clear();
+        game.selection.add(unit.id);
+      }
+      return;
+    }
+    if (game.selection.size === 0) return;
+    if (unit) cmd.attack(unit);
+    else cmd.moveTo(tx, ty, false);
+  }
+
+  // The thumb stick walks the necromancer the way WASD does.
+  const stickEl = document.getElementById('stick');
+  const knob = document.getElementById('stick-knob');
+  let stickFinger = null;
+
+  function steer(e) {
+    const rect = stickEl.getBoundingClientRect();
+    const radius = rect.width / 2;
+    let dx = e.clientX - (rect.left + radius);
+    let dy = e.clientY - (rect.top + radius);
+    const length = Math.hypot(dx, dy);
+    if (length > radius) {
+      dx *= radius / length;
+      dy *= radius / length;
+    }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (length < STICK_DEAD_ZONE) {
+      stick = [0, 0];
+      return;
+    }
+    // Eight directions: the nearest 45-degree sector.
+    const sector = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    const angle = sector * (Math.PI / 4);
+    stick = [Math.round(Math.cos(angle)), Math.round(Math.sin(angle))];
+  }
+
+  function release() {
+    stickFinger = null;
+    stick = [0, 0];
+    knob.style.transform = '';
+    stickEl.classList.remove('engaged');
+  }
+
+  stickEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (stickFinger !== null || game.paused) return;
+    stickFinger = e.pointerId;
+    stickEl.setPointerCapture(e.pointerId);
+    stickEl.classList.add('engaged');
+    steer(e);
+  });
+  stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickFinger) steer(e); });
+  stickEl.addEventListener('pointerup', (e) => { if (e.pointerId === stickFinger) release(); });
+  stickEl.addEventListener('pointercancel', (e) => { if (e.pointerId === stickFinger) release(); });
+  // A thumb lost to another app or tab must not leave the necromancer walking.
+  window.addEventListener('blur', () => { if (stickFinger !== null) release(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && stickFinger !== null) release(); });
+
+  document.getElementById('mode-hint').addEventListener('click', () => cmd.setMode(null));
+  document.getElementById('camera-hint').addEventListener('click', centerOnNecromancer);
+  document.getElementById('select-legion').addEventListener('click', cmd.selectLegion);
+  document.getElementById('select-necromancer').addEventListener('click', cmd.selectNecromancer);
+  document.getElementById('select-clear').addEventListener('click', () => {
+    if (game.mode) cmd.setMode(null);
+    game.selection.clear();
+  });
 
   // ---------------------------------------------------------------- minimap
 
@@ -331,6 +553,7 @@ export function createInput(canvas, minimap, renderer) {
     if (game.paused) {
       // Orders held through a pause would all land at once on resume, so drop them.
       held.clear();
+      if (stickFinger !== null) release();
       walkTarget = null;
       gatheredTo = null;
       return;
