@@ -87,9 +87,10 @@ public class Unit {
 
     // --- Orders ---
 
+    /** Stops the unit where it stands, which becomes its post (see {@link #getPost}). */
     public void orderIdle() {
         order = Order.IDLE;
-        destination = null;
+        destination = position;
         clearTarget();
         clearPath();
     }
@@ -203,6 +204,17 @@ public class Unit {
     public Order getOrder()         { return order; }
     public long getModeEndsTick()   { return modeEndsTick; }
     public Position getDestination(){ return destination; }
+
+    /**
+     * Where an idle unit was left: it fights what comes near, but only near here, and walks back after.
+     * Kept in the destination field, which an idle unit has no other use for, so saves carry it.
+     * Null for a unit idle since before posts existed; {@link #setPost} gives it one.
+     */
+    public Position getPost()       { return order == Order.IDLE ? destination : null; }
+
+    public void setPost(Position post) {
+        if (order == Order.IDLE) destination = post;
+    }
     public Integer getTargetId()    { return targetId; }
     public boolean isAutoTarget()   { return autoTarget; }
     public Position getPathGoal()   { return pathGoal; }

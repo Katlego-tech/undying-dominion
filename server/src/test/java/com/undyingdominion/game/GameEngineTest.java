@@ -103,6 +103,63 @@ class GameEngineTest {
         assertEquals(0, engine.legionSizeOf(vesper), "a rooted unit, like a tree that can't move, can still be let go");
     }
 
+    // ------------------------------------------------------------------ guarding a post
+
+    /** An owner that never joined: its wardens stand still and can't fight back, so they make clean targets. */
+    private static final int DUMMIES = 99;
+
+    @Test
+    void anIdleUnitFightsNearItsPostThenWalksBack() {
+        Position post = guardColumn(20);
+        Unit warrior = engine.spawn(UnitType.SKELETON_WARRIOR, vesper.getId(), post);
+        Unit dummy = engine.spawn(UnitType.GRAVE_WARDEN, DUMMIES, post.offset(0, -4));
+
+        runUntil(() -> !dummy.isAlive(), 400);
+        assertTrue(warrior.getPosition().distanceTo(post) >= 2, "it went out to fight");
+        runUntil(() -> warrior.getPosition().distanceTo(post) <= 1, 300);
+
+        assertTrue(warrior.getPosition().distanceTo(post) <= 1, "and came back to its post, now at " + warrior.getPosition());
+    }
+
+    @Test
+    void anIdleUnitDoesNotChainFromFightToFightAwayFromItsPost() {
+        Position post = guardColumn(20);
+        Unit warrior = engine.spawn(UnitType.SKELETON_WARRIOR, vesper.getId(), post);
+        Unit near = engine.spawn(UnitType.GRAVE_WARDEN, DUMMIES, post.offset(0, -4));
+        // Within the warrior's reach of where the first fight ends, but beyond its reach of the post.
+        Unit far = engine.spawn(UnitType.GRAVE_WARDEN, DUMMIES, post.offset(0, -8));
+
+        runUntil(() -> !near.isAlive(), 400);
+        for (int i = 0; i < 300; i++) engine.tick();
+
+        assertTrue(far.isAlive(), "it didn't chase on to the next enemy");
+        assertTrue(warrior.getPosition().distanceTo(post) <= 1, "it went home instead, now at " + warrior.getPosition());
+    }
+
+    @Test
+    void stoppingAUnitMakesWhereItStandsItsPost() {
+        Position start = guardColumn(20);
+        Unit warrior = engine.spawn(UnitType.SKELETON_WARRIOR, vesper.getId(), start);
+        Position there = start.offset(0, -6);
+        engine.submit(new Command.Move(vesper.getId(), List.of(warrior.getId()), there, false));
+        runUntil(() -> warrior.getPosition().equals(there), 200);
+
+        Unit dummy = engine.spawn(UnitType.GRAVE_WARDEN, DUMMIES, there.offset(0, -3));
+        runUntil(() -> !dummy.isAlive(), 400);
+        runUntil(() -> warrior.getPosition().distanceTo(there) <= 1, 300);
+
+        assertTrue(warrior.getPosition().distanceTo(there) <= 1, "it guards where it was sent, not where it was summoned");
+    }
+
+    /** A tile in a column well away from Vesper's necromancer, so it stays out of the fight. */
+    private Position guardColumn(int y) {
+        return new Position(necromancerOf(vesper).getPosition().x() < SIZE / 2 ? SIZE - 4 : 3, y);
+    }
+
+    private void runUntil(java.util.function.BooleanSupplier done, int maxTicks) {
+        for (int i = 0; i < maxTicks && !done.getAsBoolean(); i++) engine.tick();
+    }
+
     @Test
     void summoningWithoutEnoughSoulIsRefused() {
         vesper.setSoul(10);
