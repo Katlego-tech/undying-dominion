@@ -129,6 +129,7 @@ public final class SaveGameCodec {
                     .put("attackReadyTick", u.attackReadyTick())
                     .put("nextWanderTick", u.nextWanderTick())
                     .put("lastHitByOwner", u.lastHitByOwner())
+                    .put("expiresAtTick", u.expiresAtTick())
                     .put("hasBeenHit", u.hasBeenHit()));
         }
         JSONArray corpses = new JSONArray();
@@ -175,7 +176,9 @@ public final class SaveGameCodec {
                     u.getBoolean("autoTarget"), u.getLong("modeEndsTick"), List.copyOf(path), optPosition(u, "pathGoal"),
                     u.getLong("pathComputedTick"), u.getInt("blockedTicks"), u.getLong("moveReadyTick"),
                     u.getLong("attackReadyTick"), u.getLong("nextWanderTick"), u.getInt("lastHitByOwner"),
-                    u.getBoolean("hasBeenHit"));
+                    u.getBoolean("hasBeenHit"),
+                    // Saves from before raised units expired carry no time: the engine gives them a full one.
+                    u.optLong("expiresAtTick", Unit.NO_EXPIRY));
         });
         List<Corpse> corpses = list(json.getJSONArray("corpses"), c -> new Corpse(c.getInt("id"),
                 UnitType.valueOf(c.getString("type")), new Position(c.getInt("x"), c.getInt("y")), c.getLong("decaysAtTick")));

@@ -16,7 +16,16 @@ public final class GameRules {
     private int fuseSoulCost = 40;
     /** How tightly the warriors must stand together to fuse, in tiles from their centre. */
     private int fuseRadius = 3;
-    private int corpseDecayTicks = 300;
+    /** 0: corpses never rot, and only {@link #maxCorpses} limits them. */
+    private int corpseDecayTicks = 0;
+    /** The most corpses a world keeps; past it the oldest crumble, so states stay small. */
+    private int maxCorpses = 400;
+    /**
+     * How long a raised unit lasts before it returns to the dead: base seconds, plus more for each of
+     * the raising necromancer's levels, so a stronger master holds the dead longer.
+     */
+    private int raisedBaseSeconds = 120;
+    private int raisedSecondsPerLevel = 30;
     private int respawnTicks = 60;
     /** Robot Worlds' shield repair time: a mending unit is rooted this long, then fully healed. */
     private int mendTicks = 30;
@@ -46,6 +55,9 @@ public final class GameRules {
     public int fuseSoulCost()              { return fuseSoulCost; }
     public int fuseRadius()                { return fuseRadius; }
     public int corpseDecayTicks()          { return corpseDecayTicks; }
+    public int maxCorpses()                { return maxCorpses; }
+    /** Ticks a unit raised by a necromancer of this level lasts. */
+    public long raisedTicks(int level)     { return (long) (raisedBaseSeconds + raisedSecondsPerLevel * level) * ticksPerSecond; }
     public int respawnTicks()              { return respawnTicks; }
     public int mendTicks()                 { return mendTicks; }
     public int trapSetTicks()              { return trapSetTicks; }
@@ -62,6 +74,12 @@ public final class GameRules {
     public GameRules soulRegenPerSecond(int value) { soulRegenPerSecond = value; return this; }
     public GameRules raiseRange(int value)         { raiseRange = value; return this; }
     public GameRules corpseDecayTicks(int value)   { corpseDecayTicks = value; return this; }
+    public GameRules maxCorpses(int value)         { maxCorpses = value; return this; }
+    public GameRules raisedSeconds(int base, int perLevel) {
+        raisedBaseSeconds = base;
+        raisedSecondsPerLevel = perLevel;
+        return this;
+    }
     public GameRules respawnTicks(int value)       { respawnTicks = value; return this; }
     public GameRules mendTicks(int value)          { mendTicks = value; return this; }
     public GameRules trapSetTicks(int value)       { trapSetTicks = value; return this; }

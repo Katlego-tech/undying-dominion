@@ -1,5 +1,5 @@
 import {
-  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, terrainAt,
+  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, label, terrainAt,
 } from './state.js';
 
 export const TILE = 28;
@@ -506,6 +506,15 @@ export function createRenderer(canvas, minimap) {
       ctx.beginPath();
       ctx.arc(cx, cy, r * 1.3, 0, TAU);
       ctx.fill();
+      // Its last thirty seconds: a ring that drains as the time runs out.
+      const lastSeconds = unit.expiresIn != null ? (unit.expiresIn * game.tickMs) / 1000 : Infinity;
+      if (lastSeconds < 30) {
+        ctx.strokeStyle = 'rgba(94, 234, 212, 0.75)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.3, -Math.PI / 2, -Math.PI / 2 + TAU * (lastSeconds / 30));
+        ctx.stroke();
+      }
     }
 
     ctx.fillStyle = darken(color, 0.78);
@@ -557,17 +566,31 @@ export function createRenderer(canvas, minimap) {
     }
   }
 
-  function drawCorpse(corpse, now, raiseable, color = '94, 234, 212') {
+  /**
+   * A corpse fades as newer ones pile up after it, so the oldest are ghosts by the time the world's cap
+   * crumbles them. {@code newestId} is the newest corpse's id. One the necromancer can raise right now
+   * wears a green ring; in a corpse mode, those in reach pulse in the mode's colour.
+   */
+  function drawCorpse(corpse, now, newestId, inReach, raisable, color) {
     const cx = (corpse.x + 0.5) * TILE;
     const cy = (corpse.y + 0.5) * TILE;
-    const freshness = Math.min(1, corpse.decaysIn / 120);
-    ctx.globalAlpha = 0.35 + 0.5 * freshness;
-    if (raiseable) {
+    const age = Math.min(1, (newestId - corpse.id) / (game.rules.maxCorpses ?? 400));
+    ctx.globalAlpha = 0.85 - 0.6 * age;
+    if (inReach) {
       const pulse = 0.5 + 0.5 * Math.sin(now / 220);
       ctx.fillStyle = `rgba(${color}, ${0.12 + pulse * 0.18})`;
       ctx.beginPath();
       ctx.arc(cx, cy, TILE * 0.45, 0, TAU);
       ctx.fill();
+    }
+    if (raisable) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * 0.42, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 0.85 - 0.6 * age;
     }
     line(cx - 7, cy - 4, cx + 7, cy + 5, BONE, 2.5);
     line(cx - 7, cy + 5, cx + 7, cy - 4, BONE, 2.5);
@@ -576,6 +599,30 @@ export function createRenderer(canvas, minimap) {
     ctx.arc(cx + 1, cy - 7, 3.5, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
+  }
+
+  function withinRaiseRange(corpse, necromancer) {
+    return Math.max(Math.abs(corpse.x - necromancer.x), Math.abs(corpse.y - necromancer.y)) <= game.rules.raiseRange;
+  }
+
+  /** Whether the necromancer could raise this corpse right now: a raisable kind, in reach, and paid for. */
+  function canRaise(corpse, necromancer) {
+    const cost = game.unitTypes[corpse.type]?.raiseCost ?? -1;
+    return !!necromancer && cost >= 0 && (game.you?.soul ?? 0) >= cost && withinRaiseRange(corpse, necromancer);
+  }
+
+  function drawCorpseLabel(corpse) {
+    const text = `${label(corpse.type)} · ${game.unitTypes[corpse.type].raiseCost}`;
+    ctx.font = '600 9px Inter, system-ui, sans-serif';
+    const w = ctx.measureText(text).width + 8;
+    const x = (corpse.x + 0.5) * TILE - w / 2;
+    const y = corpse.y * TILE - 12;
+    ctx.fillStyle = 'rgba(14, 12, 18, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, 12, 3);
+    ctx.fill();
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText(text, x + 4, y + 9);
   }
 
   function drawTrap(trap) {
@@ -754,6 +801,12 @@ export function createRenderer(canvas, minimap) {
     ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
   }
 
+  /** Ticks as m:ss. */
+  function clock(ticks) {
+    const seconds = Math.ceil(ticks * game.tickMs / 1000);
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
   function drawTooltip(now) {
     const { tx, ty, sx, sy, inside } = game.pointer;
     if (!inside || game.drag) return;
@@ -762,15 +815,18 @@ export function createRenderer(canvas, minimap) {
       if (unit.x === tx && unit.y === ty) {
         const maxHp = game.unitTypes[unit.type]?.maxHp ?? unit.hp;
         const owner = unit.owner === 0 ? 'Wild' : game.players.find((p) => p.id === unit.owner)?.name ?? '';
-        text = `${unit.raised ? 'Raised ' : ''}${levelledLabel(unit.type)} · ${unit.hp}/${maxHp}${owner && !isMine(unit) ? ` · ${owner}` : ''}`;
+        const timeLeft = unit.expiresIn != null ? ` · ${clock(unit.expiresIn)} left` : '';
+        text = `${unit.raised ? 'Raised ' : ''}${levelledLabel(unit.type)} · ${unit.hp}/${maxHp}${timeLeft}${owner && !isMine(unit) ? ` · ${owner}` : ''}`;
         break;
       }
     }
     if (!text) {
       const corpse = game.corpses.find((c) => c.x === tx && c.y === ty);
       if (corpse) {
-        const cost = game.unitTypes[corpse.type]?.raiseCost;
-        text = `${levelledLabel(corpse.type)} corpse · raise ${cost} soul · explode ${game.rules.explodeSoulCost} · ${Math.ceil(corpse.decaysIn / 10)}s`;
+        const cost = game.unitTypes[corpse.type]?.raiseCost ?? -1;
+        const raise = cost < 0 ? "can't be raised" : `raise ${cost} soul`;
+        const rots = corpse.decaysIn != null ? ` · ${Math.ceil(corpse.decaysIn / 10)}s` : '';
+        text = `${levelledLabel(corpse.type)} corpse · ${raise} · explode ${game.rules.explodeSoulCost}${rots}`;
       }
     }
     if (!text) return;
@@ -809,16 +865,22 @@ export function createRenderer(canvas, minimap) {
     const modeColor = game.mode === 'explode' ? '251, 146, 60' : '94, 234, 212';
     if (corpseMode) drawRaiseRange(necromancer, now, modeColor);
 
+    const newestId = game.corpses.reduce((max, c) => Math.max(max, c.id), 0);
     for (const corpse of game.corpses) {
-      const inReach = corpseMode
-        && Math.max(Math.abs(corpse.x - necromancer.x), Math.abs(corpse.y - necromancer.y)) <= game.rules.raiseRange;
-      drawCorpse(corpse, now, inReach, modeColor);
+      const inReach = corpseMode && withinRaiseRange(corpse, necromancer);
+      drawCorpse(corpse, now, newestId, inReach, canRaise(corpse, necromancer), modeColor);
     }
     for (const trap of game.traps) drawTrap(trap);
 
     const units = [...game.units.values()];
     units.sort((a, b) => renderPos(a, now).y - renderPos(b, now).y);
     for (const unit of units) drawUnit(unit, now);
+    // While raising, name each corpse that can be raised, so you know what you'll get. Drawn over the units standing on them.
+    if (game.mode === 'raise' && necromancer) {
+      for (const corpse of game.corpses) {
+        if (canRaise(corpse, necromancer)) drawCorpseLabel(corpse);
+      }
+    }
 
     drawEffects(now);
 

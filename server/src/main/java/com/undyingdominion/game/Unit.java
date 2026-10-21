@@ -44,6 +44,9 @@ public class Unit {
     private long moveReadyTick;
     private long attackReadyTick;
     private long nextWanderTick;
+    /** When a raised unit returns to the dead; {@link #NO_EXPIRY} for one that doesn't, or hasn't been timed yet. */
+    private long expiresAtTick = NO_EXPIRY;
+    public static final long NO_EXPIRY = -1;
 
     private int lastHitByOwner = NEUTRAL;
     private boolean hasBeenHit;
@@ -168,7 +171,7 @@ public class Unit {
     public UnitState capture() {
         return new UnitState(id, type.name(), ownerId, raised, position, facingX, facingY, hp, order, destination,
                 targetId, autoTarget, modeEndsTick, List.copyOf(path), pathGoal, pathComputedTick, blockedTicks,
-                moveReadyTick, attackReadyTick, nextWanderTick, lastHitByOwner, hasBeenHit);
+                moveReadyTick, attackReadyTick, nextWanderTick, lastHitByOwner, hasBeenHit, expiresAtTick);
     }
 
     static Unit restore(UnitState state) {
@@ -190,6 +193,7 @@ public class Unit {
         unit.nextWanderTick = state.nextWanderTick();
         unit.lastHitByOwner = state.lastHitByOwner();
         unit.hasBeenHit = state.hasBeenHit();
+        unit.expiresAtTick = state.expiresAtTick();
         return unit;
     }
 
@@ -227,6 +231,8 @@ public class Unit {
     public long getAttackReadyTick(){ return attackReadyTick; }
     public void setAttackReadyTick(long t) { attackReadyTick = t; }
     public long getNextWanderTick() { return nextWanderTick; }
+    public long getExpiresAtTick()  { return expiresAtTick; }
+    public void setExpiresAtTick(long t)  { expiresAtTick = t; }
     public void setNextWanderTick(long t)  { nextWanderTick = t; }
     /** Owner of whoever struck the killing blow, if the unit died in combat. */
     public int getLastHitByOwner()  { return hasBeenHit ? lastHitByOwner : NEUTRAL; }

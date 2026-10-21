@@ -63,7 +63,8 @@ public final class SnapshotWriter {
                         .put("trapSetTicks", rules.trapSetTicks())
                         .put("trapDamage", rules.trapDamage())
                         .put("explodeSoulCost", rules.explodeSoulCost())
-                        .put("explodeRadius", rules.explodeRadius()))
+                        .put("explodeRadius", rules.explodeRadius())
+                        .put("maxCorpses", rules.maxCorpses()))
                 .put("unitTypes", types)
                 .toString();
     }
@@ -133,6 +134,9 @@ public final class SnapshotWriter {
                     .put("hp", u.getHp())
                     .put("order", u.getOrder().name());
             if (u.isRaised()) json.put("raised", true);
+            if (u.isRaised() && u.getExpiresAtTick() != Unit.NO_EXPIRY) {
+                json.put("expiresIn", Math.max(0, u.getExpiresAtTick() - tick));
+            }
             if (u.isRooted()) json.put("modeEndsIn", Math.max(0, u.getModeEndsTick() - tick));
             units.put(json);
         }
@@ -145,7 +149,8 @@ public final class SnapshotWriter {
                     .put("type", c.type().name())
                     .put("x", c.position().x())
                     .put("y", c.position().y())
-                    .put("decaysIn", Math.max(0, c.decaysAtTick() - tick)));
+                    .put("decaysIn", c.decaysAtTick() == Corpse.NEVER ? JSONObject.NULL
+                            : Math.max(0, c.decaysAtTick() - tick)));
         }
 
         JSONArray traps = new JSONArray();
@@ -183,6 +188,7 @@ public final class SnapshotWriter {
                 .put("xp", player.getXp())
                 .put("xpNext", player.xpForNextLevel())
                 .put("legion", engine.legionSizeOf(player))
+                .put("raised", engine.raisedSizeOf(player))
                 .put("legionCap", player.legionCap())
                 .put("necromancerId", necromancerId == null ? JSONObject.NULL : necromancerId)
                 .put("respawnIn", necromancerId == null && player.getRespawnAtTick() >= 0

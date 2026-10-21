@@ -12,5 +12,6 @@ public record UnitState(int id, String type, int ownerId, boolean raised, Positi
                         int facingX, int facingY, int hp, Unit.Order order, Position destination,
                         Integer targetId, boolean autoTarget, long modeEndsTick, List<Position> path,
                         Position pathGoal, long pathComputedTick, int blockedTicks, long moveReadyTick,
-                        long attackReadyTick, long nextWanderTick, int lastHitByOwner, boolean hasBeenHit) {
+                        long attackReadyTick, long nextWanderTick, int lastHitByOwner, boolean hasBeenHit,
+                        long expiresAtTick) {
 }

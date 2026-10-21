@@ -236,12 +236,101 @@ class GameEngineTest {
     }
 
     @Test
-    void corpsesRotAwayIfNobodyRaisesThem() {
-        corpseOfWolfAt(3);
+    void corpsesStayUntilSomeoneUsesThem() {
+        Corpse corpse = corpseOfWolfAt(3);
 
-        for (int i = 0; i < engine.getRules().corpseDecayTicks() + 1; i++) engine.tick();
+        for (int i = 0; i < 3_000; i++) engine.tick();  // five minutes
 
-        assertTrue(engine.getCorpses().isEmpty());
+        assertEquals(List.of(corpse), List.copyOf(engine.getCorpses()), "the dead wait for a necromancer");
+    }
+
+    @Test
+    void pastTheCapTheOldestCorpsesCrumbleFirst() {
+        engine.getRules().maxCorpses(3);
+        List<Integer> kept = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            Unit wolf = spawnNear(UnitType.WOLF, Unit.NEUTRAL, necromancerOf(vesper).getPosition(), 3 + i, 3);
+            wolf.takeDamage(10_000, vesper.getId());
+            engine.tick();
+            kept.add(engine.getCorpses().stream().mapToInt(Corpse::id).max().orElseThrow());
+        }
+
+        assertEquals(kept.subList(2, 5), engine.getCorpses().stream().map(Corpse::id).toList(), "the newest three remain");
+    }
+
+    @Test
+    void raisedUnitsTakeNoLegionSpace() {
+        Position necromancer = necromancerOf(vesper).getPosition();
+        for (int i = 0; i < vesper.legionCap(); i++) {
+            spawnNear(UnitType.SKELETON_WARRIOR, vesper.getId(), necromancer, 4 + i % 5, 4 + i / 5);
+        }
+        Corpse corpse = corpseOfWolfAt(2);
+        vesper.setSoul(50);
+
+        engine.submit(new Command.Raise(vesper.getId(), corpse.id()));
+        engine.tick();
+
+        assertEquals(1, owned(vesper, UnitType.WOLF).size(), "raised even with every summoning slot taken");
+        assertEquals(vesper.legionCap(), engine.legionSizeOf(vesper), "the cap counts what was summoned");
+        assertEquals(1, engine.raisedSizeOf(vesper));
+    }
+
+    @Test
+    void aRaisedUnitReturnsToTheDeadWhenItsTimeRunsOut() {
+        engine.getRules().raisedSeconds(1, 0);
+        Corpse corpse = corpseOfWolfAt(2);
+        vesper.setSoul(50);
+        engine.submit(new Command.Raise(vesper.getId(), corpse.id()));
+        engine.tick();
+        assertEquals(1, engine.raisedSizeOf(vesper));
+        vesper.takeNotices();
+
+        for (int i = 0; i < engine.getRules().ticksPerSecond() + 1; i++) engine.tick();
+
+        assertEquals(0, engine.raisedSizeOf(vesper), "its time is up");
+        assertTrue(engine.getCorpses().isEmpty(), "it returns to the dead without leaving a second corpse");
+        assertTrue(vesper.takeNotices().contains("Your raised " + UnitType.WOLF.label + " returns to the dead."));
+    }
+
+    @Test
+    void theStrongerTheNecromancerTheLongerTheRaisedLast() {
+        engine.getRules().raisedSeconds(120, 30);
+        vesper.restoreProgress(4, 0, 0, 0);
+        Corpse corpse = corpseOfWolfAt(2);
+        vesper.setSoul(50);
+        engine.submit(new Command.Raise(vesper.getId(), corpse.id()));
+        engine.tick();
+
+        Unit wolf = owned(vesper, UnitType.WOLF).get(0);
+        long expected = (120 + 30 * 4) * engine.getRules().ticksPerSecond();
+        assertEquals(expected, wolf.getExpiresAtTick() - (engine.getTick() - 1), "two minutes, and thirty seconds a level");
+    }
+
+    @Test
+    void unitsWalkStraightAcrossCorpses() {
+        Corpse corpse = corpseOfWolfAt(3);
+        Position past = corpse.position().offset(1, 0);
+        Unit warrior = engine.spawn(UnitType.SKELETON_WARRIOR, vesper.getId(), corpse.position().offset(-1, 0));
+        engine.submit(new Command.Move(vesper.getId(), List.of(warrior.getId()), past, false));
+
+        tickUntil(() -> warrior.getPosition().equals(past), 100);
+
+        assertEquals(past, warrior.getPosition(), "the dead don't block the living");
+    }
+
+    @Test
+    void raisedUnitsCarryIntoTheNextWorldBeyondTheCap() {
+        GameRules rules = GameRules.defaults().maxNeutrals(0);
+        GameEngine next = new GameEngine(new GameMap(SIZE, SIZE, List.of()), rules, new Random(7));
+        next.submit(new Command.Join(vesper.getId(), "Vesper"));
+        List<UnitType> summoned = java.util.Collections.nCopies(vesper.legionCap(), UnitType.SKELETON_WARRIOR);
+        next.submit(new Command.Restore(vesper.getId(), 1, 0, 0, 0, summoned, List.of(UnitType.WOLF, UnitType.WOLF)));
+        next.tick();
+
+        Player there = next.getPlayer(vesper.getId());
+        assertEquals(there.legionCap(), next.legionSizeOf(there));
+        assertEquals(2, next.raisedSizeOf(there), "the raised come along, and stay raised");
+        assertTrue(next.getUnits().stream().filter(u -> u.getType() == UnitType.WOLF).allMatch(Unit::isRaised));
     }
 
     @Test

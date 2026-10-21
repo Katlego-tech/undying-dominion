@@ -99,6 +99,9 @@ html, body {
 .soul-row, .legion-row { display: flex; align-items: center; gap: 12px; }
 .legion-row { margin-top: 6px; }
 .legion-row .value { margin-left: auto; }
+.raised-count { margin-left: auto; font-size: 11px; color: #4ade80; font-variant-numeric: tabular-nums; }
+.raised-count:empty { display: none; }
+.raised-count + .value { margin-left: 8px; }
 .soul-bar { flex: 1; height: 10px; }
 #soul-fill {
   background: linear-gradient(90deg, var(--soul-deep), var(--soul));

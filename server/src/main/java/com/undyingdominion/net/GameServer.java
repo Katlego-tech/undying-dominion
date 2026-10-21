@@ -197,7 +197,7 @@ public class GameServer {
                 next.submit(new Command.Join(id, seat.name));
                 if (before != null) {
                     next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
-                            before.getDeaths(), previous.legionOf(id)));
+                            before.getDeaths(), previous.legionOf(id), previous.raisedOf(id)));
                 }
                 ClientConnection connection = seat.connection();
                 if (connection != null) connection.send(welcome(seat, next));
