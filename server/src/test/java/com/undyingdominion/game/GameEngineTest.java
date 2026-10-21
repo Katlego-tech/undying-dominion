@@ -52,6 +52,58 @@ class GameEngineTest {
     }
 
     @Test
+    void dismissingFreesTheLegionSlotsAndLeavesNoCorpse() {
+        engine.submit(new Command.Summon(vesper.getId(), UnitType.SKELETON_WARRIOR));
+        engine.submit(new Command.Summon(vesper.getId(), UnitType.SKELETON_WARRIOR));
+        engine.tick();
+        List<Unit> warriors = owned(vesper, UnitType.SKELETON_WARRIOR);
+        assertEquals(2, engine.legionSizeOf(vesper));
+        int soul = vesper.getSoul();
+        vesper.takeNotices();
+
+        engine.submit(new Command.Dismiss(vesper.getId(), List.of(warriors.get(0).getId())));
+        engine.tick();
+
+        assertEquals(1, engine.legionSizeOf(vesper), "the slot is free");
+        assertNull(engine.getUnit(warriors.get(0).getId()));
+        assertTrue(engine.getCorpses().isEmpty(), "a dismissed unit crumbles to nothing");
+        assertEquals(soul, vesper.getSoul(), "no refund");
+        assertEquals(0, vesper.getKills(), "and nobody is credited");
+        assertTrue(vesper.takeNotices().contains("Dismissed 1 from your legion."));
+    }
+
+    @Test
+    void dismissingSparesTheNecromancerAndOtherPlayersUnits() {
+        Player corvin = join("Corvin");
+        engine.submit(new Command.Summon(corvin.getId(), UnitType.SKELETON_WARRIOR));
+        engine.tick();
+        Unit theirs = owned(corvin, UnitType.SKELETON_WARRIOR).get(0);
+        Unit mine = necromancerOf(vesper);
+
+        engine.submit(new Command.Dismiss(vesper.getId(), List.of(mine.getId(), theirs.getId())));
+        engine.tick();
+
+        assertNotNull(engine.getUnit(mine.getId()), "a necromancer can't dismiss itself");
+        assertNotNull(engine.getUnit(theirs.getId()), "nor anyone else's legion");
+    }
+
+    @Test
+    void dismissingWorksOnUnitsThatAreMending() {
+        engine.submit(new Command.Summon(vesper.getId(), UnitType.SKELETON_WARRIOR));
+        engine.tick();
+        Unit warrior = owned(vesper, UnitType.SKELETON_WARRIOR).get(0);
+        warrior.takeDamage(10, 0);
+        engine.submit(new Command.Mend(vesper.getId(), List.of(warrior.getId())));
+        engine.tick();
+        assertTrue(warrior.isRooted());
+
+        engine.submit(new Command.Dismiss(vesper.getId(), List.of(warrior.getId())));
+        engine.tick();
+
+        assertEquals(0, engine.legionSizeOf(vesper), "a rooted unit, like a tree that can't move, can still be let go");
+    }
+
+    @Test
     void summoningWithoutEnoughSoulIsRefused() {
         vesper.setSoul(10);
         vesper.takeNotices();

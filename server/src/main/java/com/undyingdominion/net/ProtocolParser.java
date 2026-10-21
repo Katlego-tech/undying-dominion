@@ -55,6 +55,7 @@ public final class ProtocolParser {
                 case "fuse" -> new Command.Fuse(playerId, unitIds(message));
                 case "mend" -> new Command.Mend(playerId, unitIds(message));
                 case "trap" -> new Command.SetTrap(playerId, unitIds(message));
+                case "dismiss" -> new Command.Dismiss(playerId, unitIds(message));
                 default -> throw new ProtocolException(UNSUPPORTED);
             };
         } catch (JSONException | IllegalArgumentException e) {

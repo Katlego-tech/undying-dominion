@@ -80,6 +80,7 @@ docker run -p 5050:5050 -v dominion-data:/data undying-dominion
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
 | `G` | Gather the selected units to your necromancer, or the whole legion when none are selected. Hold to keep them following |
 | `H` | Stop |
+| `Delete`, twice | Dismiss the selected units from your legion, freeing their slots (they crumble; no corpse, no refund) |
 | `P` | Pause the world for everyone. Anyone can resume, with `P` or the Resume button |
 | `Q` / `E` | Select your whole legion / your necromancer |
 | `Space` | Return the camera to your necromancer and follow it again |
@@ -165,6 +166,7 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "fuse", "units": [4, 5, 6, 8, 9] }
 { "command": "mend", "units": [4] }
 { "command": "trap", "units": [10] }
+{ "command": "dismiss", "units": [12] }
 { "command": "pause" }
 { "command": "resume" }
 { "command": "reading", "open": true }
@@ -183,6 +185,9 @@ the host purges you, the token stops working.
 Any player can `pause` the world for everyone, and any player can `resume` it. A pause also lifts
 when the player who paused leaves, which for a dropped connection is when their grace runs out. `reading` reports a story card opening and closing. A lone
 player reading pauses the world until the card is closed, but with others in the game it runs on.
+`dismiss` lets units go from your legion to free their slots. They crumble to nothing: no corpse,
+no soul back, and no kill for anyone. It works on units that are rooted, and never on your
+necromancer. The reply is a notice, `Dismissed 2 from your legion.`
 `save` saves a solo campaign (see Saving). The reply comes back as a notice in `you.notices`:
 `Saved "crypt": chapter 2, The Hall.`, or a refusal such as `Saving only works in a story campaign`,
 `Saving only works with one player in the world`, `Save names are 1 to 32 letters, digits, - or _`

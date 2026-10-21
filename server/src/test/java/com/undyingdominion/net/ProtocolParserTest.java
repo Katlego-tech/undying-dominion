@@ -29,6 +29,11 @@ class ProtocolParserTest {
     }
 
     @Test
+    void parsesADismiss() throws ProtocolException {
+        assertEquals(new Command.Dismiss(3, List.of(4, 9)), parse("{\"command\":\"dismiss\",\"units\":[4,9]}"));
+    }
+
+    @Test
     void commandNamesAreCaseInsensitive() throws ProtocolException {
         assertEquals(new Command.Raise(3, 9), parse("{\"command\":\"RAISE\",\"corpse\":9}"));
     }
