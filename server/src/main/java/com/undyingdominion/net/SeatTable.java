@@ -102,12 +102,16 @@ final class SeatTable {
 
     /**
      * Marks {@code connection}'s seat away, if it is still that seat's socket. False for a socket
-     * that never joined, was taken over, or whose seat is already gone.
+     * that never joined, was taken over, or whose seat is already gone, and with no grace, where
+     * the seat is removed on the spot.
      */
     synchronized boolean drop(ClientConnection connection) {
         Integer playerId = connection.getPlayerId();
         Seat seat = playerId == null ? null : byId.get(playerId);
-        return seat != null && seat.drop(connection, clock.getAsLong() + graceNanos);
+        if (seat == null || !seat.drop(connection, clock.getAsLong() + graceNanos)) return false;
+        if (graceNanos > 0) return true;
+        removeLocked(seat);  // no grace: gone at once, as before rejoin existed
+        return false;
     }
 
     /** Removes the player's seat at once, away or not. False if they have none. */

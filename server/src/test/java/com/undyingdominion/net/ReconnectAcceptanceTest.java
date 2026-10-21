@@ -150,6 +150,7 @@ class ReconnectAcceptanceTest {
     void aPauseHoldsWhileWhoeverPausedIsAwayAndOthersSeeThemAway() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
         TestSocket vesper = join("Vesper");
+        vesper.awaitType("welcome");
         TestSocket corvin = join("Corvin");
         corvin.awaitType("welcome");
         vesper.send("{\"command\":\"pause\"}");

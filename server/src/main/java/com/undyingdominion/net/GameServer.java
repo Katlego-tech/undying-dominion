@@ -354,11 +354,12 @@ public class GameServer {
     private void step() {
         long started = System.nanoTime();
         try {
+            // Expired first, so what a removed player held is released by the tasks drained below.
+            seats.expire();
             Runnable task;
             while ((task = loopTasks.poll()) != null) {
                 task.run();
             }
-            seats.expire();
 
             GameEngine engine = this.engine;
             pause = currentPause();

@@ -83,6 +83,17 @@ class SeatTableTest {
     }
 
     @Test
+    void withNoGraceADropRemovesTheSeatAtOnce() throws Exception {
+        SeatTable noGrace = new SeatTable(2, Duration.ZERO, clock::get, removed::add);
+        ClientConnection vesper = socket();
+        Seat seat = noGrace.join(vesper, "Vesper", nextId::getAndIncrement, s -> { }).seat();
+
+        assertFalse(noGrace.drop(vesper), "not away: gone");
+        assertNull(noGrace.get(seat.playerId));
+        assertEquals(List.of(seat), removed);
+    }
+
+    @Test
     void aRejoinTakesTheSeatBackWithItsToken() throws Exception {
         ClientConnection first = socket();
         Seat seat = table.join(first, "Vesper", nextId::getAndIncrement, s -> { }).seat();
