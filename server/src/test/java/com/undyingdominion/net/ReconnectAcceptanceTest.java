@@ -142,7 +142,7 @@ class ReconnectAcceptanceTest {
 
     @Test
     void aPauseHoldsWhileWhoeverPausedIsAway() throws Exception {
-        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild", "--grace", "1");
+        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild", "--grace", "2");
         Client vesper = join("Vesper");
         Client corvin = join("Corvin");
         corvin.awaitType("welcome");
