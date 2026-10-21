@@ -56,7 +56,15 @@ public final class SaveService {
             reply.accept("Save names are 1 to 32 letters, digits, - or _");
             return;
         }
+        if (name.equalsIgnoreCase(AUTOSAVE)) {
+            reply.accept("That name is kept for the autosave. Choose another");
+            return;
+        }
+        write(name, force, reply);
+    }
 
+    /** Loop thread, rules already checked: captures the world and writes it off the loop. */
+    private void write(String name, boolean force, Consumer<String> reply) {
         SaveGame save = new SaveGame(SaveGame.FORMAT, name, Instant.now(),
                 story.campaign().folder().toAbsolutePath().toString(), story.campaign().title(), fingerprint,
                 RandomState.of(story.random()), story.capture(), server.engine().capture());
@@ -74,6 +82,22 @@ public final class SaveService {
             String message = outcome;
             server.runOnLoop(() -> reply.accept(message));
         });
+    }
+
+    /** The name every autosave is written under, replacing the last. */
+    public static final String AUTOSAVE = "autosave";
+
+    /**
+     * Loop thread. Saves a solo campaign under {@link #AUTOSAVE}, replacing the last one, and tells
+     * {@code reply} as {@code Autosaved: chapter N, Title.}. With anything but exactly one player it
+     * does nothing: an autosave nobody asked for has no refusal to show. The name is reserved: a
+     * player's own save can't take it, so the autosave never replaces one of theirs.
+     */
+    public void autosave(Consumer<String> reply) {
+        if (story == null || server.joinedCount() != 1) return;
+        write(AUTOSAVE, true, message -> reply.accept(message.startsWith("Saved \"" + AUTOSAVE + "\"")
+                ? "Autosaved" + message.substring(("Saved \"" + AUTOSAVE + "\"").length())
+                : message));
     }
 
     /** A save that passed every check, and the director rebuilt from it. */

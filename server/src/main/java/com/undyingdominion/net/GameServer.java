@@ -226,6 +226,15 @@ public class GameServer {
         return pause;
     }
 
+    /**
+     * Runs a task on the game loop thread after a step's tick (or admit), when commands queued before
+     * it, such as joins into a new chapter's world, have been applied. A task queued during a step's
+     * tick listeners runs after the next step's.
+     */
+    public void runAfterStep(Runnable task) {
+        afterStepTasks.add(task);
+    }
+
     /** Runs a task on the game loop thread before the next tick. */
     public void runOnLoop(Runnable task) {
         loopTasks.add(task);
