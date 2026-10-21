@@ -79,7 +79,7 @@ docker run -p 5050:5050 -v dominion-data:/data undying-dominion
 | `M` | Mend: the selected units stand still until they are whole again |
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
 | `G` | Gather the selected units to your necromancer, or the whole legion when none are selected. Hold to keep them following |
-| `H` | Stop |
+| `H` | Stop. A unit left idle guards that spot: it fights what comes within its reach, then walks back, rather than chasing from fight to fight |
 | `Delete`, twice | Dismiss the selected units from your legion, freeing their slots (they crumble; no corpse, no refund) |
 | `P` | Pause the world for everyone. Anyone can resume, with `P` or the Resume button |
 | `Q` / `E` | Select your whole legion / your necromancer |

@@ -492,10 +492,14 @@ public class GameEngine {
 
         switch (unit.getOrder()) {
             case IDLE -> {
+                if (unit.getOwnerId() != Unit.NEUTRAL) {
+                    guard(unit, target);
+                    return;
+                }
                 if (target == null) target = acquire(unit);
                 if (target != null) {
                     engage(unit, target, unit.getType().chasesWhenIdle);
-                } else if (unit.getOwnerId() == Unit.NEUTRAL) {
+                } else {
                     wander(unit);
                 }
             }
@@ -510,6 +514,32 @@ public class GameEngine {
             }
             case ATTACK -> engage(unit, target, true);
             case MEND, SET_TRAP -> { }
+        }
+    }
+
+    /**
+     * A player's idle unit holds its post. It fights any enemy within its aggro range, but only while
+     * that enemy is also within aggro range of the post. When the fight is over it walks back, so a
+     * unit with long senses (a raised hunter) can't chain from fight to fight across the map and die
+     * alone.
+     */
+    private void guard(Unit unit, Unit target) {
+        Position post = unit.getPost();
+        if (post == null) {
+            post = unit.getPosition();
+            unit.setPost(post);
+        }
+        int reach = unit.getType().aggroRange;
+        if (target != null && target.getPosition().distanceTo(post) > reach) {
+            unit.clearTarget();
+            unit.clearPath();
+            target = null;
+        }
+        if (target == null) target = acquire(unit, post);
+        if (target != null) {
+            engage(unit, target, unit.getType().chasesWhenIdle);
+        } else if (unit.getPosition().distanceTo(post) > 1 && !stepToward(unit, post, false)) {
+            unit.setPost(unit.getPosition());  // the way back is gone: guard here instead
         }
     }
 
@@ -557,6 +587,11 @@ public class GameEngine {
 
     /** Picks the nearest visible enemy within aggro range, and remembers it as the unit's target. */
     private Unit acquire(Unit unit) {
+        return acquire(unit, null);
+    }
+
+    /** As above, and when {@code post} is given, only an enemy also within aggro range of it. */
+    private Unit acquire(Unit unit, Position post) {
         if (!unit.getType().canAttack()) return null;
         int aggro = unit.getType().aggroRange;
         Unit best = null;
@@ -565,6 +600,7 @@ public class GameEngine {
             if (!other.isAlive() || !unit.isHostileTo(other)) continue;
             int distance = unit.getPosition().distanceTo(other.getPosition());
             if (distance > aggro || distance >= bestDistance) continue;
+            if (post != null && post.distanceTo(other.getPosition()) > aggro) continue;
             if (!map.hasLineOfSight(unit.getPosition(), other.getPosition())) continue;
             best = other;
             bestDistance = distance;
