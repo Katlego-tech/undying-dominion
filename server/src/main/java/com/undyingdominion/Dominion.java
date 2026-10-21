@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Random;
+import java.util.function.LongSupplier;
 
 /**
  * One running world: the server hosting it, the saves it can make and, for a campaign, the director
@@ -26,6 +27,11 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
 
     /** Loads the map or campaign, builds the engine and opens the server. Throws if the port cannot be taken. */
     public static Dominion raise(ServerOptions options) throws IOException {
+        return raise(options, System::nanoTime);
+    }
+
+    /** As above, timing rejoin grace periods by {@code nanoClock}, so tests can move time on. */
+    public static Dominion raise(ServerOptions options, LongSupplier nanoClock) throws IOException {
         Random random = options.seed() == null ? new Random() : new Random(options.seed());
         SaveDao dao = new SqliteSaveDao(Path.of(options.database()));
         GameEngine engine;
@@ -45,7 +51,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             engine = new GameEngine(map, rules, random);
         }
 
-        GameServer server = new GameServer(engine, options.maxPlayers(), Duration.ofSeconds(options.graceSeconds()));
+        GameServer server = new GameServer(engine, options.maxPlayers(), Duration.ofSeconds(options.graceSeconds()), nanoClock);
         if (resumed != null) holdSeatFor(server, resumed);
         try {
             server.start(options.port());

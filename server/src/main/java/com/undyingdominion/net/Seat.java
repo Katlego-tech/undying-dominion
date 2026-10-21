@@ -6,7 +6,7 @@ import java.util.Base64;
 /**
  * A player's place in the world, kept while their socket comes and goes. Its token is a bearer
  * secret: whoever presents it with {@code rejoin} takes the seat back. Changed only under
- * GameServer's names lock; the connection may be read without it.
+ * {@link SeatTable}'s lock; the connection may be read without it.
  */
 final class Seat {
 
