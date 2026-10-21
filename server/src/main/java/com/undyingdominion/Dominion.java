@@ -15,6 +15,7 @@ import com.undyingdominion.world.MapConfig;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Random;
 
 /**
@@ -44,7 +45,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             engine = new GameEngine(map, rules, random);
         }
 
-        GameServer server = new GameServer(engine, options.maxPlayers());
+        GameServer server = new GameServer(engine, options.maxPlayers(), Duration.ofSeconds(options.graceSeconds()));
         if (resumed != null) holdSeatFor(server, resumed);
         try {
             server.start(options.port());

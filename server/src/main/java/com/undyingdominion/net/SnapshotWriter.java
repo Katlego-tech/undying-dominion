@@ -23,8 +23,11 @@ public final class SnapshotWriter {
     private SnapshotWriter() {
     }
 
-    /** Sent once, when a join is accepted: everything about the world that never changes. */
-    public static String welcome(int playerId, String name, GameMap map, GameRules rules) {
+    /**
+     * Sent when a join or rejoin is accepted and on every chapter change: everything about the world that
+     * never changes, and the seat's token for rejoining.
+     */
+    public static String welcome(int playerId, String name, String token, GameMap map, GameRules rules) {
         JSONObject types = new JSONObject();
         for (UnitType type : UnitType.values()) {
             types.put(type.name(), new JSONObject()
@@ -47,6 +50,7 @@ public final class SnapshotWriter {
                 .put("type", "welcome")
                 .put("playerId", playerId)
                 .put("name", name)
+                .put("token", token)
                 .put("tickRate", rules.ticksPerSecond())
                 .put("map", mapJson(map))
                 .put("rules", new JSONObject()

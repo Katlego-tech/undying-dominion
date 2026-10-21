@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -48,7 +49,8 @@ class GameServerAcceptanceTest {
         props.setProperty("obstacle.ruins.1", "9,2,9,5");
         props.setProperty("obstacle.abyss.1", "14,8,15,9");
         GameEngine engine = new GameEngine(MapConfig.fromProperties(props), GameRules.defaults().maxNeutrals(0), new Random(1));
-        server = new GameServer(engine, MAX_PLAYERS);
+        // A drop is a removal here, as before rejoin existed; ReconnectAcceptanceTest covers the grace period.
+        server = new GameServer(engine, MAX_PLAYERS, Duration.ZERO);
         server.start(0);
     }
 
