@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -39,7 +40,10 @@ public final class SampleBot {
     private volatile BotBrain brain;
     private volatile Integer playerId;
     private volatile boolean closing;
+    private final CompletableFuture<Void> closed = new CompletableFuture<>();
+    /** Guarded by this: drops counted toward giving up, and whether a reconnect is already on its way. */
     private int failedConnects;
+    private boolean reconnecting;
 
     public SampleBot(URI server, String name) {
         this.server = server;
@@ -52,7 +56,7 @@ public final class SampleBot {
         SampleBot bot = new SampleBot(server, name);
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close));
         bot.start();
-        Thread.currentThread().join();
+        bot.closed.join();  // until close(), from a signal or from giving up
     }
 
     /** Connects and joins. Returns once the join is sent; play goes on in the background. */
@@ -65,7 +69,8 @@ public final class SampleBot {
         closing = true;
         retries.shutdownNow();
         WebSocket current = socket;
-        if (current != null) current.sendClose(WebSocket.NORMAL_CLOSURE, "Bot stopped");
+        if (current != null && !current.isOutputClosed()) current.sendClose(WebSocket.NORMAL_CLOSURE, "Bot stopped");
+        closed.complete(null);
     }
 
     /** The player id from the last welcome, or null before one. */
@@ -86,9 +91,15 @@ public final class SampleBot {
     }
 
     private void connect(JSONObject first) {
+        Listener listener = new Listener();
         try {
-            socket = http.newWebSocketBuilder().buildAsync(server, new Listener()).join();
-            failedConnects = 0;
+            socket = http.newWebSocketBuilder().buildAsync(server, listener).join();
+            listener.current = true;
+            // A socket that closed before it was ours to watch still counts as a drop.
+            if (listener.gone) {
+                onDrop();
+                return;
+            }
             send(first);
         } catch (RuntimeException e) {
             log.warning("Could not reach " + server + ": " + e.getMessage());
@@ -104,6 +115,10 @@ public final class SampleBot {
     private void onMessage(JSONObject message) {
         switch (message.getString("type")) {
             case "welcome" -> {
+                // In the world again, so the next drop starts its backoff from one second.
+                synchronized (this) {
+                    failedConnects = 0;
+                }
                 // A second welcome is a new chapter's map: a new brain for the new world.
                 playerId = message.getInt("playerId");
                 token = message.getString("token");
@@ -114,11 +129,16 @@ public final class SampleBot {
                 if (current != null) current.decide(message).forEach(this::send);
             }
             case "error" -> {
-                if (SESSION_ENDED.equals(message.getString("message"))) {
+                String text = message.getString("message");
+                if (SESSION_ENDED.equals(text)) {
                     token = null;
                     send(join());
+                } else if (playerId == null || brain == null) {
+                    // A refused join (name taken, server full, a bad name) won't change by retrying.
+                    log.warning("Could not join: " + text);
+                    close();
                 } else {
-                    log.info("The server said: " + message.getString("message"));
+                    log.info("The server said: " + text);
                 }
             }
             default -> { }  // story: a bot has no use for the narration
@@ -127,21 +147,29 @@ public final class SampleBot {
 
     /** The socket is gone and we didn't close it: try to take the seat back, waiting longer each time. */
     private synchronized void onDrop() {
-        if (closing || retries.isShutdown()) return;
+        if (closing || retries.isShutdown() || reconnecting) return;
         if (failedConnects >= MAX_RECONNECTS) {
             log.warning("Gave up after " + MAX_RECONNECTS + " attempts to reach " + server);
             close();
             return;
         }
+        reconnecting = true;
         long delay = 1L << failedConnects++;
-        String held = token;
-        retries.schedule(() -> connect(held != null
-                ? new JSONObject().put("command", "rejoin").put("token", held)
-                : join()), delay, TimeUnit.SECONDS);
+        retries.schedule(() -> {
+            synchronized (this) {
+                reconnecting = false;
+            }
+            String held = token;
+            connect(held != null ? new JSONObject().put("command", "rejoin").put("token", held) : join());
+        }, delay, TimeUnit.SECONDS);
     }
 
     private final class Listener implements WebSocket.Listener {
         private final StringBuilder partial = new StringBuilder();
+        /** Set once connect() has made this listener's socket the bot's socket. */
+        volatile boolean current;
+        /** Set when this socket closed or failed, perhaps before connect() got to it. */
+        volatile boolean gone;
 
         @Override
         public CompletionStage<?> onText(WebSocket ws, CharSequence data, boolean last) {
@@ -161,13 +189,18 @@ public final class SampleBot {
 
         @Override
         public CompletionStage<?> onClose(WebSocket ws, int status, String reason) {
-            if (ws == socket) onDrop();
+            gone();
             return null;
         }
 
         @Override
         public void onError(WebSocket ws, Throwable error) {
-            if (ws == socket) onDrop();
+            gone();
+        }
+
+        private void gone() {
+            gone = true;
+            if (current && socket != null && !closing) onDrop();
         }
     }
 }

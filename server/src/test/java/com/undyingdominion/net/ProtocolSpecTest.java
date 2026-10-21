@@ -76,8 +76,11 @@ class ProtocolSpecTest {
         player.awaitState(m -> m.has("paused"));
         player.send(new JSONObject().put("command", "join").put("name", "Again"));
         player.awaitType("error");
+        player.collect(300);
 
-        checkAll(player.collect(500));
+        List<JSONObject> received = player.history();
+        assertTrue(received.stream().anyMatch(m -> m.getString("type").equals("welcome")), "the welcome is checked too");
+        checkAll(received);
         assertTrue(undocumented.isEmpty(), "sent by the server but not in asyncapi.json: " + undocumented);
     }
 
@@ -88,8 +91,9 @@ class ProtocolSpecTest {
         TestSocket player = socket(example("join"));
         player.awaitType("story");
         player.awaitState(m -> m.has("story"));
+        player.collect(300);
 
-        checkAll(player.collect(300));
+        checkAll(player.history());
         assertTrue(undocumented.isEmpty(), "sent by the server but not in asyncapi.json: " + undocumented);
     }
 
@@ -104,8 +108,17 @@ class ProtocolSpecTest {
         }
     }
 
-    /** Walks a value against its schema, noting every field the schema doesn't name. */
+    /** Walks a value against its schema: its type, const and enum, and every field, noting any the schema doesn't name. */
     private void check(Object value, JSONObject schema, String path) {
+        if (schema.has("const")) assertEquals(schema.get("const"), value, path + " is not its const");
+        if (schema.has("enum")) {
+            assertTrue(schema.getJSONArray("enum").toList().contains(value), path + " = " + value + " is not in its enum");
+        }
+        if (schema.has("type")) {
+            Object type = schema.get("type");
+            List<Object> allowed = type instanceof JSONArray types ? types.toList() : List.of(type);
+            assertTrue(allowed.contains(jsonType(value)), path + " is " + jsonType(value) + ", the spec says " + type);
+        }
         if (value instanceof JSONObject object) {
             JSONObject properties = schema.optJSONObject("properties");
             JSONObject additional = schema.optJSONObject("additionalProperties");
@@ -124,6 +137,16 @@ class ProtocolSpecTest {
         } else if (value instanceof JSONArray array && schema.has("items")) {
             for (int i = 0; i < array.length(); i++) check(array.get(i), schema.getJSONObject("items"), path + "[]");
         }
+    }
+
+    private static String jsonType(Object value) {
+        if (value == JSONObject.NULL) return "null";
+        if (value instanceof JSONObject) return "object";
+        if (value instanceof JSONArray) return "array";
+        if (value instanceof Boolean) return "boolean";
+        if (value instanceof Integer || value instanceof Long) return "integer";
+        if (value instanceof Number) return "number";
+        return "string";
     }
 
     // ------------------------------------------------------------------ the spec

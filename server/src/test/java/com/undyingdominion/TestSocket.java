@@ -26,6 +26,8 @@ public final class TestSocket {
     private static final long WAIT_SECONDS = 8;
 
     private final BlockingQueue<JSONObject> inbox = new LinkedBlockingQueue<>();
+    /** Every message ever received, waited on or not. */
+    private final List<JSONObject> history = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final CompletableFuture<String> closed = new CompletableFuture<>();
     private final WebSocket socket;
     private volatile Integer playerId;
@@ -42,6 +44,7 @@ public final class TestSocket {
                             JSONObject message = new JSONObject(partial.toString());
                             partial.setLength(0);
                             if (message.getString("type").equals("welcome")) playerId = message.getInt("playerId");
+                            history.add(message);
                             inbox.add(message);
                         }
                         ws.request(1);
@@ -127,6 +130,11 @@ public final class TestSocket {
     /** The player id from the last welcome, or null before any. */
     public Integer playerId() {
         return playerId;
+    }
+
+    /** Everything received since the socket opened, including what the waits skipped or took. */
+    public List<JSONObject> history() {
+        return List.copyOf(history);
     }
 
     /** Everything that arrives in the next {@code millis}, without failing if nothing does. */
