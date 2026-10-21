@@ -1,0 +1,18 @@
+# docker compose up -d   → the Dominion on http://<this machine>:5050
+# docker attach <container> reaches the host console (detach with Ctrl-P Ctrl-Q).
+services:
+  dominion:
+    build: .
+    ports:
+      - "5050:5050"
+    volumes:
+      # Saves outlive the container. Without this they'd vanish on every rebuild.
+      - dominion-data:/data
+      # To play a campaign, mount its folder and pass --campaign:
+      # - ./path/to/campaign:/campaign:ro
+    # command: ["--campaign", "/campaign"]
+    stdin_open: true
+    restart: unless-stopped
+
+volumes:
+  dominion-data:

@@ -582,6 +582,43 @@ check_maven() {
   ran=$((ran + 1))
 }
 
+# ------------------------------------------------------------- container ----
+# A Dockerfile at the root means the image ships, so the gate builds it and runs the container
+# acceptance test against it: the server on 5050, a save resumed from the volume in a fresh
+# container. No usable docker is a failure, not a skip. And a test that reports itself skipped
+# (the image property lost on the way) is a failure too, because a skipped check didn't run.
+CONTAINER_TAG="undying-dominion:gate"
+CONTAINER_TEST="com.undyingdominion.ContainerAcceptanceTest"
+container_check() {
+  [ -f "$root/Dockerfile" ] || return 0
+  if [ "$list_only" -eq 1 ]; then
+    say "   would run (container): docker build -t $CONTAINER_TAG . + ${CONTAINER_TEST##*.}"
+    return 0
+  fi
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "A Dockerfile is at the repo root, but docker isn't usable here (not on PATH, or no daemon)."
+    bad "   The image can't be built or tested, so the gate will not pretend it was."
+    fail=1
+    return 0
+  fi
+  step "docker build + ${CONTAINER_TEST##*.} against the image"
+  if ! docker build -q -t "$CONTAINER_TAG" "$root" >/dev/null; then
+    bad "docker build failed."
+    fail=1
+    return 0
+  fi
+  local report="$root/server/target/surefire-reports/$CONTAINER_TEST.txt"
+  rm -f "$report"
+  ( cd "$root/server" && mvn -B -q test -Dtest="${CONTAINER_TEST##*.}" \
+      -Dsurefire.failIfNoSpecifiedTests=false -Ddominion.image="$CONTAINER_TAG" ) || fail=1
+  if ! grep -q "Skipped: 0" "$report" 2>/dev/null; then
+    bad "${CONTAINER_TEST##*.} did not run against the image (missing report, or skipped)."
+    fail=1
+    return 0
+  fi
+  ran=$((ran + 1))
+}
+
 # ------------------------------------------------------------- lockfiles ----
 # Echo the committed lockfile pinning $1's dependencies of kind $2 (py | node | php): the
 # directory's own, else the workspace root's. Committed only -- CI's install step
@@ -821,6 +858,7 @@ while IFS= read -r dir; do
     collect_lockfiles "$dir" "$rel"
   fi
 done < <(project_dirs)
+[ "$install_only" -eq 0 ] && container_check
 
 if [ "$install_only" -eq 1 ]; then
   say ""
