@@ -201,6 +201,28 @@ class ChapterRunTest {
         assertTrue(run.stragglers().isEmpty(), "a boss chapter is about the boss, not the stragglers");
     }
 
+    @Test
+    void aBossRaisedIntoALegionDoesNotKeepTheChapterFromBeingWon() throws IOException {
+        Chapter yard = campaign.chapters().get(0);
+        GameEngine engine = engineFor(yard);
+        ChapterRun run = new ChapterRun(yard, engine, new Random(2));
+        engine.submit(new Command.Join(engine.allocatePlayerId(), "Vesper"));
+        engine.tick();
+        run.update();
+
+        // The player raises a warden of their own, as raising the fallen boss would give them.
+        engine.spawn(UnitType.valueOf("TEST_WARDEN"), 1, new Position(2, 5));
+        engine.getUnits().stream()
+                .filter(u -> u.getType().name().equals("TEST_WARDEN") && u.getOwnerId() == Unit.NEUTRAL)
+                .forEach(u -> u.takeDamage(10_000, 1));
+        for (int i = 0; i < 3; i++) {
+            engine.tick();
+            run.update();
+        }
+
+        assertEquals(ChapterRun.Outcome.WON, run.outcome(), "only the enemy's boss counts");
+    }
+
     private static final java.util.Comparator<Position> BY_TILE =
             java.util.Comparator.comparingInt(Position::y).thenComparingInt(Position::x);
 

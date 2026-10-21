@@ -122,7 +122,7 @@ public class ChapterRun {
         return switch (trigger.when()) {
             case AT_SECOND -> elapsedSeconds() >= trigger.seconds();
             case BOSS_HP_BELOW -> engine.getUnits().stream()
-                    .anyMatch(u -> u.getType().name().equals(trigger.unitType())
+                    .anyMatch(u -> u.getOwnerId() == Unit.NEUTRAL && u.getType().name().equals(trigger.unitType())
                             && u.getHp() * 100 < u.getType().maxHp * trigger.percent());
             case TYPE_CLEARED -> seenTypes.contains(trigger.unitType()) && aliveOfType(trigger.unitType()) == 0;
         };
@@ -213,7 +213,6 @@ public class ChapterRun {
         }
     }
 
-    /** Living units of a type, or of any of several types written as {@code A,B,C}. */
     /** Scattered creatures keep their distance from where the necromancers rise. */
     private boolean nearStart(Position p) {
         int[] s = chapter.startArea();
@@ -222,9 +221,15 @@ public class ChapterRun {
         return Math.max(dx, dy) < START_CLEARANCE;
     }
 
+    /**
+     * Living enemy units of a type, or of any of several types written as {@code A,B,C}. A creature a
+     * player has raised into their legion is theirs now, so it never keeps a boss "alive".
+     */
     private long aliveOfType(String typeNames) {
         Set<String> names = Set.of(typeNames.split(","));
-        return engine.getUnits().stream().filter(u -> u.isAlive() && names.contains(u.getType().name())).count();
+        return engine.getUnits().stream()
+                .filter(u -> u.isAlive() && u.getOwnerId() == Unit.NEUTRAL && names.contains(u.getType().name()))
+                .count();
     }
 
     private long wildAlive() {
