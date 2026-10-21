@@ -2,25 +2,21 @@ package com.undyingdominion.net;
 
 import com.undyingdominion.Dominion;
 import com.undyingdominion.ServerOptions;
+import com.undyingdominion.TestSocket;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.WebSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -31,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Rejoining after a dropped connection, played over real WebSockets through the real startup path.
  * One test per row of docs/design/reconnect.md §9, each a transition of the seat's state machine.
+ * The grace is timed by a clock the test moves on, so no test waits for it to run out.
  */
 class ReconnectAcceptanceTest {
 
@@ -39,50 +36,55 @@ class ReconnectAcceptanceTest {
     @TempDir
     Path dir;
 
+    /** Starts at an odd value so nothing relies on the clock reading zero. */
+    private final AtomicLong clock = new AtomicLong(1_000_000_007L);
     private Dominion dominion;
-    private final List<Client> clients = new ArrayList<>();
+    private final List<TestSocket> sockets = new ArrayList<>();
 
     @AfterEach
     void stop() {
-        clients.forEach(Client::close);
+        sockets.forEach(TestSocket::abort);
         if (dominion != null) dominion.close();
     }
 
     @Test
-    void aRejoinWithinGraceTakesBackTheSameNecromancer() throws Exception {
+    void aRejoinWithinGraceTakesBackTheSameNecromancer() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         JSONObject welcome = vesper.awaitType("welcome");
         String token = welcome.getString("token");
         assertTrue(token.matches("[A-Za-z0-9_-]{22}"), "a 22-character URL-safe token, got " + token);
         vesper.send("{\"command\":\"summon\",\"unit\":\"SKELETON_WARRIOR\"}");
-        vesper.await("a summoned skeleton", m -> isState(m) && m.getJSONObject("you").getInt("legion") == 1);
+        vesper.awaitState(m -> m.getJSONObject("you").getInt("legion") == 1);
         vesper.send("{\"command\":\"pause\"}");
-        JSONObject before = vesper.await("the world paused", m -> isState(m) && m.has("paused"));
+        JSONObject before = vesper.awaitState(m -> m.has("paused"));
 
-        vesper.close();
-        Client back = rejoin(token);
+        vesper.abort();
+        awaitAway(vesper);
+        passSeconds(29);
+        TestSocket back = rejoin(token);
 
         JSONObject again = back.awaitType("welcome");
         assertEquals(welcome.getInt("playerId"), again.getInt("playerId"));
         assertEquals("Vesper", again.getString("name"));
         assertEquals(token, again.getString("token"), "the token never changes");
-        JSONObject after = back.await("a state", ReconnectAcceptanceTest::isState);
+        JSONObject after = back.awaitState(m -> true);
         assertEquals(before.getLong("tick"), after.getLong("tick"), "the world held still");
         for (String field : List.of("necromancerId", "soul", "legion", "level")) {
-            assertEquals(before.getJSONObject("you").getInt(field), after.getJSONObject("you").getInt(field), field);
+            assertEquals(before.getJSONObject("you").get(field), after.getJSONObject("you").get(field), field);
         }
     }
 
     @Test
-    void aRejoinAfterGraceIsRefusedAndTheSocketCanJoinAfresh() throws Exception {
-        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild", "--grace", "1");
-        Client vesper = join("Vesper");
+    void aRejoinAfterGraceIsRefusedAndTheSocketCanJoinAfresh() {
+        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
+        TestSocket vesper = join("Vesper");
         JSONObject welcome = vesper.awaitType("welcome");
-        vesper.close();
-        Thread.sleep(1_600);
+        vesper.abort();
+        awaitAway(vesper);
+        passSeconds(30);
 
-        Client back = rejoin(welcome.getString("token"));
+        TestSocket back = rejoin(welcome.getString("token"));
         assertEquals(ENDED, back.awaitType("error").getString("message"));
 
         back.send("{\"command\":\"join\",\"name\":\"Vesper\"}");
@@ -92,82 +94,87 @@ class ReconnectAcceptanceTest {
     }
 
     @Test
-    void aSecondWindowTakesTheSeatOver() throws Exception {
+    void aSecondWindowTakesTheSeatOver() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
-        Client first = join("Vesper");
+        TestSocket first = join("Vesper");
         JSONObject welcome = first.awaitType("welcome");
 
-        Client second = rejoin(welcome.getString("token"));
+        TestSocket second = rejoin(welcome.getString("token"));
 
         assertEquals(welcome.getInt("playerId"), second.awaitType("welcome").getInt("playerId"));
         assertEquals("Taken up in another window", first.awaitClose());
-        second.await("states for the new window", ReconnectAcceptanceTest::isState);
+        second.awaitState(m -> true);
     }
 
     @Test
-    void aPurgedPlayerCannotRejoin() throws Exception {
+    void aPurgedPlayerCannotRejoin() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         JSONObject welcome = vesper.awaitType("welcome");
 
         dominion.server().disconnect(welcome.getInt("playerId"), "Purged by the Dominion's keeper");
         assertEquals("Purged by the Dominion's keeper", vesper.awaitClose());
 
-        Client back = rejoin(welcome.getString("token"));
+        TestSocket back = rejoin(welcome.getString("token"));
         assertEquals(ENDED, back.awaitType("error").getString("message"));
     }
 
     @Test
-    void aMadeUpTokenIsRefused() throws Exception {
+    void aMadeUpTokenIsRefused() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
-        Client stranger = rejoin("q3V9cX0bTqKk1yH6m2wJ8A");
+        TestSocket stranger = rejoin("q3V9cX0bTqKk1yH6m2wJ8A");
         assertEquals(ENDED, stranger.awaitType("error").getString("message"));
     }
 
     @Test
-    void theWorldHoldsStillWhileEveryoneIsAway() throws Exception {
+    void theWorldHoldsStillWhileEveryoneIsAway() throws InterruptedException {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         String token = vesper.awaitType("welcome").getString("token");
-        long last = vesper.await("a state", ReconnectAcceptanceTest::isState).getLong("tick");
+        vesper.awaitState(m -> true);
 
-        vesper.close();
-        Thread.sleep(1_500);
-        Client back = rejoin(token);
+        vesper.abort();
+        awaitAway(vesper);
+        await("the away pause", () -> dominion.server().pause() != null
+                && dominion.server().pause().getString("reason").equals("away"));
+        long stoppedAt = dominion.engine().getTick();
+        Thread.sleep(600);  // six ticks, were the world running
+        assertEquals(stoppedAt, dominion.engine().getTick(), "no tick while everyone is away");
 
-        long first = back.await("a state", ReconnectAcceptanceTest::isState).getLong("tick");
-        assertTrue(first - last < 5, "fifteen ticks would have passed in 1.5 s; " + (first - last) + " did");
-        back.await("the world running again", m -> isState(m) && m.getLong("tick") > first + 3);
+        TestSocket back = rejoin(token);
+        long first = back.awaitState(m -> true).getLong("tick");
+        back.awaitState(m -> m.getLong("tick") > first + 3);
     }
 
     @Test
-    void aPauseHoldsWhileWhoeverPausedIsAway() throws Exception {
-        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild", "--grace", "2");
-        Client vesper = join("Vesper");
-        Client corvin = join("Corvin");
+    void aPauseHoldsWhileWhoeverPausedIsAwayAndOthersSeeThemAway() {
+        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
+        TestSocket vesper = join("Vesper");
+        vesper.awaitType("welcome");
+        TestSocket corvin = join("Corvin");
         corvin.awaitType("welcome");
         vesper.send("{\"command\":\"pause\"}");
-        long frozenAt = corvin.await("the pause", m -> isState(m) && m.has("paused")).getLong("tick");
+        long frozenAt = corvin.awaitState(m -> m.has("paused")).getLong("tick");
 
-        vesper.close();
-        Thread.sleep(500);
-        corvin.drain();
-        JSONObject held = corvin.await("a state", ReconnectAcceptanceTest::isState);
+        vesper.abort();
+        awaitAway(vesper);
+        JSONObject held = corvin.awaitState(m -> isAway(m, "Vesper"));
         assertEquals("player", held.getJSONObject("paused").getString("reason"), "still Vesper's pause");
         assertEquals(frozenAt, held.getLong("tick"));
 
-        corvin.await("the world running once the grace ends",
-                m -> isState(m) && !m.has("paused") && m.getLong("tick") > frozenAt);
+        passSeconds(30);
+        corvin.awaitState(m -> !m.has("paused") && m.getLong("tick") > frozenAt);
     }
 
     @Test
-    void anAwayPlayerKeepsTheirPlaceInAFullWorld() throws Exception {
+    void anAwayPlayerKeepsTheirPlaceInAFullWorld() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild", "-mc", "1");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         String token = vesper.awaitType("welcome").getString("token");
-        vesper.close();
+        vesper.abort();
+        awaitAway(vesper);
 
-        Client corvin = join("Corvin");
+        TestSocket corvin = join("Corvin");
         assertEquals("No more space in this world", corvin.awaitType("error").getString("message"));
 
         corvin.send("{\"command\":\"rejoin\",\"token\":\"" + token + "\"}");
@@ -177,19 +184,20 @@ class ReconnectAcceptanceTest {
     @Test
     void anAwayPlayerRejoinsIntoTheChapterTheCampaignMovedOnTo() throws Exception {
         dominion = raise("-p", "0", "--campaign", trialCampaign().toString(), "--db", db(), "--seed", "4");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         JSONObject welcome = vesper.awaitType("welcome");
-        int level = vesper.await("a state", ReconnectAcceptanceTest::isState).getJSONObject("you").getInt("level");
-        vesper.close();
+        int level = vesper.awaitState(m -> true).getJSONObject("you").getInt("level");
+        vesper.abort();
+        awaitAway(vesper);
 
         dominion.server().runOnLoop(() -> dominion.story().jumpTo(2));
-        Thread.sleep(300);
-        Client back = rejoin(welcome.getString("token"));
+        await("the next chapter's map", () -> dominion.map().getWidth() == 16);
+        TestSocket back = rejoin(welcome.getString("token"));
 
         JSONObject again = back.awaitType("welcome");
         assertEquals(welcome.getInt("playerId"), again.getInt("playerId"));
         assertEquals(16, again.getJSONObject("map").getInt("width"), "the hall, chapter 2");
-        JSONObject state = back.await("a state", ReconnectAcceptanceTest::isState);
+        JSONObject state = back.awaitState(m -> true);
         assertEquals(2, state.getJSONObject("story").getInt("chapter"));
         assertEquals(level, state.getJSONObject("you").getInt("level"));
     }
@@ -203,13 +211,46 @@ class ReconnectAcceptanceTest {
 
     // ------------------------------------------------------------------ helpers
 
-    /** Starts a Dominion the way Main does. An option it doesn't know yet fails the test, not errors it. */
-    private static Dominion raise(String... args) throws IOException {
+    /** Starts a Dominion the way Main does, on the test's clock. An unknown option fails the test. */
+    private Dominion raise(String... args) {
         try {
-            return Dominion.raise(ServerOptions.parse(args));
-        } catch (IllegalArgumentException e) {
+            return Dominion.raise(ServerOptions.parse(args), clock::get);
+        } catch (IllegalArgumentException | IOException e) {
             return fail("the server would not start: " + e.getMessage());
         }
+    }
+
+    private void passSeconds(int seconds) {
+        clock.addAndGet(TimeUnit.SECONDS.toNanos(seconds));
+    }
+
+    /** Waits until the server has noticed this socket's drop and is holding the player's place. */
+    private void awaitAway(TestSocket socket) {
+        int playerId = socket.playerId();
+        await("the drop to be noticed", () -> dominion.server().isAway(playerId));
+    }
+
+    private static boolean isAway(JSONObject state, String name) {
+        JSONArray players = state.getJSONArray("players");
+        for (int i = 0; i < players.length(); i++) {
+            JSONObject player = players.getJSONObject(i);
+            if (player.getString("name").equals(name)) return player.getBoolean("away");
+        }
+        return false;
+    }
+
+    private static void await(String what, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
+        while (System.nanoTime() < deadline) {
+            if (condition.getAsBoolean()) return;
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        fail("waited 8 seconds for " + what);
     }
 
     private String db() {
@@ -226,85 +267,15 @@ class ReconnectAcceptanceTest {
         return campaign;
     }
 
-    private Client join(String name) {
-        Client client = new Client(dominion.server().port());
-        clients.add(client);
-        client.send("{\"command\":\"join\",\"name\":\"" + name + "\"}");
-        return client;
+    private TestSocket join(String name) {
+        TestSocket socket = TestSocket.join(dominion.server().port(), name);
+        sockets.add(socket);
+        return socket;
     }
 
-    private Client rejoin(String token) {
-        Client client = new Client(dominion.server().port());
-        clients.add(client);
-        client.send("{\"command\":\"rejoin\",\"token\":\"" + token + "\"}");
-        return client;
-    }
-
-    private static boolean isState(JSONObject message) {
-        return message.getString("type").equals("state");
-    }
-
-    /** One WebSocket, with everything the server sends queued and the reason it was closed kept. */
-    private static final class Client {
-
-        private final BlockingQueue<JSONObject> inbox = new LinkedBlockingQueue<>();
-        private final CompletableFuture<String> closed = new CompletableFuture<>();
-        private final WebSocket socket;
-
-        Client(int port) {
-            socket = HttpClient.newHttpClient().newWebSocketBuilder()
-                    .buildAsync(URI.create("ws://localhost:" + port + "/ws"), new WebSocket.Listener() {
-                        private final StringBuilder partial = new StringBuilder();
-
-                        @Override
-                        public CompletionStage<?> onText(WebSocket ws, CharSequence data, boolean last) {
-                            partial.append(data);
-                            if (last) {
-                                inbox.add(new JSONObject(partial.toString()));
-                                partial.setLength(0);
-                            }
-                            ws.request(1);
-                            return null;
-                        }
-
-                        @Override
-                        public CompletionStage<?> onClose(WebSocket ws, int status, String reason) {
-                            closed.complete(reason);
-                            return null;
-                        }
-                    }).join();
-        }
-
-        void send(String json) {
-            socket.sendText(json, true).join();
-        }
-
-        JSONObject await(String what, Predicate<JSONObject> match) throws InterruptedException {
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
-            while (System.nanoTime() < deadline) {
-                JSONObject message = inbox.poll(100, TimeUnit.MILLISECONDS);
-                if (message != null && match.test(message)) return message;
-            }
-            return fail("waited 8 seconds for " + what);
-        }
-
-        JSONObject awaitType(String type) throws InterruptedException {
-            return await("a " + type, m -> m.getString("type").equals(type));
-        }
-
-        /** The reason the server gave for closing this socket. */
-        String awaitClose() throws Exception {
-            return closed.get(8, TimeUnit.SECONDS);
-        }
-
-        /** Forgets everything received so far, so the next await sees only what comes after. */
-        void drain() {
-            inbox.clear();
-        }
-
-        /** Drops the socket without a close handshake, as a refreshed or killed tab does. */
-        void close() {
-            socket.abort();
-        }
+    private TestSocket rejoin(String token) {
+        TestSocket socket = TestSocket.rejoin(dominion.server().port(), token);
+        sockets.add(socket);
+        return socket;
     }
 }

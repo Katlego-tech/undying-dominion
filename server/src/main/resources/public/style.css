@@ -125,6 +125,17 @@ html, body {
 .scores li .kd { color: var(--bone-dim); font-size: 12px; }
 .scores li.me .who { color: var(--bone); font-weight: 600; }
 .scores li.fallen .who { color: var(--bone-faint); text-decoration: line-through; }
+.scores li.away .who, .scores li.away .swatch { opacity: 0.5; }
+.away-tag {
+  padding: 0 6px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 999px;
+  color: var(--violet);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 16px;
+}
 
 /* ---------------------------------------------------------------- bottom row */
 

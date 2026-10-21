@@ -1,5 +1,6 @@
 package com.undyingdominion.net;
 
+import com.undyingdominion.TestSocket;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameRules;
 import com.undyingdominion.world.MapConfig;
@@ -19,16 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Scenarios run against a real server over a real WebSocket, as the Robot Worlds acceptance tests
@@ -39,7 +34,7 @@ class GameServerAcceptanceTest {
     private static final int MAX_PLAYERS = 3;
 
     private GameServer server;
-    private final List<TestClient> clients = new ArrayList<>();
+    private final List<TestSocket> clients = new ArrayList<>();
 
     @BeforeEach
     void startServer() {
@@ -56,70 +51,70 @@ class GameServerAcceptanceTest {
 
     @AfterEach
     void stopServer() {
-        clients.forEach(TestClient::abort);
+        clients.forEach(TestSocket::abort);
         server.stop();
     }
 
     @Test
     void joiningGetsAWelcomeAndThenTheWorld() {
-        TestClient vesper = connect();
+        TestSocket vesper = connect();
         vesper.send("{\"command\":\"join\",\"name\":\"Vesper\"}");
 
-        JSONObject welcome = vesper.await("welcome", m -> true);
+        JSONObject welcome = vesper.awaitType("welcome", m -> true);
         assertEquals("Vesper", welcome.getString("name"));
         assertEquals(20, welcome.getJSONObject("map").getInt("width"));
         int me = welcome.getInt("playerId");
 
-        JSONObject state = vesper.await("state", m -> !m.getJSONObject("you").isNull("necromancerId"));
+        JSONObject state = vesper.awaitType("state", m -> !m.getJSONObject("you").isNull("necromancerId"));
         assertTrue(hasUnit(state, "NECROMANCER", me));
     }
 
     @Test
     void aSummonedSkeletonAppearsInTheWorld() {
-        TestClient vesper = joined("Vesper");
-        int me = vesper.playerId;
+        TestSocket vesper = joined("Vesper");
+        int me = vesper.playerId();
 
         vesper.send("{\"command\":\"summon\",\"unit\":\"SKELETON_WARRIOR\"}");
 
-        vesper.await("state", m -> hasUnit(m, "SKELETON_WARRIOR", me));
+        vesper.awaitType("state", m -> hasUnit(m, "SKELETON_WARRIOR", me));
     }
 
     @Test
     void theWorldCannotHaveTwoNecromancersWithTheSameName() {
         joined("Corvin");
-        TestClient impostor = connect();
+        TestSocket impostor = connect();
 
         impostor.send("{\"command\":\"join\",\"name\":\"corvin\"}");
 
-        assertEquals("Too many of you in this world", impostor.await("error", m -> true).getString("message"));
+        assertEquals("Too many of you in this world", impostor.awaitType("error", m -> true).getString("message"));
     }
 
     @Test
     void aFullWorldTurnsNewNecromancersAway() {
         for (int i = 0; i < MAX_PLAYERS; i++) joined("Necro" + i);
-        TestClient late = connect();
+        TestSocket late = connect();
 
         late.send("{\"command\":\"join\",\"name\":\"Late\"}");
 
-        assertEquals("No more space in this world", late.await("error", m -> true).getString("message"));
+        assertEquals("No more space in this world", late.awaitType("error", m -> true).getString("message"));
     }
 
     @Test
     void commandsBeforeJoiningAreRefused() {
-        TestClient stranger = connect();
+        TestSocket stranger = connect();
 
         stranger.send("{\"command\":\"summon\",\"unit\":\"LICH\"}");
 
-        assertEquals("Join the Dominion first", stranger.await("error", m -> true).getString("message"));
+        assertEquals("Join the Dominion first", stranger.awaitType("error", m -> true).getString("message"));
     }
 
     @Test
     void anUnknownCommandIsUnsupported() {
-        TestClient vesper = joined("Vesper");
+        TestSocket vesper = joined("Vesper");
 
         vesper.send("{\"command\":\"luanch\"}");
 
-        assertEquals("Unsupported command", vesper.await("error", m -> true).getString("message"));
+        assertEquals("Unsupported command", vesper.awaitType("error", m -> true).getString("message"));
     }
 
     @Test
@@ -144,80 +139,80 @@ class GameServerAcceptanceTest {
 
     @Test
     void anyPlayerCanPauseTheWorldForEveryoneAndAnyoneCanResumeIt() {
-        TestClient vesper = joined("Vesper");
-        TestClient corvin = joined("Corvin");
+        TestSocket vesper = joined("Vesper");
+        TestSocket corvin = joined("Corvin");
 
         vesper.send("{\"command\":\"pause\"}");
 
-        JSONObject paused = corvin.await("state", m -> m.has("paused"));
+        JSONObject paused = corvin.awaitType("state", m -> m.has("paused"));
         assertEquals("Vesper", paused.getJSONObject("paused").getString("by"));
         assertEquals("player", paused.getJSONObject("paused").getString("reason"));
         long frozenAt = paused.getLong("tick");
-        assertEquals(frozenAt, corvin.await("state", m -> true).getLong("tick"));
-        assertEquals(frozenAt, corvin.await("state", m -> true).getLong("tick"));
+        assertEquals(frozenAt, corvin.awaitType("state", m -> true).getLong("tick"));
+        assertEquals(frozenAt, corvin.awaitType("state", m -> true).getLong("tick"));
 
         corvin.send("{\"command\":\"resume\"}");
 
-        vesper.await("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
+        vesper.awaitType("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
     }
 
     @Test
     void readingTheStoryPausesASoloGame() {
-        TestClient vesper = joined("Vesper");
+        TestSocket vesper = joined("Vesper");
 
         vesper.send("{\"command\":\"reading\",\"open\":true}");
-        JSONObject paused = vesper.await("state", m -> m.has("paused"));
+        JSONObject paused = vesper.awaitType("state", m -> m.has("paused"));
         assertEquals("story", paused.getJSONObject("paused").getString("reason"));
 
         vesper.send("{\"command\":\"reading\",\"open\":false}");
-        vesper.await("state", m -> !m.has("paused") && m.getLong("tick") > paused.getLong("tick"));
+        vesper.awaitType("state", m -> !m.has("paused") && m.getLong("tick") > paused.getLong("tick"));
     }
 
     @Test
     void readingTheStoryDoesNotPauseOthers() {
-        TestClient vesper = joined("Vesper");
-        TestClient corvin = joined("Corvin");
-        long before = corvin.await("state", m -> true).getLong("tick");
+        TestSocket vesper = joined("Vesper");
+        TestSocket corvin = joined("Corvin");
+        long before = corvin.awaitType("state", m -> true).getLong("tick");
 
         vesper.send("{\"command\":\"reading\",\"open\":true}");
 
-        JSONObject later = corvin.await("state", m -> m.getLong("tick") > before + 5);
+        JSONObject later = corvin.awaitType("state", m -> m.getLong("tick") > before + 5);
         assertFalse(later.has("paused"));
     }
 
     @Test
     void thePauseLiftsWhenWhoeverPausedLeaves() {
-        TestClient vesper = joined("Vesper");
-        TestClient corvin = joined("Corvin");
+        TestSocket vesper = joined("Vesper");
+        TestSocket corvin = joined("Corvin");
         vesper.send("{\"command\":\"pause\"}");
-        long frozenAt = corvin.await("state", m -> m.has("paused")).getLong("tick");
+        long frozenAt = corvin.awaitType("state", m -> m.has("paused")).getLong("tick");
 
         vesper.abort();
 
-        corvin.await("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
+        corvin.awaitType("state", m -> !m.has("paused") && m.getLong("tick") > frozenAt);
     }
 
     @Test
     void aNecromancerCanJoinAPausedWorld() {
-        TestClient vesper = joined("Vesper");
+        TestSocket vesper = joined("Vesper");
         vesper.send("{\"command\":\"pause\"}");
-        vesper.await("state", m -> m.has("paused"));
+        vesper.awaitType("state", m -> m.has("paused"));
 
-        TestClient corvin = joined("Corvin");
+        TestSocket corvin = joined("Corvin");
 
-        JSONObject state = corvin.await("state", m -> m.has("paused"));
-        assertTrue(hasUnit(state, "NECROMANCER", corvin.playerId));
+        JSONObject state = corvin.awaitType("state", m -> m.has("paused"));
+        assertTrue(hasUnit(state, "NECROMANCER", corvin.playerId()));
     }
 
     @Test
     void theHostCanPauseAndResume() {
-        TestClient vesper = joined("Vesper");
+        TestSocket vesper = joined("Vesper");
 
         server.pauseByHost();
-        assertEquals("host", vesper.await("state", m -> m.has("paused")).getJSONObject("paused").getString("reason"));
+        assertEquals("host", vesper.awaitType("state", m -> m.has("paused")).getJSONObject("paused").getString("reason"));
 
         server.resume();
-        vesper.await("state", m -> !m.has("paused"));
+        vesper.awaitType("state", m -> !m.has("paused"));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -236,61 +231,16 @@ class GameServerAcceptanceTest {
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    private TestClient connect() {
-        TestClient client = new TestClient();
-        client.socket = HttpClient.newHttpClient().newWebSocketBuilder()
-                .buildAsync(URI.create("ws://localhost:" + server.port() + "/ws"), client)
-                .join();
+    private TestSocket connect() {
+        TestSocket client = TestSocket.open(server.port());
         clients.add(client);
         return client;
     }
 
-    private TestClient joined(String name) {
-        TestClient client = connect();
-        client.send(new JSONObject().put("command", "join").put("name", name).toString());
-        client.playerId = client.await("welcome", m -> true).getInt("playerId");
+    private TestSocket joined(String name) {
+        TestSocket client = TestSocket.join(server.port(), name);
+        clients.add(client);
+        client.awaitType("welcome");
         return client;
-    }
-
-    private static final class TestClient implements WebSocket.Listener {
-        private final BlockingQueue<JSONObject> inbox = new LinkedBlockingQueue<>();
-        private final StringBuilder partial = new StringBuilder();
-        private WebSocket socket;
-        private int playerId;
-
-        @Override
-        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-            partial.append(data);
-            if (last) {
-                inbox.add(new JSONObject(partial.toString()));
-                partial.setLength(0);
-            }
-            webSocket.request(1);
-            return null;
-        }
-
-        void send(String json) {
-            socket.sendText(json, true).join();
-        }
-
-        /** Waits for the first message of this type that matches, skipping everything else. */
-        JSONObject await(String type, Predicate<JSONObject> match) {
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-            try {
-                while (System.nanoTime() < deadline) {
-                    JSONObject message = inbox.poll(100, TimeUnit.MILLISECONDS);
-                    if (message != null && type.equals(message.getString("type")) && match.test(message)) {
-                        return message;
-                    }
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return fail("No matching '" + type + "' message within 5 seconds");
-        }
-
-        void abort() {
-            socket.abort();
-        }
     }
 }

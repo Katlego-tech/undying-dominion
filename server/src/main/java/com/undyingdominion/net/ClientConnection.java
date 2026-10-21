@@ -16,7 +16,14 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class ClientConnection {
 
-    private final WsContext ctx;
+    /** The socket underneath: a WebSocket session in the server, anything that takes text in tests. */
+    interface Transport {
+        String id();
+        void send(String text) throws Exception;
+        void close(int code, String reason);
+    }
+
+    private final Transport transport;
     private final Queue<String> messages = new ConcurrentLinkedQueue<>();
     private final AtomicReference<String> latestState = new AtomicReference<>();
     private final Semaphore wakeUp = new Semaphore(0);
@@ -26,8 +33,16 @@ public class ClientConnection {
     private volatile String name;
 
     public ClientConnection(WsContext ctx) {
-        this.ctx = ctx;
-        Thread.ofVirtual().name("ws-send-" + ctx.sessionId()).start(this::sendLoop);
+        this(new Transport() {
+            @Override public String id()                       { return ctx.sessionId(); }
+            @Override public void send(String text)            { ctx.send(text); }
+            @Override public void close(int code, String reason) { ctx.closeSession(code, reason); }
+        });
+    }
+
+    ClientConnection(Transport transport) {
+        this.transport = transport;
+        Thread.ofVirtual().name("ws-send-" + transport.id()).start(this::sendLoop);
     }
 
     /** Queues a message that must arrive. */
@@ -46,7 +61,7 @@ public class ClientConnection {
         open = false;
         wakeUp.release();
         try {
-            ctx.closeSession(code, reason);
+            transport.close(code, reason);
         } catch (Exception ignored) {
             // already closed
         }
@@ -65,11 +80,11 @@ public class ClientConnection {
                 wakeUp.drainPermits();
                 String message;
                 while (open && (message = messages.poll()) != null) {
-                    ctx.send(message);
+                    transport.send(message);
                 }
                 String state = latestState.getAndSet(null);
                 if (open && state != null) {
-                    ctx.send(state);
+                    transport.send(state);
                 }
             }
         } catch (InterruptedException e) {
@@ -79,7 +94,7 @@ public class ClientConnection {
         }
     }
 
-    public String sessionId()          { return ctx.sessionId(); }
+    public String sessionId()          { return transport.id(); }
     public boolean isOpen()            { return open; }
     public Integer getPlayerId()       { return playerId; }
     public String getName()            { return name; }
