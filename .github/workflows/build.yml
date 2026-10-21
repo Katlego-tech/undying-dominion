@@ -2,8 +2,9 @@ name: Build
 
 # Runs scripts/gate.sh, the same gate the pre-push hook runs: the build and every test (including
 # the acceptance tests that start real servers and play over real WebSockets), the placeholder and
-# secret sweeps, the dependency vulnerability scan and the duplication check. Every check lives in
-# the gate, never here, so this file only installs the tools the gate needs.
+# secret sweeps, the dependency vulnerability scan, the duplication check, and building the Docker
+# image and running the container acceptance test against it (the runner has Docker). Every check
+# lives in the gate, never here, so this file only installs the tools the gate needs.
 
 on:
   push:

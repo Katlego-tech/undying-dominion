@@ -26,6 +26,29 @@ Open a second tab to fight yourself.
 Run it from the `server/` directory and the client is served straight from
 `src/main/resources/public`, so client edits show on a browser refresh without rebuilding.
 
+### Docker
+
+From the repository root, with Docker:
+
+```bash
+docker compose up -d
+```
+
+The Dominion listens on <http://localhost:5050>, and on port 5050 of this machine for everyone on
+the network. Saves go to the `dominion-data` volume, so they survive rebuilds and restarts. The
+container has no dashboard. `docker attach <container>` reaches the plain console, and Ctrl-P
+Ctrl-Q detaches. Options go after the image name or in `command:` in `compose.yaml`. For example,
+mount a campaign folder read-only at `/campaign` and pass `--campaign /campaign`, then later
+`--resume <name>`. The image runs as an unprivileged user, and it holds only the server: campaign
+content is mounted, never built in.
+
+Without Compose:
+
+```bash
+docker build -t undying-dominion .
+docker run -p 5050:5050 -v dominion-data:/data undying-dominion
+```
+
 ### Server options
 
 | Flag | Long form | Default | Meaning |

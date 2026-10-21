@@ -1,0 +1,6 @@
+# Only the server's source goes into the build. Everything else, story/ and notes/ above all,
+# stays out of the image (non-negotiable I: nothing from the source novel ships).
+*
+!server/pom.xml
+!server/src/main/**
+server/src/main/resources/**/*.db
