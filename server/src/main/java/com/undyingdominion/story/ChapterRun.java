@@ -40,6 +40,8 @@ public class ChapterRun {
     private final List<String> pendingLines = new ArrayList<>();
     private int kills;
     private boolean bossSeen;
+    /** How few creatures must remain before a clearing chapter shows where they are. */
+    public static final int STRAGGLERS_SHOWN = 5;
     private Outcome outcome = Outcome.PLAYING;
 
     public ChapterRun(Chapter chapter, GameEngine engine, Random random) {
@@ -150,6 +152,22 @@ public class ChapterRun {
             case KILL_COUNT -> Math.min(kills, objective.count()) + " / " + objective.count() + " slain";
             case SURVIVE -> Math.max(0, objective.seconds() - elapsedSeconds()) + "s to hold out";
         } + (chapter.timeLimitSeconds() > 0 ? " · " + Math.max(0, chapter.timeLimitSeconds() - elapsedSeconds()) + "s left" : "");
+    }
+
+    /**
+     * In a chapter won by clearing every creature: where the last few are, once no more than
+     * {@link #STRAGGLERS_SHOWN} remain and no timed wave is still to come. Empty otherwise, so the
+     * hunt stays a hunt until its last stretch.
+     */
+    public List<Position> stragglers() {
+        if (chapter.objective().kind() != Objective.Kind.CLEAR_ALL || outcome != Outcome.PLAYING
+                || pendingTimedTriggers() > 0 || wildAlive() > STRAGGLERS_SHOWN) {
+            return List.of();
+        }
+        return engine.getUnits().stream()
+                .filter(u -> u.isAlive() && u.getOwnerId() == Unit.NEUTRAL)
+                .map(Unit::getPosition)
+                .toList();
     }
 
     /** Story lines released by triggers since the last call. */

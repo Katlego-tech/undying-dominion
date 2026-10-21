@@ -5,6 +5,7 @@ import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameRules;
 import com.undyingdominion.net.GameServer;
 import com.undyingdominion.story.Campaign.Chapter;
+import com.undyingdominion.world.Position;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -163,7 +164,15 @@ public class StoryDirector {
                 .put("source", current().source())
                 .put("objective", current().objective().text())
                 .put("progress", run.progress())
-                .put("outcome", run.outcome().name()));
+                .put("outcome", run.outcome().name())
+                .put("stragglers", stragglers()));
+    }
+
+    /** The last few creatures of a clearing chapter, as {@code [[x, y], ...]}, for the minimap. */
+    private JSONArray stragglers() {
+        JSONArray tiles = new JSONArray();
+        for (Position p : run.stragglers()) tiles.put(new JSONArray().put(p.x()).put(p.y()));
+        return tiles;
     }
 
     private String message(String kind, List<String> lines) {

@@ -295,5 +295,6 @@ function updateObjective() {
   if (!story) return;
   $('objective-chapter').textContent = `Chapter ${story.chapter}/${story.chapters} · ${story.title}`;
   $('objective-text').textContent = story.outcome === 'WON' ? 'Chapter complete' : story.objective;
-  $('objective-progress').textContent = story.progress;
+  const marked = story.stragglers?.length ? ' · marked on the minimap' : '';
+  $('objective-progress').textContent = story.progress + marked;
 }

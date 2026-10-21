@@ -284,7 +284,9 @@ The folder holds a `campaign.json` and the map files it names:
 - **Creatures** need a `label` and `hp`. Optional: `level`, `damage`, `range`, `attackCooldown` and
   `moveCooldown` (ticks), `aggro`, `vision`, `splash`, `soul`, `xp`, `raise` (cost, -1 for never),
   `look` (`BEAST`, `GOBLIN`, `PLANT`, `HUMANOID`, `BEASTMAN`, `DEMON`, `UNDEAD`), `boss`, `stationary`.
-- **Objectives:** `CLEAR_ALL`, `KILL_BOSS` (`unit` may list several types: `"A,B,C"`), `KILL_COUNT`
+- **Objectives:** `CLEAR_ALL` (once five or fewer creatures remain and no timed wave is still to
+  come, the last few are marked on the minimap, so the end of a clear is about speed, not search),
+  `KILL_BOSS` (`unit` may list several types: `"A,B,C"`), `KILL_COUNT`
   (`count`) or `SURVIVE` (`seconds`).
 - **Triggers** fire once: `AT_SECOND` (`seconds`), `BOSS_HP_BELOW` (`unit`, `percent`) or
   `TYPE_CLEARED` (`unit`, after it has appeared and every one has fallen). Each can `say` lines of

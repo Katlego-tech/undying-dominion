@@ -1240,6 +1240,16 @@
                     "WON",
                     "LOST"
                   ]
+                },
+                "stragglers": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "description": "In a chapter won by clearing every creature, the tiles [x, y] of the last few (5 or fewer) once no timed wave is still to come, regardless of fog. Empty otherwise."
                 }
               },
               "description": "Present in a campaign."
