@@ -214,6 +214,26 @@ The server sends four kinds of message:
 
 Coordinates are tiles, with `[0,0]` at the top-left.
 
+The whole protocol is also published as an [AsyncAPI 3](https://www.asyncapi.com/) document: every
+server serves it at `/asyncapi.json` (for example <http://localhost:5000/asyncapi.json>), with a
+schema and an example for every message. A test sends every documented command to a real server and
+checks every field the server sends against it, so the document can't drift from the code.
+
+### A sample bot
+
+`SampleBot` is an AI necromancer that plays over this protocol and nothing else (it imports nothing
+from the server). It summons and raises while its legion has room, sends the legion at the nearest
+enemy necromancer or creature, keeps its own necromancer out of reach, and walks the map when there's
+nothing to fight. If its connection drops it rejoins with its token; if its place is gone it joins
+again. Start a server, then:
+
+```bash
+java -cp server/target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar \
+  com.undyingdominion.bot.SampleBot ws://localhost:5000/ws Bonewright
+```
+
+Its source, `server/src/main/java/com/undyingdominion/bot/`, is the place to start a bot of your own.
+
 ## Maps
 
 Maps are properties files. Obstacles are inclusive rectangles, `x1,y1,x2,y2`, and later keys paint
