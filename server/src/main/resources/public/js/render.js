@@ -871,6 +871,27 @@ export function createRenderer(canvas, minimap) {
     mctx.strokeStyle = 'rgba(232, 226, 208, 0.8)';
     mctx.lineWidth = 1;
     mctx.strokeRect(x * sx + 0.5, y * sy + 0.5, (vw / zoom) * sx, (vh / zoom) * sy);
+    drawStragglers(minimap.width / width, minimap.height / height);
+  }
+
+  /** The last few creatures of a clearing chapter: gold rings on the minimap, breathing unless motion is reduced. */
+  function drawStragglers(tileW, tileH) {
+    const stragglers = game.story?.stragglers;
+    if (!stragglers?.length) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pulse = still ? 0 : (Math.sin(performance.now() / 260) + 1) / 2;
+    const radius = 5 + pulse * 3;  // pixels, so the rings read the same on any map size
+    mctx.lineWidth = 1.5;
+    for (const [tx, ty] of stragglers) {
+      const cx = (tx + 0.5) * tileW;
+      const cy = (ty + 0.5) * tileH;
+      mctx.strokeStyle = `rgba(251, 191, 36, ${0.95 - pulse * 0.4})`;
+      mctx.beginPath();
+      mctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mctx.stroke();
+      mctx.fillStyle = '#fbbf24';
+      mctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
+    }
   }
 
   return { resize, viewport, buildTerrain, frame };

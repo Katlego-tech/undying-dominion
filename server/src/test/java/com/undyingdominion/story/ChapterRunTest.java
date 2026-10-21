@@ -6,6 +6,9 @@ import com.undyingdominion.game.GameRules;
 import com.undyingdominion.game.Unit;
 import com.undyingdominion.game.UnitType;
 import com.undyingdominion.story.Campaign.Chapter;
+import com.undyingdominion.story.Campaign.Objective;
+import com.undyingdominion.story.Campaign.Spawn;
+import com.undyingdominion.story.Campaign.Trigger;
 import com.undyingdominion.world.Position;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -151,5 +154,61 @@ class ChapterRunTest {
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> Campaign.load(dir));
         assertTrue(e.getMessage().contains("unwalkable"));
+    }
+
+    @Test
+    void theLastFewCreaturesOfAClearingChapterAreShownAndNoSooner() throws IOException {
+        Chapter clearing = clearing(List.of());
+        GameEngine engine = engineFor(clearing);
+        ChapterRun run = new ChapterRun(clearing, engine, new Random(2));
+        engine.tick();
+        run.update();
+        List<Unit> rats = engine.getUnits().stream().filter(u -> u.getOwnerId() == Unit.NEUTRAL).toList();
+        assertEquals(8, rats.size());
+        assertTrue(run.stragglers().isEmpty(), "eight left: still a hunt");
+
+        rats.subList(0, 3).forEach(u -> u.takeDamage(1000, 9));
+        engine.tick();
+        run.update();
+
+        List<Position> expected = rats.subList(3, 8).stream().map(Unit::getPosition).sorted(BY_TILE).toList();
+        assertEquals(expected, run.stragglers().stream().sorted(BY_TILE).toList(), "five left: shown where they are");
+    }
+
+    @Test
+    void stragglersStayHiddenWhileTimedWavesAreStillToCome() throws IOException {
+        Trigger wave = new Trigger(Trigger.When.AT_SECOND, 60, null, 0,
+                List.of(new Spawn("TEST_RAT", 2, new int[] {11, 1, 18, 10}, List.of())), List.of());
+        Chapter clearing = clearing(List.of(wave));
+        GameEngine engine = engineFor(clearing);
+        ChapterRun run = new ChapterRun(clearing, engine, new Random(2));
+        engine.getUnits().stream().filter(u -> u.getOwnerId() == Unit.NEUTRAL).limit(4).forEach(u -> u.takeDamage(1000, 9));
+        engine.tick();
+        run.update();
+
+        assertTrue(run.stragglers().isEmpty(), "four left, but a wave is still coming");
+    }
+
+    @Test
+    void onlyAClearingChapterShowsStragglers() throws IOException {
+        Chapter yard = campaign.chapters().get(0);
+        GameEngine engine = engineFor(yard);
+        ChapterRun run = new ChapterRun(yard, engine, new Random(2));
+        engine.tick();
+        run.update();
+
+        assertTrue(engine.getUnits().stream().filter(u -> u.getOwnerId() == Unit.NEUTRAL).count() <= 6);
+        assertTrue(run.stragglers().isEmpty(), "a boss chapter is about the boss, not the stragglers");
+    }
+
+    private static final java.util.Comparator<Position> BY_TILE =
+            java.util.Comparator.comparingInt(Position::y).thenComparingInt(Position::x);
+
+    /** The yard's map with eight rats to clear, and whatever triggers the test needs. */
+    private static Chapter clearing(List<Trigger> triggers) {
+        Chapter yard = campaign.chapters().get(0);
+        return new Chapter("clearing", "The Clearing", "A test", yard.mapFile(), yard.startArea(), 90, List.of(),
+                new Objective(Objective.Kind.CLEAR_ALL, "Clear the yard", null, 0, 0),
+                List.of(new Spawn("TEST_RAT", 8, new int[] {11, 1, 18, 10}, List.of())), triggers, List.of(), 0);
     }
 }
