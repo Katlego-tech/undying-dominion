@@ -61,7 +61,20 @@
     <canvas id="minimap" class="panel" width="192" height="128" aria-label="Minimap"></canvas>
 
     <div class="mode-hint" id="mode-hint" hidden></div>
-    <div class="camera-hint" id="camera-hint" hidden>Free look · <kbd>Space</kbd> to follow</div>
+    <div class="camera-hint" id="camera-hint" hidden>
+      <span class="desk-only">Free look · <kbd>Space</kbd> to follow</span>
+      <span class="touch-only">Free look · tap to follow</span>
+    </div>
+
+    <div class="chips touch-only" role="group" aria-label="Select">
+      <button type="button" class="chip" id="select-legion">Legion</button>
+      <button type="button" class="chip" id="select-necromancer">Necromancer</button>
+      <button type="button" class="chip" id="select-clear">Clear</button>
+    </div>
+
+    <div class="stick touch-only" id="stick" role="img" aria-label="Thumb stick: walk your necromancer">
+      <div class="stick-knob" id="stick-knob"></div>
+    </div>
   </div>
 
   <div class="overlay story" id="story" hidden>
