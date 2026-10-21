@@ -59,6 +59,7 @@ export function initHud() {
     ['trap', 'Lay trap', 'T', cmd.layTrap],
     ['gather', 'Gather', 'G', () => cmd.gather(true)],
     ['stop', 'Stop', 'H', cmd.stop],
+    ['dismiss', 'Dismiss', 'Del', cmd.dismiss],
   ];
   $('ability-buttons').replaceChildren(...abilities.map(([id, text, key, action, extra = '']) => {
     const el = button(text, key, action, extra);
@@ -107,6 +108,7 @@ export function updateHud() {
     trap: selected.some((u) => game.unitTypes[u.type].laysTraps && u.modeEndsIn == null),
     gather: alive && you.legion > 0,
     stop: selected.length > 0,
+    dismiss: selected.some((u) => u.id !== you.necromancerId),
   };
   for (const el of $('ability-buttons').children) {
     el.disabled = !enabled[el.dataset.ability];

@@ -95,6 +95,33 @@ export function fuse() {
   game.send({ command: 'fuse', units });
 }
 
+const DISMISS_CONFIRM_MS = 3000;
+let dismissArmed = null;  // {ids, until}: the first press, waiting for the second
+
+/**
+ * Lets the selected legion members go, freeing their slots. The first press asks, and a second within
+ * three seconds, on the same selection, does it. The necromancer is never in the list.
+ */
+export function dismiss() {
+  const necromancer = myNecromancer();
+  const units = selectedUnits().filter((u) => u.id !== necromancer?.id).map((u) => u.id);
+  if (units.length === 0) {
+    notice('Select the legion members to dismiss.');
+    return;
+  }
+  const key = units.slice().sort((a, b) => a - b).join(',');
+  const now = performance.now();
+  if (dismissArmed && dismissArmed.key === key && now < dismissArmed.until) {
+    dismissArmed = null;
+    game.send({ command: 'dismiss', units });
+    for (const id of units) game.selection.delete(id);
+    return;
+  }
+  dismissArmed = { key, until: now + DISMISS_CONFIRM_MS };
+  const again = document.body.classList.contains('touch') ? 'Tap Dismiss again' : 'Press Delete again';
+  notice(`${again} to dismiss ${units.length === 1 ? 'it' : `these ${units.length}`}. They crumble for good.`);
+}
+
 export function mend() {
   const units = selectedIds();
   if (units.length) game.send({ command: 'mend', units });

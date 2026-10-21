@@ -45,4 +45,7 @@ public sealed interface Command {
 
     /** Grave Wardens lay a bone trap where they stand, then step forward (Robot Worlds' mine). */
     record SetTrap(int playerId, List<Integer> unitIds) implements Command {}
+
+    /** Let units go from the legion: they crumble to nothing, freeing their slots. */
+    record Dismiss(int playerId, List<Integer> unitIds) implements Command {}
 }

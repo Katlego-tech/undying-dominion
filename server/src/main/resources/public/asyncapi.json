@@ -79,6 +79,9 @@
         },
         "error": {
           "$ref": "#/components/messages/error"
+        },
+        "dismiss": {
+          "$ref": "#/components/messages/dismiss"
         }
       }
     }
@@ -290,6 +293,17 @@
       "messages": [
         {
           "$ref": "#/channels/dominion/messages/error"
+        }
+      ]
+    },
+    "sendDismiss": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/dismiss"
         }
       ]
     }
@@ -1440,6 +1454,39 @@
             "payload": {
               "type": "error",
               "message": "No more space in this world"
+            }
+          }
+        ]
+      },
+      "dismiss": {
+        "name": "dismiss",
+        "summary": "Let units go from your legion: they crumble to nothing, freeing their slots. No corpse, no soul back, no kill for anyone. Works on rooted units; your necromancer is never dismissed. The reply is a notice: \"Dismissed N from your legion.\"",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "dismiss"
+            },
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Ids of your own units, at most 200."
+            }
+          },
+          "required": [
+            "command",
+            "units"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "dismiss",
+              "units": [
+                12
+              ]
             }
           }
         ]

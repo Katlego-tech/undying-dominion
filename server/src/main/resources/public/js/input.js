@@ -522,6 +522,7 @@ export function createInput(canvas, minimap, renderer) {
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;
       case 'h': cmd.stop(); break;
+      case 'delete': cmd.dismiss(); break;
       case 'q': cmd.selectLegion(); break;
       case 'e': cmd.selectNecromancer(); break;
       case ' ': e.preventDefault(); centerOnNecromancer(); break;

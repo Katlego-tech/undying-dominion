@@ -131,6 +131,7 @@ public class GameEngine {
             case Command.Fuse fuse -> fuse(player, fuse.unitIds());
             case Command.Mend mend -> mend(player, mend.unitIds());
             case Command.SetTrap setTrap -> setTrap(player, setTrap.unitIds());
+            case Command.Dismiss dismiss -> dismiss(player, dismiss.unitIds());
             case Command.Join ignored -> { }
         }
     }
@@ -348,6 +349,22 @@ public class GameEngine {
             unit.orderMode(Order.SET_TRAP, tick + rules.trapSetTicks());
         }
         if (!anyWarden) player.notice("Only Grave Wardens can lay traps.");
+    }
+
+    /**
+     * Lets units go from the legion, rooted or not, so a raised creature that can't move doesn't hold
+     * a slot for good. They crumble to nothing: no corpse to raise or explode, no soul back, no kill
+     * for anyone. The necromancer can't be dismissed.
+     */
+    private void dismiss(Player player, List<Integer> unitIds) {
+        int dismissed = 0;
+        for (Unit unit : ownedUnits(player, unitIds)) {
+            if (unit.getType() == UnitType.NECROMANCER) continue;
+            events.add(GameEvent.at(GameEvent.Kind.DEATH, unit));
+            removeUnit(unit);
+            dismissed++;
+        }
+        if (dismissed > 0) player.notice("Dismissed " + dismissed + " from your legion.");
     }
 
     // ------------------------------------------------------------------ world upkeep
