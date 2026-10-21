@@ -137,7 +137,7 @@ function updateScoreboard() {
   lastScoreboard = key;
   $('score-list').replaceChildren(...rows.map((p) => {
     const li = document.createElement('li');
-    li.className = `${p.id === game.playerId ? 'me' : ''} ${p.alive ? '' : 'fallen'}`;
+    li.className = `${p.id === game.playerId ? 'me' : ''} ${p.alive ? '' : 'fallen'} ${p.away ? 'away' : ''}`;
     const swatch = document.createElement('span');
     swatch.className = 'swatch';
     swatch.style.background = p.color;
@@ -148,7 +148,15 @@ function updateScoreboard() {
     const kd = document.createElement('span');
     kd.className = 'kd';
     kd.textContent = `${p.kills} / ${p.deaths}`;
-    li.append(swatch, who, kd);
+    li.append(swatch, who);
+    if (p.away) {
+      const away = document.createElement('span');
+      away.className = 'away-tag';
+      away.textContent = 'away';
+      away.title = 'Connection lost. Their place is kept for a while.';
+      li.append(away);
+    }
+    li.append(kd);
     return li;
   }));
 }

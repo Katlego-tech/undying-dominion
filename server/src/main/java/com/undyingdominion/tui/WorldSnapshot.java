@@ -10,6 +10,7 @@ import com.undyingdominion.world.GameMap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 /**
  * An immutable copy of the world for the dashboard. Built on the game loop thread, read on the
@@ -19,7 +20,8 @@ public record WorldSnapshot(long tick, double tickMillis, GameMap map, String st
                             List<UnitDot> units, List<CorpseDot> corpses, List<TrapDot> traps) {
 
     public record PlayerRow(int id, String name, String color, int level, int xp, int soul, int soulMax,
-                            int legion, int legionCap, int kills, int deaths, boolean alive) {}
+                            int legion, int legionCap, int kills, int deaths, boolean alive,
+                            boolean away) {}
 
     public record UnitDot(int id, UnitType type, int owner, int x, int y, int hp) {}
 
@@ -35,11 +37,16 @@ public record WorldSnapshot(long tick, double tickMillis, GameMap map, String st
 
     /** {@code story} is a one-line campaign summary for the header, or null. */
     public static WorldSnapshot of(GameEngine engine, double tickMillis, String story) {
+        return of(engine, tickMillis, story, playerId -> false);
+    }
+
+    /** As above, marking the players {@code away} says have lost their connection. */
+    public static WorldSnapshot of(GameEngine engine, double tickMillis, String story, IntPredicate away) {
         List<PlayerRow> players = new ArrayList<>();
         for (Player p : engine.getPlayers()) {
             players.add(new PlayerRow(p.getId(), p.getName(), p.getColor(), p.getLevel(), p.getXp(), p.getSoul(),
                     p.soulMax(), engine.legionSizeOf(p), p.legionCap(), p.getKills(), p.getDeaths(),
-                    p.getNecromancerId() != null));
+                    p.getNecromancerId() != null, away.test(p.getId())));
         }
         List<UnitDot> units = new ArrayList<>();
         for (Unit u : engine.getUnits()) {

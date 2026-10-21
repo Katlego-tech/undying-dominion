@@ -336,11 +336,11 @@ public class Dashboard {
             }
             g.setForegroundColor(rgb(p.color()));
             g.putString(x + 2, ry, "●");
-            g.setForegroundColor(p.alive() ? BONE : DIM);
+            g.setForegroundColor(p.alive() && !p.away() ? BONE : DIM);
             if (selected) g.enableModifiers(SGR.BOLD);
             put(g, x + 4, ry, row(p.name(), String.valueOf(p.level()), p.soul() + "/" + p.soulMax(),
                     p.legion() + "/" + p.legionCap(), p.kills() + "/" + p.deaths(),
-                    p.alive() ? "alive" : "fallen", inner - 2), inner - 2);
+                    p.away() ? "away" : p.alive() ? "alive" : "fallen", inner - 2), inner - 2);
             g.disableModifiers(SGR.BOLD);
             g.setBackgroundColor(BG);
         }

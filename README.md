@@ -172,7 +172,8 @@ The server sends four kinds of message:
   It stays the same for as long as you hold your place, and it is sent only to you, so keep it
   private.
 - `state`, every tick: your soul, level and notices (`you`), the units, corpses and traps you can
-  see, what happened this tick (`events`), the scoreboard (`players`), and `fog`, a base64 bitmask of
+  see, what happened this tick (`events`), the scoreboard (`players`: each necromancer's name, colour,
+  level, kills, deaths, whether they're `alive`, and whether they're `away` with their place held), and `fog`, a base64 bitmask of
   visible tiles, one bit per tile, row by row, lowest bit first. If a client falls behind, it skips
   stale states rather than queueing them. While the world is stopped, `state` also carries
   `paused`: `{ "by": "Vesper", "reason": "player" }`, with `reason` `player`, `host`, `story`, `resume` (a resumed save waiting for its player) or

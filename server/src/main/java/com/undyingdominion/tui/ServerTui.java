@@ -68,7 +68,7 @@ public final class ServerTui {
         AtomicReference<WorldSnapshot> latest = new AtomicReference<>(WorldSnapshot.EMPTY);
         server.addTickListener(e -> {
             if (e.getTick() % 2 == 0) latest.set(WorldSnapshot.of(e, server.lastTickMillis(),
-                    dominion.story() == null ? null : dominion.story().headline()));
+                    dominion.story() == null ? null : dominion.story().headline(), server::isAway));
         });
 
         AtomicReference<Boolean> running = new AtomicReference<>(true);

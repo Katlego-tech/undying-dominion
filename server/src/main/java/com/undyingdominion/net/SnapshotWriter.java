@@ -16,6 +16,7 @@ import org.json.JSONObject;
 
 import java.util.Base64;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 /** Builds the JSON messages the server sends. Everything except {@link #welcome} runs on the game loop thread. */
 public final class SnapshotWriter {
@@ -83,6 +84,11 @@ public final class SnapshotWriter {
 
     /** The scoreboard every player may see. */
     public static JSONArray scoreboard(GameEngine engine) {
+        return scoreboard(engine, playerId -> false);
+    }
+
+    /** Every necromancer's public record. {@code away} says whose connection has dropped while their place is kept. */
+    public static JSONArray scoreboard(GameEngine engine, IntPredicate away) {
         JSONArray players = new JSONArray();
         for (Player p : engine.getPlayers()) {
             players.put(new JSONObject()
@@ -92,7 +98,8 @@ public final class SnapshotWriter {
                     .put("level", p.getLevel())
                     .put("kills", p.getKills())
                     .put("deaths", p.getDeaths())
-                    .put("alive", p.getNecromancerId() != null));
+                    .put("alive", p.getNecromancerId() != null)
+                    .put("away", away.test(p.getId())));
         }
         return players;
     }
