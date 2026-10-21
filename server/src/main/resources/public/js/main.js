@@ -14,7 +14,36 @@ const input = createInput(canvas, minimap, renderer);
 
 let socket = null;
 let joined = false;
+let rejoining = null;
 let followedNecromancer = null;
+
+// The seat's token, kept per tab so a refresh takes the same necromancer back (docs/design/reconnect.md).
+const SESSION_KEY = 'undying-dominion.session';
+
+function storedSession() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    return session && typeof session.token === 'string' && typeof session.name === 'string' ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeSession(token, name) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, name }));
+  } catch {
+    // Storage blocked: the game plays on, and a refresh shows the join screen.
+  }
+}
+
+function forgetSession() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Nothing was stored.
+  }
+}
 
 renderer.resize();
 window.addEventListener('resize', () => {
@@ -36,21 +65,41 @@ $('join-form').addEventListener('submit', (e) => {
     socket.send(JSON.stringify({ command: 'join', name }));
     return;
   }
-  connect(name);
+  connect({ command: 'join', name });
 });
 
-function connect(name) {
+function rejoin(session) {
+  rejoining = session;
+  $('rejoin-name').textContent = session.name;
+  $('join-form').classList.add('rejoining');
+  connect({ command: 'rejoin', token: session.token });
+}
+
+/** Back to the form after a rejoin that didn't take, with the name filled in and why it failed. */
+function stopRejoining(reason) {
+  $('join-form').classList.remove('rejoining');
+  $('name').value = rejoining.name;
+  rejoining = null;
+  $('join-error').textContent = reason;
+  $('join-button').disabled = false;
+  $('join-button').focus();
+}
+
+function connect(first) {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   socket = new WebSocket(`${scheme}://${location.host}/ws`);
   game.send = (message) => {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
-  socket.addEventListener('open', () => socket.send(JSON.stringify({ command: 'join', name })));
+  socket.addEventListener('open', () => socket.send(JSON.stringify(first)));
   socket.addEventListener('message', (e) => handle(JSON.parse(e.data)));
   socket.addEventListener('close', (e) => {
     if (joined) {
       $('lost-reason').textContent = e.reason || 'The Dominion is unreachable.';
       $('lost').hidden = false;
+    } else if (rejoining) {
+      // The session is kept, so a later refresh tries again.
+      stopRejoining('Could not reach the Dominion. Is the server running?');
     } else {
       $('join-error').textContent = 'Could not reach the Dominion. Is the server running?';
       $('join-button').disabled = false;
@@ -66,6 +115,9 @@ function handle(message) {
     case 'error':
       if (joined) {
         notice(message.message);
+      } else if (rejoining) {
+        forgetSession();
+        stopRejoining(message.message);
       } else {
         $('join-error').textContent = message.message;
         $('join-button').disabled = false;
@@ -83,6 +135,8 @@ function welcome(message) {
     followedNecromancer = null;
   }
   joined = true;
+  rejoining = null;
+  storeSession(message.token, message.name);
   game.playerId = message.playerId;
   game.name = message.name;
   game.tickMs = 1000 / message.tickRate;
@@ -99,6 +153,9 @@ function welcome(message) {
   }
   $('join').hidden = true;
 }
+
+const session = storedSession();
+if (session) rejoin(session);
 
 // ---------------------------------------------------------------- world state
 
