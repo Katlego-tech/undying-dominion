@@ -5,6 +5,8 @@ import org.json.JSONObject;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -24,6 +26,8 @@ public final class TestSocket {
     private static final long WAIT_SECONDS = 8;
 
     private final BlockingQueue<JSONObject> inbox = new LinkedBlockingQueue<>();
+    /** Every message ever received, waited on or not. */
+    private final List<JSONObject> history = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final CompletableFuture<String> closed = new CompletableFuture<>();
     private final WebSocket socket;
     private volatile Integer playerId;
@@ -40,6 +44,7 @@ public final class TestSocket {
                             JSONObject message = new JSONObject(partial.toString());
                             partial.setLength(0);
                             if (message.getString("type").equals("welcome")) playerId = message.getInt("playerId");
+                            history.add(message);
                             inbox.add(message);
                         }
                         ws.request(1);
@@ -125,6 +130,27 @@ public final class TestSocket {
     /** The player id from the last welcome, or null before any. */
     public Integer playerId() {
         return playerId;
+    }
+
+    /** Everything received since the socket opened, including what the waits skipped or took. */
+    public List<JSONObject> history() {
+        return List.copyOf(history);
+    }
+
+    /** Everything that arrives in the next {@code millis}, without failing if nothing does. */
+    public List<JSONObject> collect(long millis) {
+        List<JSONObject> messages = new ArrayList<>();
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
+        try {
+            long left;
+            while ((left = deadline - System.nanoTime()) > 0) {
+                JSONObject message = inbox.poll(left, TimeUnit.NANOSECONDS);
+                if (message != null) messages.add(message);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return messages;
     }
 
     /** Forgets everything received so far, so the next wait sees only what comes after. */
