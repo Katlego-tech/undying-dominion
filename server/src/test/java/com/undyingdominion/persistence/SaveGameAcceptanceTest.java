@@ -2,6 +2,7 @@ package com.undyingdominion.persistence;
 
 import com.undyingdominion.Dominion;
 import com.undyingdominion.ServerOptions;
+import com.undyingdominion.TestSocket;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.AfterEach;
@@ -10,18 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.WebSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,7 +32,7 @@ class SaveGameAcceptanceTest {
     private Path campaign;
     private String db;
     private Dominion dominion;
-    private final List<Client> clients = new ArrayList<>();
+    private final List<TestSocket> clients = new ArrayList<>();
 
     @BeforeEach
     void copyTheTrialCampaign() throws Exception {
@@ -54,14 +47,14 @@ class SaveGameAcceptanceTest {
 
     @AfterEach
     void stop() {
-        clients.forEach(Client::close);
+        clients.forEach(TestSocket::abort);
         if (dominion != null) dominion.close();
     }
 
     @Test
     void aSavedSoloCampaignResumesExactlyWhereItStopped() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         int playerId = vesper.await("the welcome", m -> m.getString("type").equals("welcome")).getInt("playerId");
         vesper.send("{\"command\":\"summon\",\"unit\":\"SKELETON_WARRIOR\"}");
         vesper.await("a summoned skeleton", m -> isState(m) && m.getJSONObject("you").getInt("legion") == 1);
@@ -72,11 +65,11 @@ class SaveGameAcceptanceTest {
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\"}");
         JSONObject before = vesper.awaitNotice("Saved \"crypt\": chapter 1, The Yard.");
 
-        vesper.close();
+        vesper.abort();
         dominion.close();
         dominion = raise("-p", "0", "--resume", "crypt", "--db", db);
 
-        Client someone = join("Someone");
+        TestSocket someone = join("Someone");
         JSONObject welcome = someone.await("the welcome", m -> m.getString("type").equals("welcome"));
         assertEquals("Vesper", welcome.getString("name"), "the saved necromancer's name is kept");
         assertEquals(playerId, welcome.getInt("playerId"), "the saved player's id is reused");
@@ -103,7 +96,7 @@ class SaveGameAcceptanceTest {
     @Test
     void savingAFreeForAllIsRefused() throws Exception {
         dominion = raise("-p", "0", "--db", db, "--seed", "4", "--no-wild");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\"}");
         vesper.awaitNotice("Saving only works in a story campaign");
     }
@@ -111,8 +104,8 @@ class SaveGameAcceptanceTest {
     @Test
     void savingWithTwoPlayersIsRefused() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
-        Client vesper = join("Vesper");
-        Client corvin = join("Corvin");
+        TestSocket vesper = join("Vesper");
+        TestSocket corvin = join("Corvin");
         corvin.await("the welcome", m -> m.getString("type").equals("welcome"));
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\"}");
         vesper.awaitNotice("Saving only works with one player in the world");
@@ -121,7 +114,7 @@ class SaveGameAcceptanceTest {
     @Test
     void aTakenNameIsRefusedUntilSavedAgainWithForce() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\"}");
         vesper.awaitNotice("Saved \"crypt\": chapter 1, The Yard.");
 
@@ -132,10 +125,10 @@ class SaveGameAcceptanceTest {
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\",\"force\":true}");
         vesper.awaitNotice("Saved \"crypt\": chapter 1, The Yard.");
 
-        vesper.close();
+        vesper.abort();
         dominion.close();
         dominion = raise("-p", "0", "--resume", "crypt", "--db", db);
-        Client back = join("Vesper");
+        TestSocket back = join("Vesper");
         back.await("the newer save, with its skeleton",
                 m -> isState(m) && m.getJSONObject("you").getInt("legion") == 1);
     }
@@ -143,7 +136,7 @@ class SaveGameAcceptanceTest {
     @Test
     void anUnsupportedSaveNameIsRefused() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         vesper.send("{\"command\":\"save\",\"name\":\"../x\"}");
         vesper.awaitNotice("Save names are 1 to 32 letters, digits, - or _");
     }
@@ -158,10 +151,10 @@ class SaveGameAcceptanceTest {
     @Test
     void resumingASaveWhoseCampaignChangedRefusesToStart() throws Exception {
         dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
-        Client vesper = join("Vesper");
+        TestSocket vesper = join("Vesper");
         vesper.send("{\"command\":\"save\",\"name\":\"crypt\"}");
         vesper.awaitNotice("Saved \"crypt\": chapter 1, The Yard.");
-        vesper.close();
+        vesper.abort();
         dominion.close();
         dominion = null;
 
@@ -190,10 +183,9 @@ class SaveGameAcceptanceTest {
         }
     }
 
-    private Client join(String name) {
-        Client client = new Client(dominion.server().port());
+    private TestSocket join(String name) {
+        TestSocket client = TestSocket.join(dominion.server().port(), name);
         clients.add(client);
-        client.send("{\"command\":\"join\",\"name\":\"" + name + "\"}");
         return client;
     }
 
@@ -211,53 +203,5 @@ class SaveGameAcceptanceTest {
             projected.add(line.toString().trim());
         }
         return projected;
-    }
-
-    /** One player's WebSocket, with everything the server sends queued for the test to read. */
-    private static final class Client {
-
-        private final BlockingQueue<JSONObject> inbox = new LinkedBlockingQueue<>();
-        private final WebSocket socket;
-
-        Client(int port) {
-            socket = HttpClient.newHttpClient().newWebSocketBuilder()
-                    .buildAsync(URI.create("ws://localhost:" + port + "/ws"), new WebSocket.Listener() {
-                        private final StringBuilder partial = new StringBuilder();
-
-                        @Override
-                        public CompletionStage<?> onText(WebSocket ws, CharSequence data, boolean last) {
-                            partial.append(data);
-                            if (last) {
-                                inbox.add(new JSONObject(partial.toString()));
-                                partial.setLength(0);
-                            }
-                            ws.request(1);
-                            return null;
-                        }
-                    }).join();
-        }
-
-        void send(String json) {
-            socket.sendText(json, true).join();
-        }
-
-        JSONObject await(String what, Predicate<JSONObject> match) throws InterruptedException {
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
-            while (System.nanoTime() < deadline) {
-                JSONObject message = inbox.poll(100, TimeUnit.MILLISECONDS);
-                if (message != null && match.test(message)) return message;
-            }
-            return fail("waited 8 seconds for " + what);
-        }
-
-        /** The state that carries {@code text} among the player's notices. */
-        JSONObject awaitNotice(String text) throws InterruptedException {
-            return await("the notice: " + text, m -> isState(m)
-                    && m.getJSONObject("you").getJSONArray("notices").toList().contains(text));
-        }
-
-        void close() {
-            socket.abort();
-        }
     }
 }
