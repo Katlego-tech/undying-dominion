@@ -35,11 +35,25 @@ class ContainerAcceptanceTest {
     private final List<String> containers = new ArrayList<>();
     private final List<TestSocket> sockets = new ArrayList<>();
 
+    /** Every removal is tried, even after one fails, so a flaky daemon can't leak the volume. */
     @AfterEach
-    void cleanUp() throws Exception {
+    void cleanUp() {
         sockets.forEach(TestSocket::abort);
-        for (String container : containers) docker("rm", "-f", container);
-        docker("volume", "rm", "-f", volume);
+        List<String> leftovers = new ArrayList<>();
+        for (String container : containers) {
+            if (!quietly("rm", "-f", container)) leftovers.add("container " + container);
+        }
+        if (!quietly("volume", "rm", "-f", volume)) leftovers.add("volume " + volume);
+        assertTrue(leftovers.isEmpty(), "could not remove " + leftovers);
+    }
+
+    private static boolean quietly(String... args) {
+        try {
+            docker(args);
+            return true;
+        } catch (Exception | AssertionError e) {
+            return false;
+        }
     }
 
     @Test

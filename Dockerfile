@@ -2,6 +2,8 @@
 #   docker build -t undying-dominion .
 #   docker run -p 5050:5050 -v dominion-data:/data undying-dominion
 # Options after the image name are passed to the server, e.g. --campaign /campaign or --resume crypt.
+# Use a named volume for /data: it takes the image's ownership on first use. A bind mount of a host
+# folder keeps the host's ownership, so it must be writable by uid 10001.
 # Both base images are pinned by digest, so a rebuilt upstream tag can't change this image.
 
 FROM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS build
@@ -11,13 +13,14 @@ COPY server/pom.xml .
 RUN mvn -B -q dependency:go-offline
 COPY server/src src
 # The gate has already run every test against this source.
-RUN mvn -B -q package -DskipTests
+RUN mvn -B -q package -DskipTests \
+ && cp target/*-jar-with-dependencies.jar target/undying-dominion.jar
 
 FROM eclipse-temurin:21-jre@sha256:227118764cccd3c3294617061aaa93a08309c63a395eefa83e6b35032992ea99
 RUN useradd --system --uid 10001 --home-dir /app dominion \
  && mkdir -p /app /data \
  && chown dominion /data
-COPY --from=build /build/target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar /app/undying-dominion.jar
+COPY --from=build /build/target/undying-dominion.jar /app/undying-dominion.jar
 USER dominion
 WORKDIR /app
 VOLUME /data
