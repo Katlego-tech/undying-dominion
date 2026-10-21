@@ -7,6 +7,7 @@ public class ServerOptions {
     public static final int DEFAULT_MAX_PLAYERS = 8;
     public static final String DEFAULT_MAP = "classpath:/maps/default.properties";
     public static final String DEFAULT_DB = "undying-dominion.db";
+    public static final int DEFAULT_GRACE_SECONDS = 30;
 
     private int port = DEFAULT_PORT;
     private int maxPlayers = DEFAULT_MAX_PLAYERS;
@@ -17,6 +18,7 @@ public class ServerOptions {
     private String campaignFolder;
     private String database = DEFAULT_DB;
     private String resume;
+    private int graceSeconds = DEFAULT_GRACE_SECONDS;
     private boolean mapGiven;
 
     /** Options built in code rather than read from the command line. */
@@ -49,6 +51,7 @@ public class ServerOptions {
                 case "--campaign" -> options.campaignFolder = value(args, ++i, flag);
                 case "--db" -> options.database = value(args, ++i, flag);
                 case "--resume" -> options.resume = value(args, ++i, flag);
+                case "--grace" -> options.graceSeconds = grace(value(args, ++i, flag));
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
         }
@@ -78,6 +81,16 @@ public class ServerOptions {
         return parsed;
     }
 
+    private static int grace(String raw) {
+        try {
+            int seconds = Integer.parseInt(raw);
+            if (seconds >= 0 && seconds <= 3600) return seconds;
+        } catch (NumberFormatException e) {
+            // refused below, like a value out of range
+        }
+        throw new IllegalArgumentException("--grace takes 0 to 3600 seconds");
+    }
+
     private static long parseLong(String raw, String flag) {
         try {
             return Long.parseLong(raw);
@@ -97,6 +110,8 @@ public class ServerOptions {
     public String resume()        { return resume; }
     /** The SQLite file saves are kept in. Relative paths are from the working directory. */
     public String database()      { return database; }
+    /** How long a dropped player's place is kept for them to rejoin. Zero removes them on drop. */
+    public int graceSeconds()     { return graceSeconds; }
     /** Whether to run the full-screen terminal dashboard. Ignored when there is no interactive terminal. */
     public boolean dashboard()    { return dashboard; }
 }

@@ -17,7 +17,7 @@ public class Main {
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
             System.err.println("Usage: [-p port] [-m map.properties | --campaign folder | --resume save] [--db saves.db]"
-                    + " [-mc max-players] [--seed n] [--no-wild] [--plain]");
+                    + " [-mc max-players] [--grace seconds] [--seed n] [--no-wild] [--plain]");
             System.exit(2);
             return;
         }

@@ -39,6 +39,7 @@ Run it from the `server/` directory and the client is served straight from
 | | `--campaign` | none | Play a story campaign from a folder instead of a free-for-all (see Campaigns) |
 | | `--resume` | none | Carry on from a saved game instead (see Saving). Takes its campaign from the save, so it can't be combined with `--campaign` or `--map` |
 | | `--db` | `undying-dominion.db` | The SQLite file saved games are kept in |
+| | `--grace` | `30` | Seconds a dropped player's place is kept for them to rejoin, 0 to 3600. `0` removes them as soon as their connection drops |
 
 ## How to play
 
@@ -131,6 +132,7 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 
 ```json
 { "command": "join", "name": "Vesper" }
+{ "command": "rejoin", "token": "q3V9cX0bTqKk1yH6m2wJ8A" }
 { "command": "summon", "unit": "SKELETON_WARRIOR" }
 { "command": "move", "units": [4, 7], "x": 20, "y": 11, "attackMove": true }
 { "command": "attack", "units": [4, 7], "target": 31 }
@@ -146,31 +148,45 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "save", "name": "crypt", "force": false }
 ```
 
+`rejoin` takes back your place after your connection drops: send it instead of `join`, with the
+`token` from your last `welcome`. You get the same necromancer, legion, soul and record, and any
+notices from while you were away. Your place is kept for 30 seconds (`--grace`). While you're
+away your units keep their last orders and can still be killed, your name stays taken, and you
+still count toward the player limit. If every player is away, the world pauses until someone
+comes back. Rejoining while another socket still holds your place moves you to the new socket, and
+the old one is closed with the reason `Taken up in another window`. Once the grace runs out, or
+the host purges you, the token stops working.
+
 Any player can `pause` the world for everyone, and any player can `resume` it. A pause also lifts
-when the player who paused leaves. `reading` reports a story card opening and closing. A lone
+when the player who paused leaves, which for a dropped connection is when their grace runs out. `reading` reports a story card opening and closing. A lone
 player reading pauses the world until the card is closed, but with others in the game it runs on.
 `save` saves a solo campaign (see Saving). The reply comes back as a notice in `you.notices`:
 `Saved "crypt": chapter 2, The Hall.`, or a refusal such as `Saving only works in a story campaign`,
 `Saving only works with one player in the world`, `Save names are 1 to 32 letters, digits, - or _`
 or `A save called "crypt" already exists. Save again with force to replace it`.
 
-The server sends three kinds of message:
+The server sends four kinds of message:
 
-- `welcome`, once, after a successful join: your `playerId`, the map, the rules and the stats of every
-  unit type.
+- `welcome`, after a successful `join` or `rejoin`: your `playerId`, `name`, `token`, the map,
+  the rules and the stats of every unit type. The `token` is a 22-character secret for `rejoin`.
+  It stays the same for as long as you hold your place, and it is sent only to you, so keep it
+  private.
 - `state`, every tick: your soul, level and notices (`you`), the units, corpses and traps you can
   see, what happened this tick (`events`), the scoreboard (`players`), and `fog`, a base64 bitmask of
   visible tiles, one bit per tile, row by row, lowest bit first. If a client falls behind, it skips
   stale states rather than queueing them. While the world is stopped, `state` also carries
-  `paused`: `{ "by": "Vesper", "reason": "player" }`, with `reason` `player`, `host` or `story`.
+  `paused`: `{ "by": "Vesper", "reason": "player" }`, with `reason` `player`, `host`, `story`, `resume` (a resumed save waiting for its player) or
+  `away` (every player's connection has dropped, so no connected client ever sees it).
   The tick stands still and `events` stays empty.
 - `story`, in a campaign: a chapter's `briefing`, a line said mid-chapter (`say`), `victory`,
   `defeat` or the `finale`, with the chapter's title, objective and `lines`. During a campaign every
   `state` also carries `story`: chapter, objective and progress. A second `welcome` means the
   campaign has moved to the next chapter's map.
 - `error`, when a message can't be acted on: `Unsupported command`, `Could not parse arguments`,
-  `Join the Dominion first`, `Too many of you in this world` (name taken) or
-  `No more space in this world` (server full).
+  `Join the Dominion first`, `You have already joined`, `Too many of you in this world` (name
+  taken), `No more space in this world` (server full) or `That session has ended. Join again` (a
+  `rejoin` whose token is unknown, expired or purged). After a refused `join` or `rejoin`, the
+  socket stays open, so you can send `join` on it.
 
 Coordinates are tiles, with `[0,0]` at the top-left.
 

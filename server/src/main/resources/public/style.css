@@ -305,6 +305,17 @@ input, button {
   cursor: pointer;
 }
 .join-box button:disabled { opacity: 0.6; cursor: progress; }
+.rejoin-status { display: none; margin: 0; color: var(--bone-dim); font-size: 15px; }
+.rejoin-status b { color: var(--soul); font: 700 17px var(--display); letter-spacing: 0.04em; }
+.join-box.rejoining .rejoin-status { display: block; animation: rejoin-breathe 1.6s ease-in-out infinite alternate; }
+.join-box.rejoining label,
+.join-box.rejoining #name,
+.join-box.rejoining button,
+.join-box.rejoining .howto { display: none; }
+@keyframes rejoin-breathe { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .join-box.rejoining .rejoin-status { animation: none; }
+}
 .error { min-height: 20px; margin: 10px 0 0; color: var(--blood); font-size: 13px; }
 
 .howto { margin-top: 18px; text-align: left; color: var(--bone-dim); font-size: 13px; }

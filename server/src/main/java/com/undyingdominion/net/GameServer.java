@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,13 +42,21 @@ public class GameServer {
     /** When run from the server directory, serve the client straight from source so edits show on reload. */
     private static final Path DEV_CLIENT = Path.of("src/main/resources/public");
 
+    /** How long an away player's place is kept unless the server is told otherwise. */
+    public static final Duration DEFAULT_GRACE = Duration.ofSeconds(30);
+    private static final String SESSION_ENDED = "That session has ended. Join again";
+
     private volatile GameEngine engine;
     private volatile JSONObject story;
     private final int maxPlayers;
+    private final Duration grace;
 
     private final Map<String, ClientConnection> connections = new ConcurrentHashMap<>();
-    /** Lower-cased names in use. Guarded by itself so the full check and the claim happen together. */
+    /** Lower-cased names in use, away players' included. Guarded by itself so the full check and the claim happen together. */
     private final Map<String, ClientConnection> names = new ConcurrentHashMap<>();
+    /** Every joined player's seat, connected or away, by player id and by token. Changed only under {@link #names}. */
+    private final Map<Integer, Seat> seats = new ConcurrentHashMap<>();
+    private final Map<String, Seat> seatsByToken = new ConcurrentHashMap<>();
     private final Queue<Runnable> loopTasks = new ConcurrentLinkedQueue<>();
     /** Run after the step's tick (or admit), when joins queued alongside them have been applied. */
     private final Queue<Runnable> afterStepTasks = new ConcurrentLinkedQueue<>();
@@ -80,8 +89,14 @@ public class GameServer {
     private Javalin app;
 
     public GameServer(GameEngine engine, int maxPlayers) {
+        this(engine, maxPlayers, DEFAULT_GRACE);
+    }
+
+    /** {@code grace} is how long a dropped player's place is kept for them to rejoin. Zero removes them on drop. */
+    public GameServer(GameEngine engine, int maxPlayers, Duration grace) {
         this.engine = engine;
         this.maxPlayers = maxPlayers;
+        this.grace = grace;
     }
 
     public void start(int port) {
@@ -157,42 +172,43 @@ public class GameServer {
         this.story = story;
     }
 
+    /** Sends to a player's live socket. A player who is away misses it. */
     public void sendTo(int playerId, String json) {
-        for (ClientConnection connection : connections.values()) {
-            if (Integer.valueOf(playerId).equals(connection.getPlayerId())) connection.send(json);
-        }
+        Seat seat = seats.get(playerId);
+        ClientConnection connection = seat == null ? null : seat.connection();
+        if (connection != null) connection.send(json);
     }
 
     public void broadcast(String json) {
-        for (ClientConnection connection : connections.values()) {
-            if (connection.getPlayerId() != null) connection.send(json);
+        for (Seat seat : seats.values()) {
+            ClientConnection connection = seat.connection();
+            if (connection != null) connection.send(json);
         }
     }
 
     /**
-     * Swaps in a new world, as a campaign does between chapters. Everyone connected is joined into it
-     * with the level, experience and record they had, and sent a fresh welcome for the new map.
+     * Swaps in a new world, as a campaign does between chapters. Every seat, connected or away, is
+     * joined into it with the level, experience and record it had. Those connected are sent a fresh
+     * welcome for the new map; an away player gets it when they rejoin.
      * Must be called on the game loop thread, for example from a tick listener.
      */
     public void replaceEngine(GameEngine next) {
         GameEngine previous = engine;
-        int highestId = 0;
-        for (ClientConnection connection : connections.values()) {
-            Integer id = connection.getPlayerId();
-            if (id != null) highestId = Math.max(highestId, id);
-        }
-        next.reservePlayerIds(Math.max(highestId + 1, previous.peekNextPlayerId()));
-        engine = next;
-        for (ClientConnection connection : connections.values()) {
-            Integer id = connection.getPlayerId();
-            if (id == null) continue;
-            Player before = previous.getPlayer(id);
-            next.submit(new Command.Join(id, connection.getName()));
-            if (before != null) {
-                next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
-                        before.getDeaths(), previous.legionOf(id)));
+        synchronized (names) {
+            int highestId = seats.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+            next.reservePlayerIds(Math.max(highestId + 1, previous.peekNextPlayerId()));
+            engine = next;
+            for (Seat seat : seats.values()) {
+                int id = seat.playerId;
+                Player before = previous.getPlayer(id);
+                next.submit(new Command.Join(id, seat.name));
+                if (before != null) {
+                    next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
+                            before.getDeaths(), previous.legionOf(id)));
+                }
+                ClientConnection connection = seat.connection();
+                if (connection != null) connection.send(welcome(seat, next));
             }
-            connection.send(SnapshotWriter.welcome(id, connection.getName(), next.getMap(), next.getRules()));
         }
         worldJson.set(describeWorld());
     }
@@ -236,9 +252,14 @@ public class GameServer {
         }
     }
 
-    /** Ends a player's session from the server side, e.g. the console's purge. */
+    /** Ends a player's session from the server side, e.g. the console's purge. Their seat goes at once, away or not. */
     public void disconnect(int playerId, String reason) {
-        engine.submit(new Command.Leave(playerId));
+        Seat seat = seats.get(playerId);
+        if (seat == null) {
+            engine.submit(new Command.Leave(playerId));
+        } else if (remove(seat)) {
+            runOnLoop(() -> released(playerId));
+        }
         for (ClientConnection connection : connections.values()) {
             if (Integer.valueOf(playerId).equals(connection.getPlayerId())) {
                 connection.send(SnapshotWriter.error(reason));
@@ -256,11 +277,13 @@ public class GameServer {
             JSONObject message = ProtocolParser.read(raw);
             String command = ProtocolParser.commandName(message);
             Integer playerId = connection.getPlayerId();
+            if (playerId != null && !isSeated(playerId, connection)) return;  // stale: its seat moved to another socket
 
             if (playerId == null) {
-                if (!"join".equals(command)) throw new ProtocolException("Join the Dominion first");
-                join(connection, message.optString("name", null));
-            } else if ("join".equals(command)) {
+                if ("join".equals(command)) join(connection, message.optString("name", null));
+                else if ("rejoin".equals(command)) rejoin(connection, message.opt("token"));
+                else throw new ProtocolException("Join the Dominion first");
+            } else if ("join".equals(command) || "rejoin".equals(command)) {
                 throw new ProtocolException("You have already joined");
             } else if ("pause".equals(command)) {
                 runOnLoop(() -> pause(playerId, connection.getName()));
@@ -287,10 +310,13 @@ public class GameServer {
 
     private void join(ClientConnection connection, String requestedName) throws ProtocolException {
         String name = ProtocolParser.validName(requestedName);
-        Integer seat = null;
+        Integer heldId = null;
+        Seat seat;
         synchronized (names) {
+            // A socket already closed would leave a seat no drop can ever reach. onClose checks under this lock too.
+            if (!connection.isOpen()) return;
             if (heldSeatId != null) {
-                seat = heldSeatId;
+                heldId = heldSeatId;
                 name = heldSeatName;
                 heldSeatId = null;
                 heldSeatName = null;
@@ -299,9 +325,13 @@ public class GameServer {
             if (names.containsKey(key)) throw new ProtocolException("Too many of you in this world");
             if (names.size() >= maxPlayers) throw new ProtocolException("No more space in this world");
             names.put(key, connection);
+            seat = Seat.connected(heldId != null ? heldId : engine.allocatePlayerId(), name, connection);
+            connection.joined(seat.playerId, name);
+            seats.put(seat.playerId, seat);
+            seatsByToken.put(seat.token, seat);
         }
-        if (seat != null) {
-            int id = seat;
+        if (heldId != null) {
+            int id = heldId;
             String seatName = name;
             // The hold becomes the player's own pause in one step, so no tick slips in between.
             runOnLoop(() -> {
@@ -309,10 +339,9 @@ public class GameServer {
                 held = false;
             });
         }
-        int playerId = seat != null ? seat : engine.allocatePlayerId();
-        connection.joined(playerId, name);
+        int playerId = seat.playerId;
         // Queued before the engine hears of the player, so the welcome always precedes the first state.
-        connection.send(SnapshotWriter.welcome(playerId, name, engine.getMap(), engine.getRules()));
+        connection.send(welcome(seat, engine));
         engine.submit(new Command.Join(playerId, name));
         log.info("{} joined the Dominion", name);
         for (IntConsumer listener : joinListeners) {
@@ -320,20 +349,60 @@ public class GameServer {
         }
     }
 
+    /** Takes back an existing seat by its token. Join listeners are not told: the player never left. */
+    private void rejoin(ClientConnection connection, Object token) throws ProtocolException {
+        if (!(token instanceof String presented)) throw new ProtocolException(ProtocolParser.BAD_ARGUMENTS);
+        Seat seat;
+        ClientConnection replaced;
+        synchronized (names) {
+            if (!connection.isOpen()) return;
+            seat = seatsByToken.get(presented);
+            if (seat == null) throw new ProtocolException(SESSION_ENDED);
+            connection.joined(seat.playerId, seat.name);
+            // Queued before the seat is handed over, so the loop can't send this socket a state ahead of it;
+            // and under the lock, so a chapter change can't slip its welcome in ahead of this one.
+            connection.send(welcome(seat, engine));
+            replaced = seat.reconnect(connection);
+        }
+        if (replaced != null) replaced.close(1000, "Taken up in another window");
+        log.info("{} rejoined the Dominion", seat.name);
+    }
+
     private void onClose(String sessionId) {
         ClientConnection connection = connections.remove(sessionId);
         if (connection == null) return;
         connection.stop();
-        Integer playerId = connection.getPlayerId();
-        if (playerId != null) {
-            names.remove(connection.getName().toLowerCase(), connection);
-            engine.submit(new Command.Leave(playerId));
-            runOnLoop(() -> {
-                reading.remove(playerId);
-                if (playerId.equals(pausedBy)) lift();
-            });
-            log.info("{} left the Dominion", connection.getName());
+        Integer playerId;
+        boolean away;
+        synchronized (names) {
+            playerId = connection.getPlayerId();
+            Seat seat = playerId == null ? null : seats.get(playerId);
+            away = seat != null && seat.drop(connection, System.nanoTime() + grace.toNanos());
         }
+        if (!away) return;  // never joined, taken over by another socket, or a seat already removed
+        runOnLoop(() -> reading.remove(playerId));
+        log.info("{} lost their connection; holding their place for {}s", connection.getName(), grace.toSeconds());
+    }
+
+    /** Frees a seat: its token stops working, its name and place are free, and the player leaves the world. */
+    private boolean remove(Seat seat) {
+        synchronized (names) {
+            if (!seats.remove(seat.playerId, seat)) return false;
+            seatsByToken.remove(seat.token);
+            names.remove(seat.name.toLowerCase());
+        }
+        engine.submit(new Command.Leave(seat.playerId));
+        log.info("{} left the Dominion", seat.name);
+        return true;
+    }
+
+    private boolean isSeated(int playerId, ClientConnection connection) {
+        Seat seat = seats.get(playerId);
+        return seat != null && seat.connection() == connection;
+    }
+
+    private static String welcome(Seat seat, GameEngine engine) {
+        return SnapshotWriter.welcome(seat.playerId, seat.name, seat.token, engine.getMap(), engine.getRules());
     }
 
     // ------------------------------------------------------------------ game loop thread
@@ -345,6 +414,7 @@ public class GameServer {
             while ((task = loopTasks.poll()) != null) {
                 task.run();
             }
+            expireSeats();
 
             GameEngine engine = this.engine;
             pause = currentPause();
@@ -355,10 +425,10 @@ public class GameServer {
             }
 
             JSONArray scoreboard = SnapshotWriter.scoreboard(engine);
-            for (ClientConnection connection : connections.values()) {
-                Integer playerId = connection.getPlayerId();
-                if (playerId == null || !connection.isOpen()) continue;
-                Player player = engine.getPlayer(playerId);
+            for (Seat seat : seats.values()) {
+                ClientConnection connection = seat.connection();
+                if (connection == null || !connection.isOpen()) continue;
+                Player player = engine.getPlayer(seat.playerId);
                 if (player == null) continue;
                 connection.offerState(SnapshotWriter.state(engine, player, scoreboard, story, pause));
             }
@@ -375,6 +445,25 @@ public class GameServer {
             // A scheduled task that throws is never run again, so the loop must not let anything out.
             log.error("Tick {} failed", engine.getTick(), t);
         }
+    }
+
+    /** Removes every seat whose grace has run out. Wall time, so it runs whether or not the world is paused. */
+    private void expireSeats() {
+        long now = System.nanoTime();
+        for (Seat seat : seats.values()) {
+            boolean removed;
+            synchronized (names) {
+                // One critical section, so a rejoin can't land between the check and the removal.
+                removed = seat.expired(now) && remove(seat);
+            }
+            if (removed) released(seat.playerId);
+        }
+    }
+
+    /** What a removed player held on the loop: an open story card, and the pause if it was theirs. */
+    private void released(int playerId) {
+        reading.remove(playerId);
+        if (Integer.valueOf(playerId).equals(pausedBy)) lift();
     }
 
     private void pause(int by, String name) {
@@ -398,15 +487,18 @@ public class GameServer {
         if (pausedBy != null) {
             return new JSONObject().put("by", pausedByName).put("reason", pausedBy == HOST ? "host" : "player");
         }
+        if (!seats.isEmpty() && seats.values().stream().allMatch(Seat::isAway)) {
+            return new JSONObject().put("by", JSONObject.NULL).put("reason", "away");
+        }
         if (!reading.isEmpty() && joinedCount() == 1) {
             return new JSONObject().put("by", JSONObject.NULL).put("reason", "story");
         }
         return null;
     }
 
-    /** Players who have joined, as opposed to sockets still at the name screen. */
+    /** Players who have joined, connected or away, as opposed to sockets still at the name screen. */
     public long joinedCount() {
-        return connections.values().stream().filter(c -> c.getPlayerId() != null).count();
+        return seats.size();
     }
 
     private String describeWorld() {
