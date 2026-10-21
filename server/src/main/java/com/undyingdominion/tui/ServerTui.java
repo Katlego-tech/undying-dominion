@@ -131,13 +131,21 @@ public final class ServerTui {
         System.exit(0);
     }
 
-    /** "by Vesper", "by you", "story" for the header; null while the world runs. */
-    private static String pauseLabel(JSONObject pause) {
+    /**
+     * The header's word for why the world is stopped, or null while it runs. Only a player's pause
+     * has a name in {@code by}; every other reason is labelled without one, so a pause with no person
+     * behind it (a resumed save waiting, everyone away) can never take the dashboard down.
+     */
+    static String pauseLabel(JSONObject pause) {
         if (pause == null) return null;
-        return switch (pause.getString("reason")) {
+        String reason = pause.optString("reason", "");
+        return switch (reason) {
             case "host" -> "by you";
+            case "player" -> "by " + pause.optString("by", "a player");
             case "story" -> "a player is reading";
-            default -> "by " + pause.getString("by");
+            case "resume" -> "waiting for the saved player";
+            case "away" -> "everyone is away";
+            default -> reason;
         };
     }
 
