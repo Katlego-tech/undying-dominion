@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.IntConsumer;
 
 /**
  * Plays a campaign on a server: one chapter at a time, telling the story as it goes. Briefs players as
@@ -37,6 +39,8 @@ public class StoryDirector {
     private int moveOnTo;
     /** The engine rebuilt from a save, handed out by {@link #firstEngine()} instead of a fresh one. */
     private GameEngine resumed;
+
+    private final List<IntConsumer> chapterListeners = new CopyOnWriteArrayList<>();
 
     public StoryDirector(Campaign campaign, Random random) {
         this.campaign = campaign;
@@ -140,6 +144,16 @@ public class StoryDirector {
         server.broadcast(message("briefing", current().briefing()));
         publishStatus();
         log.info("Chapter {} begins: {}", chapterNumber(), current().title());
+        for (IntConsumer listener : chapterListeners) listener.accept(chapterNumber());
+    }
+
+    /**
+     * Calls {@code listener} with the chapter's number each time a chapter begins after the first:
+     * one won and moved on from, one lost and started again, or one the host jumped to. Game loop
+     * thread. The players are joined into the new world by the end of the next step, not yet.
+     */
+    public void onChapterBegins(IntConsumer listener) {
+        chapterListeners.add(listener);
     }
 
     private GameEngine engineFor(int chapterIndex) {

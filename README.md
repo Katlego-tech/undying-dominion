@@ -309,6 +309,10 @@ campaign with more than one player in it.
 - **Save** from the pause screen: press `P`, type a name (1 to 32 letters, digits, `-` or `_`) and
   choose **Save**. If that name is taken, **Replace the old save** overwrites it. The host can also
   type `save <name>` (or `save --force <name>`) at the console, and `saves` lists every save.
+- **Autosave:** every time a chapter begins (won, lost and started again, or jumped to), a solo
+  campaign is saved as `autosave`, replacing the last one. You'll see `Autosaved: chapter 4, The Trial
+  Tower.` A lost fight or a dropped connection never costs more than the current chapter: resume
+  it with `--resume autosave`. A save you name yourself is never touched by it.
 - **Resume** by starting the server with `--resume <name>`, and the same `--db` if you changed it.
   Whoever joins first becomes the saved necromancer, name and all, and the world waits, paused,
   until they press `P`.

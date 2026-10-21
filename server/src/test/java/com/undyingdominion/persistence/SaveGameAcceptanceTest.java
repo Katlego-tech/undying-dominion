@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -91,6 +92,41 @@ class SaveGameAcceptanceTest {
                 project(after.getJSONArray("traps"), "id", "owner", "x", "y"));
         assertEquals(before.getJSONObject("story").getString("progress"),
                 after.getJSONObject("story").getString("progress"));
+    }
+
+    @Test
+    void eachChapterBeginsWithAnAutosaveThatResumes() throws Exception {
+        dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
+        TestSocket vesper = join("Vesper");
+        int playerId = vesper.awaitType("welcome").getInt("playerId");
+        vesper.awaitState(m -> true);
+
+        dominion.server().runOnLoop(() -> dominion.story().jumpTo(2));
+        vesper.awaitNotice("Autosaved: chapter 2, The Hall.");
+        vesper.abort();
+        dominion.close();
+
+        dominion = raise("-p", "0", "--resume", "autosave", "--db", db);
+        TestSocket back = join("Anyone");
+        JSONObject welcome = back.awaitType("welcome");
+        assertEquals("Vesper", welcome.getString("name"));
+        assertEquals(playerId, welcome.getInt("playerId"));
+        assertEquals(2, back.awaitState(m -> m.has("story")).getJSONObject("story").getInt("chapter"));
+    }
+
+    @Test
+    void thereIsNoAutosaveWithTwoPlayers() throws Exception {
+        dominion = raise("-p", "0", "--campaign", campaign.toString(), "--db", db, "--seed", "4");
+        TestSocket vesper = join("Vesper");
+        TestSocket corvin = join("Corvin");
+        corvin.awaitType("welcome");
+        vesper.awaitState(m -> true);
+
+        dominion.server().runOnLoop(() -> dominion.story().jumpTo(2));
+        vesper.awaitState(m -> m.has("story") && m.getJSONObject("story").getInt("chapter") == 2);
+        vesper.collect(1_000);
+
+        assertTrue(dominion.saves().list().isEmpty(), "saving is for a solo campaign, and so is autosaving");
     }
 
     @Test

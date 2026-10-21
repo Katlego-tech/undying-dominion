@@ -65,6 +65,11 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             Player player = server.engine().getPlayer(playerId);
             if (player != null) player.notice(message);
         }));
+        if (story != null) {
+            // Each new chapter is saved once its players have been joined into the new world.
+            story.onChapterBegins(chapter -> server.runAfterStep(() -> saves.autosave(message ->
+                    server.engine().getPlayers().forEach(player -> player.notice(message)))));
+        }
         return new Dominion(server, story, saves);
     }
 

@@ -76,6 +76,21 @@ public final class SaveService {
         });
     }
 
+    /** The name every autosave is written under, replacing the last. */
+    public static final String AUTOSAVE = "autosave";
+
+    /**
+     * Loop thread. Saves a solo campaign under {@link #AUTOSAVE}, replacing the last one, and tells
+     * {@code reply} as {@code Autosaved: chapter N, Title.}. With anything but exactly one player it
+     * does nothing: an autosave nobody asked for has no refusal to show.
+     */
+    public void autosave(Consumer<String> reply) {
+        if (story == null || server.joinedCount() != 1) return;
+        save(AUTOSAVE, true, message -> reply.accept(message.startsWith("Saved \"" + AUTOSAVE + "\"")
+                ? "Autosaved" + message.substring(("Saved \"" + AUTOSAVE + "\"").length())
+                : message));
+    }
+
     /** A save that passed every check, and the director rebuilt from it. */
     public record Resumed(SaveGame save, StoryDirector director) {}
 
