@@ -405,7 +405,8 @@ kbd {
 .touch-only { display: none !important; }
 body.touch .touch-only { display: flex !important; }
 body.touch .desk-only { display: none; }
-body.touch #world { touch-action: none; }
+/* Always, so even the first touch on a touch laptop isn't taken as a page pan. */
+#world { touch-action: none; }
 
 /* Q, E and Esc for thumbs: a column above the stick. */
 .chips {
@@ -472,8 +473,10 @@ body.touch .notices { bottom: 300px; }
   body.touch .soul-row, body.touch .legion-row { gap: 8px; }
   body.touch .soul .label { font-size: 10px; letter-spacing: 0.08em; }
   body.touch #minimap { top: 86px; bottom: auto; right: 10px; width: 120px; height: 80px; }
+  body.touch .objective { top: 86px; left: 10px; width: calc(100vw - 150px); padding: 6px 10px; }
   body.touch .notices { top: 86px; bottom: auto; left: 10px; width: calc(100vw - 150px); }
-  body.touch .objective { top: auto; bottom: calc(100% - 86px - 64px); display: none; }
+  /* In a campaign the objective takes the top-left slot, and notices go under it. */
+  body.touch #objective:not([hidden]) ~ .notices { top: 160px; }
   body.touch .command {
     left: 156px;
     right: 10px;

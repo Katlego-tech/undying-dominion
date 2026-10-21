@@ -96,7 +96,8 @@ export function createInput(canvas, minimap, renderer) {
         dy += ky;
       }
     }
-    return [dx, dy];
+    // The stick and WASD together still make one step per axis.
+    return [Math.sign(dx), Math.sign(dy)];
   }
 
   /** Whether one step of (dx, dy) from (x, y) is legal, diagonals included, as the server sees it. */
@@ -346,8 +347,8 @@ export function createInput(canvas, minimap, renderer) {
     if (was.kind === 'hold') {
       const dragged = game.drag?.moved;
       if (dragged) {
-        game.pointer.sx = e.clientX;
-        game.pointer.sy = e.clientY;
+        // A box that came back to a point picks the unit there, so give finishDrag this finger's tile.
+        Object.assign(game.pointer, { sx: e.clientX, sy: e.clientY }, tileAt(e.clientX, e.clientY));
         finishDrag(performance.now());
       } else {
         game.drag = null;
@@ -444,6 +445,9 @@ export function createInput(canvas, minimap, renderer) {
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickFinger) steer(e); });
   stickEl.addEventListener('pointerup', (e) => { if (e.pointerId === stickFinger) release(); });
   stickEl.addEventListener('pointercancel', (e) => { if (e.pointerId === stickFinger) release(); });
+  // A thumb lost to another app or tab must not leave the necromancer walking.
+  window.addEventListener('blur', () => { if (stickFinger !== null) release(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && stickFinger !== null) release(); });
 
   document.getElementById('mode-hint').addEventListener('click', () => cmd.setMode(null));
   document.getElementById('camera-hint').addEventListener('click', centerOnNecromancer);
