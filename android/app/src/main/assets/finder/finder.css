@@ -1,0 +1,125 @@
+/* The app's first screen: Dominions heard on this network, in the game's own tokens (style.css). */
+/* Bundled with the app, so the first screen looks right with no connection (OFL fonts). */
+@font-face { font-family: "Cinzel"; src: url("fonts/cinzel-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Inter"; src: url("fonts/inter.woff2") format("woff2"); font-weight: 400 600; }
+
+:root {
+  --bg: #09080c;
+  --panel: rgba(14, 12, 18, 0.84);
+  --panel-edge: rgba(232, 226, 208, 0.10);
+  --bone: #e8e2d0;
+  --bone-dim: #9d978a;
+  --bone-faint: #5f5a52;
+  --soul: #5eead4;
+  --soul-deep: #115e59;
+  --violet: #a78bfa;
+  --blood: #f87171;
+  --display: "Cinzel", "Times New Roman", serif;
+  --ui: "Inter", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  background: radial-gradient(ellipse at 30% 30%, #1a1424 0%, var(--bg) 70%);
+  color: var(--bone);
+  font: 14px/1.4 var(--ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.finder {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
+}
+.found { min-height: 0; overflow: auto; scrollbar-width: none; }
+
+h1 {
+  margin: 0;
+  font: 700 26px/1.15 var(--display);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 32px rgba(167, 139, 250, 0.35);
+}
+.status { margin: 4px 0 14px; color: var(--bone-dim); font-size: 13px; }
+/* Still listening: three soul dots breathe after the line. */
+.status.looking::after { content: " ●●●"; letter-spacing: 2px; color: var(--soul); animation: breathe 1.4s ease-in-out infinite alternate; }
+@keyframes breathe { from { opacity: 0.25; } to { opacity: 1; } }
+
+.servers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.server {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(232, 226, 208, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--bone);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.server:active { border-color: var(--soul); background: rgba(94, 234, 212, 0.10); }
+.server b { font-size: 16px; font-weight: 600; }
+.server .where { grid-column: 1; color: var(--bone-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.server .mode { grid-row: 1; grid-column: 2; justify-self: end; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soul); }
+.server .count { grid-column: 2; justify-self: end; color: var(--bone-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.server .count b { font-size: 12px; color: var(--bone); }
+
+.none {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--violet);
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.06);
+  color: var(--bone);
+  font-size: 13px;
+  max-width: 460px;
+}
+
+.side { display: grid; align-content: center; gap: 18px; }
+.rejoin {
+  padding: 14px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2dd4bf, #0f766e);
+  color: #041312;
+  font: 700 15px var(--display);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.rejoin .address { font: 600 15px var(--ui); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.manual label { display: block; margin-bottom: 8px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-dim); }
+.manual .row { display: flex; gap: 8px; }
+.manual input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 226, 208, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--bone);
+  font: 15px var(--ui);
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.manual input:focus { border-color: var(--soul); box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18); }
+.manual button {
+  padding: 0 16px;
+  border: 1px solid var(--soul-deep);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--soul);
+  font: 600 14px var(--ui);
+  cursor: pointer;
+}
+.error { min-height: 18px; margin: 8px 0 0; color: var(--blood); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .status.looking::after { animation: none; }
+}

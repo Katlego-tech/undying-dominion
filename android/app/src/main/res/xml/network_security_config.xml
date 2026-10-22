@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A Dominion runs on someone's PC at a LAN address, over plain http: there's no name to scope
+     cleartext to, so it is allowed. The app talks to nothing else. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

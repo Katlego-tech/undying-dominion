@@ -89,7 +89,7 @@ bad()  { printf '!! %s\n' "$*"; }
 project_dirs() {
   printf '%s\n' "$root"
   for d in "$root"/services/* "$root"/apps/* "$root"/packages/* \
-           "$root/backend" "$root/frontend" "$root/web" "$root/api" "$root/server"; do
+           "$root/backend" "$root/frontend" "$root/web" "$root/api" "$root/server" "$root/android"; do
     [ -d "$d" ] && printf '%s\n' "$d"
   done
 }
@@ -582,6 +582,28 @@ check_maven() {
   ran=$((ran + 1))
 }
 
+# ---------------------------------------------------------------- Gradle ----
+# The Android app (docs/design/android.md): the APK builds and its unit tests pass. No SDK is a
+# failure, not a skip, for the same reason no mvn is.
+check_gradle() {
+  local dir="$1" rel="$2"
+  [ -f "$dir/gradlew" ] || return 0
+  manifests=$((manifests + 1))
+
+  if [ -z "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ] && [ ! -f "$dir/local.properties" ]; then
+    bad "$rel is an Android project but no SDK is set (ANDROID_HOME) -- the APK cannot be built."
+    fail=1
+    return 0
+  fi
+  if [ "$list_only" -eq 1 ]; then
+    say "   would run (gradle): ./gradlew assembleDebug testDebugUnitTest ($rel)"
+    return 0
+  fi
+  step "./gradlew assembleDebug testDebugUnitTest ($rel)"
+  ( cd "$dir" && ./gradlew --no-daemon -q assembleDebug testDebugUnitTest ) || fail=1
+  ran=$((ran + 1))
+}
+
 # ------------------------------------------------------------- container ----
 # A Dockerfile at the root means the image ships, so the gate builds it and runs the container
 # acceptance test against it: the server on 5050, a save resumed from the volume in a fresh
@@ -855,6 +877,7 @@ while IFS= read -r dir; do
     check_node        "$dir" "$rel"
     check_composer    "$dir" "$rel"
     check_maven       "$dir" "$rel"
+    check_gradle      "$dir" "$rel"
     collect_lockfiles "$dir" "$rel"
   fi
 done < <(project_dirs)

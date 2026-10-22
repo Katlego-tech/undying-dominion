@@ -5,6 +5,7 @@ import com.undyingdominion.game.GameRules;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.game.PlayerState;
 import com.undyingdominion.game.Roster;
+import com.undyingdominion.net.Beacon;
 import com.undyingdominion.net.GameServer;
 import com.undyingdominion.persistence.SaveService;
 import com.undyingdominion.persistence.SaveDao;
@@ -13,8 +14,12 @@ import com.undyingdominion.story.Campaign;
 import com.undyingdominion.story.StoryDirector;
 import com.undyingdominion.world.GameMap;
 import com.undyingdominion.world.MapConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Random;
@@ -22,9 +27,11 @@ import java.util.function.LongSupplier;
 
 /**
  * One running world: the server hosting it, the saves it can make and, for a campaign, the director
- * telling its story. {@code story} is null in a free-for-all.
+ * telling its story. {@code story} is null in a free-for-all. {@code beacon} is null with {@code --no-beacon}.
  */
-public record Dominion(GameServer server, StoryDirector story, SaveService saves) {
+public record Dominion(GameServer server, StoryDirector story, SaveService saves, Beacon beacon) {
+
+    private static final Logger log = LoggerFactory.getLogger(Dominion.class);
 
     /** Loads the map or campaign, builds the engine and opens the server. Throws if the port cannot be taken. */
     public static Dominion raise(ServerOptions options) throws IOException {
@@ -73,7 +80,28 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             story.onChapterBegins(chapter -> server.runAfterStep(() -> saves.autosave(message ->
                     server.engine().getPlayers().forEach(player -> player.notice(message)))));
         }
-        return new Dominion(server, story, saves);
+        return new Dominion(server, story, saves, announce(options, server, story == null ? "free-for-all" : "campaign"));
+    }
+
+    /** Starts the LAN beacon the Android app listens for, unless it's turned off. A refused socket costs only the beacon. */
+    private static Beacon announce(ServerOptions options, GameServer server, String mode) {
+        if (!options.beacon()) return null;
+        String host = hostName();
+        try {
+            return Beacon.start(options.beaconPort(), Beacon.targets(),
+                    () -> Beacon.payload(host, server.port(), mode, server.joinedCount(), options.maxPlayers()));
+        } catch (SocketException e) {
+            log.warn("No LAN beacon: {}. Players can still type the address.", e.getMessage());
+            return null;
+        }
+    }
+
+    private static String hostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (IOException e) {
+            return "Dominion";
+        }
     }
 
     /** Keeps the saved player's seat for the first join, and greets them once they have taken it. */
@@ -101,6 +129,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
     }
 
     public void close() {
+        if (beacon != null) beacon.close();
         server.stop();
     }
 }
