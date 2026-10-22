@@ -174,7 +174,8 @@ export function resetWorld() {
 // §6 Client). Held upright, the page draws itself a quarter turned clockwise (body.turned in
 // style.css), so the renderer and input read the turned size and map every touch through toLayout().
 const coarse = window.matchMedia('(pointer: coarse)').matches;
-const glass = () => ({ w: document.documentElement.clientWidth, h: document.documentElement.clientHeight });
+// The part of the screen actually on show: a phone's address bar takes some of 100vh, so the page is sized from this.
+const glass = () => ({ w: window.innerWidth, h: window.innerHeight });
 
 /** A phone held upright: tablets are never turned. */
 export function isTurned() {
@@ -205,6 +206,12 @@ export function applyOrientation() {
   const { w, h } = glass();
   document.body.classList.toggle('phone', coarse && Math.min(w, h) <= 500);
   document.body.classList.toggle('turned', isTurned());
+  const page = viewport();
+  const root = document.documentElement.style;
+  root.setProperty('--glass-w', `${w}px`);
+  root.setProperty('--glass-h', `${h}px`);
+  root.setProperty('--page-w', `${page.width}px`);
+  root.setProperty('--page-h', `${page.height}px`);
 }
 
 /** On a phone's first tap, where the browser allows it: fullscreen, locked to landscape. iOS can't, and the turn covers it. */
