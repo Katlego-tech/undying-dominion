@@ -1,5 +1,5 @@
 import {
-  game, unitAtTile, isMine, myNecromancer, renderPos, isWalkable,
+  game, unitAtTile, isMine, myNecromancer, playsNecromancer, renderPos, isWalkable,
 } from './state.js';
 import { TILE } from './render.js';
 import * as cmd from './commands.js';
@@ -516,9 +516,10 @@ export function createInput(canvas, minimap, renderer) {
     }
     switch (key) {
       case 'c': cmd.beginAttackMove(); break;
-      case 'r': cmd.beginRaise(); break;
-      case 'x': cmd.beginExplode(); break;
-      case 'f': cmd.fuse(); break;
+      // A commander's abilities take these keys with the commander screens (T075).
+      case 'r': if (playsNecromancer()) cmd.beginRaise(); break;
+      case 'x': if (playsNecromancer()) cmd.beginExplode(); break;
+      case 'f': if (playsNecromancer()) cmd.fuse(); break;
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;
       case 'h': cmd.stop(); break;

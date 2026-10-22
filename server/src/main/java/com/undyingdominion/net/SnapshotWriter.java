@@ -1,10 +1,14 @@
 package com.undyingdominion.net;
 
+import com.undyingdominion.game.Ability;
+import com.undyingdominion.game.Commander;
 import com.undyingdominion.game.Corpse;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameEvent;
 import com.undyingdominion.game.GameRules;
 import com.undyingdominion.game.Player;
+import com.undyingdominion.game.Status;
+import com.undyingdominion.game.StatusEffect;
 import com.undyingdominion.game.Trap;
 import com.undyingdominion.game.Unit;
 import com.undyingdominion.game.UnitType;
@@ -15,11 +19,18 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.function.IntPredicate;
 
 /** Builds the JSON messages the server sends. Everything except {@link #welcome} runs on the game loop thread. */
 public final class SnapshotWriter {
+
+    /** What a player can't tell about another's unit (docs/design/characters.md §6). */
+    private static final Set<Status> HIDDEN_ON_OTHERS = EnumSet.of(Status.EMPOWERED, Status.REGEN, Status.EXPOSED,
+            Status.WEAKENED, Status.CLEAVING, Status.STEALTHED);
 
     private SnapshotWriter() {
     }
@@ -29,6 +40,15 @@ public final class SnapshotWriter {
      * never changes, and the seat's token for rejoining.
      */
     public static String welcome(int playerId, String name, String token, GameMap map, GameRules rules) {
+        return welcome(playerId, name, token, map, rules, null, new JSONArray());
+    }
+
+    /**
+     * As above, with the player's commander kit ({@code null} before a pick) and the kits they may pick
+     * from ({@code []} in a campaign).
+     */
+    public static String welcome(int playerId, String name, String token, GameMap map, GameRules rules,
+                                 JSONObject commander, JSONArray roster) {
         JSONObject types = new JSONObject();
         for (UnitType type : UnitType.values()) {
             types.put(type.name(), new JSONObject()
@@ -66,6 +86,8 @@ public final class SnapshotWriter {
                         .put("explodeRadius", rules.explodeRadius())
                         .put("maxCorpses", rules.maxCorpses()))
                 .put("unitTypes", types)
+                .put("commander", commander == null ? JSONObject.NULL : commander)
+                .put("roster", roster)
                 .toString();
     }
 
@@ -119,12 +141,13 @@ public final class SnapshotWriter {
     public static String state(GameEngine engine, Player player, JSONArray scoreboard, JSONObject story,
                                JSONObject paused) {
         long tick = engine.getTick();
-        Visibility sight = Visibility.of(engine.getMap(), engine.getUnits(), player.getId());
+        Visibility sight = engine.sightOf(player);
+        int perSecond = engine.getRules().ticksPerSecond();
 
         JSONArray units = new JSONArray();
         for (Unit u : engine.getUnits()) {
             boolean own = u.getOwnerId() == player.getId();
-            if (!own && !sight.sees(u.getPosition())) continue;
+            if (!sight.shows(u)) continue;
             JSONObject json = new JSONObject()
                     .put("id", u.getId())
                     .put("type", u.getType().name())
@@ -138,7 +161,13 @@ public final class SnapshotWriter {
                 json.put("expiresIn", Math.max(0, u.getExpiresAtTick() - tick));
             }
             if (u.isRooted()) json.put("modeEndsIn", Math.max(0, u.getModeEndsTick() - tick));
-            units.put(json);
+            JSONArray statuses = new JSONArray();
+            for (StatusEffect s : u.statuses()) {
+                if (!own && HIDDEN_ON_OTHERS.contains(s.status())) continue;
+                statuses.put(new JSONObject().put("id", s.status().name().toLowerCase(Locale.ROOT))
+                        .put("for", seconds(s.untilTick() - tick, perSecond)));
+            }
+            units.put(json.put("statuses", statuses).put("shield", u.getShield()));
         }
 
         JSONArray corpses = new JSONArray();
@@ -168,17 +197,25 @@ public final class SnapshotWriter {
         for (GameEvent e : paused == null ? engine.getEvents() : List.<GameEvent>of()) {
             boolean seen = switch (e.kind()) {
                 case LEVEL_UP -> true;
-                case ATTACK -> sight.sees(e.x(), e.y()) || sight.sees(e.x2(), e.y2());
+                case ATTACK, CAST -> sight.sees(e.x(), e.y()) || sight.sees(e.x2(), e.y2());
                 default -> sight.sees(e.x(), e.y());
             };
             if (!seen) continue;
-            events.put(new JSONObject()
+            JSONObject event = new JSONObject()
                     .put("kind", e.kind().name())
                     .put("a", e.a()).put("b", e.b())
                     .put("x", e.x()).put("y", e.y())
-                    .put("x2", e.x2()).put("y2", e.y2()));
+                    .put("x2", e.x2()).put("y2", e.y2());
+            if (e.kind() == GameEvent.Kind.CAST) event.put("ability", e.ability()).put("radius", e.radius());
+            events.put(event);
         }
 
+        Commander commander = player.commander();
+        JSONObject cooldowns = new JSONObject();
+        for (Ability ability : commander.abilities()) {
+            cooldowns.put(ability.id(), seconds(player.cooldownLeft(ability.id(), tick), perSecond));
+        }
+        Commander next = player.nextCommander();
         Integer necromancerId = player.getNecromancerId();
         JSONObject you = new JSONObject()
                 .put("id", player.getId())
@@ -193,6 +230,10 @@ public final class SnapshotWriter {
                 .put("necromancerId", necromancerId == null ? JSONObject.NULL : necromancerId)
                 .put("respawnIn", necromancerId == null && player.getRespawnAtTick() >= 0
                         ? Math.max(0, player.getRespawnAtTick() - tick) : 0)
+                .put("commander", commander.id())
+                .put("next", next == null ? JSONObject.NULL : next.id())
+                .put("energy", commander.energy())
+                .put("cooldowns", cooldowns)
                 .put("notices", new JSONArray(player.takeNotices()));
 
         JSONObject message = new JSONObject();
@@ -209,6 +250,11 @@ public final class SnapshotWriter {
                 .put("events", events)
                 .put("players", scoreboard)
                 .toString();
+    }
+
+    /** Ticks as seconds to one decimal place. */
+    private static double seconds(long ticks, int perSecond) {
+        return Math.max(0, Math.round(ticks * 10.0 / perSecond) / 10.0);
     }
 
     public static String error(String message) {

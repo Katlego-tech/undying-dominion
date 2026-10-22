@@ -65,9 +65,12 @@ public final class Roster {
 
     private final List<Commander> all;
     private final Map<String, Commander> byId = new LinkedHashMap<>();
+    /** Each kit as the file wrote it, which is how the protocol sends it. */
+    private final Map<String, JSONObject> kits;
 
-    private Roster(List<Commander> all) {
+    private Roster(List<Commander> all, Map<String, JSONObject> kits) {
         this.all = List.copyOf(all);
+        this.kits = kits;
         for (Commander commander : all) byId.put(commander.id(), commander);
     }
 
@@ -106,14 +109,16 @@ public final class Roster {
             throw new IllegalArgumentException("roster.json: " + e.getMessage(), e);
         }
         List<Commander> commanders = new ArrayList<>();
+        Map<String, JSONObject> kits = new LinkedHashMap<>();
         Set<String> ids = new HashSet<>();
         Set<String> unitNames = new HashSet<>();
         for (int i = 0; i < array.length(); i++) {
             Commander commander = new Reader(unitNames).commander(array, i);
             if (!ids.add(commander.id())) throw new IllegalArgumentException("roster.json: " + commander.id() + ": duplicate id");
             commanders.add(commander);
+            kits.put(commander.id(), array.getJSONObject(i));
         }
-        return new Roster(commanders);
+        return new Roster(commanders, kits);
     }
 
     /** The commander with this id, or null if there's none. */
@@ -124,6 +129,18 @@ public final class Roster {
     /** The commanders a player may pick outside the campaign, in file order. */
     public List<Commander> pvp() {
         return all.stream().filter(c -> !c.campaignOnly()).toList();
+    }
+
+    /** The commander's kit as roster.json has it, for the protocol. Shared: don't change it. */
+    public JSONObject kit(Commander commander) {
+        return kits.get(commander.id());
+    }
+
+    /** Every pickable kit, as {@link #kit}. */
+    public JSONArray pvpKits() {
+        JSONArray out = new JSONArray();
+        for (Commander commander : pvp()) out.put(kits.get(commander.id()));
+        return out;
     }
 
     public Commander necromancer() {

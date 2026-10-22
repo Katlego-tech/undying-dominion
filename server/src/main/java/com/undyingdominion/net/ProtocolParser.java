@@ -56,6 +56,9 @@ public final class ProtocolParser {
                 case "mend" -> new Command.Mend(playerId, unitIds(message));
                 case "trap" -> new Command.SetTrap(playerId, unitIds(message));
                 case "dismiss" -> new Command.Dismiss(playerId, unitIds(message));
+                case "cast" -> new Command.Cast(playerId, message.getString("ability"),
+                        message.has("target") ? Integer.valueOf(message.getInt("target")) : null,
+                        message.has("x") || message.has("y") ? new Position(message.getInt("x"), message.getInt("y")) : null);
                 default -> throw new ProtocolException(UNSUPPORTED);
             };
         } catch (JSONException | IllegalArgumentException e) {

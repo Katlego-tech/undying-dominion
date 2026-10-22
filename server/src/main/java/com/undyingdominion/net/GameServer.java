@@ -1,8 +1,11 @@
 package com.undyingdominion.net;
 
+import com.undyingdominion.game.Ability;
 import com.undyingdominion.game.Command;
+import com.undyingdominion.game.Commander;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.Player;
+import com.undyingdominion.game.Roster;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import org.json.JSONArray;
@@ -17,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -71,6 +75,9 @@ public class GameServer {
     private volatile SaveHandler saveHandler;
     /** True while a resumed game waits for its first join. */
     private volatile boolean held;
+    /** The commanders players pick from, or null where everyone is the necromancer, as in a campaign. */
+    private volatile Roster roster;
+    private final Random picks = new Random();
 
     /** What to do when a player asks to save. Called on the game loop thread. */
     @FunctionalInterface
@@ -155,6 +162,15 @@ public class GameServer {
         held = true;
     }
 
+    /**
+     * Lets players field a commander from {@code roster}: chosen on join, or at random without one,
+     * and changed with {@code pick} for their next rise. Without it every player is the necromancer.
+     * Call before {@link #start}.
+     */
+    public void offerCommanders(Roster roster) {
+        this.roster = roster;
+    }
+
     /** Who answers players' save requests. Without one, save is an unsupported command. */
     public void setSaveHandler(SaveHandler handler) {
         this.saveHandler = handler;
@@ -194,13 +210,13 @@ public class GameServer {
             for (Seat seat : seats.all()) {
                 int id = seat.playerId;
                 Player before = previous.getPlayer(id);
-                next.submit(new Command.Join(id, seat.name));
+                next.submit(new Command.Join(id, seat.name, seat.commander));
                 if (before != null) {
                     next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
                             before.getDeaths(), previous.legionOf(id), previous.raisedOf(id)));
                 }
                 ClientConnection connection = seat.connection();
-                if (connection != null) connection.send(welcome(seat, next));
+                if (connection != null) connection.send(welcome(seat, next, roster));
             }
         });
         worldJson.set(describeWorld());
@@ -277,11 +293,22 @@ public class GameServer {
             if (playerId != null && !seats.isSeated(playerId, connection)) return;  // stale: its seat moved to another socket
 
             if (playerId == null) {
-                if ("join".equals(command)) join(connection, message.optString("name", null));
+                if ("join".equals(command)) join(connection, message.optString("name", null), message.opt("commander"));
                 else if ("rejoin".equals(command)) rejoin(connection, message.opt("token"));
                 else throw new ProtocolException("Join the Dominion first");
             } else if ("join".equals(command) || "rejoin".equals(command)) {
                 throw new ProtocolException("You have already joined");
+            } else if ("pick".equals(command)) {
+                engine.submit(new Command.Pick(playerId, pickable(message.opt("commander"))));
+            } else if ("cast".equals(command)) {
+                Command.Cast cast = (Command.Cast) ProtocolParser.parse(message, playerId);
+                // The kit is the engine's to know, so the check runs on the loop, just before the tick.
+                runOnLoop(() -> {
+                    Player player = engine.getPlayer(playerId);
+                    if (player == null) return;
+                    if (castable(player.commander(), cast)) engine.submit(cast);
+                    else connection.send(SnapshotWriter.error(ProtocolParser.BAD_ARGUMENTS));
+                });
             } else if ("pause".equals(command)) {
                 runOnLoop(() -> pause(playerId, connection.getName()));
             } else if ("resume".equals(command)) {
@@ -305,12 +332,25 @@ public class GameServer {
         }
     }
 
-    private void join(ClientConnection connection, String requestedName) throws ProtocolException {
+    private void join(ClientConnection connection, String requestedName, Object requestedCommander)
+            throws ProtocolException {
         String name = ProtocolParser.validName(requestedName);
+        Roster roster = this.roster;
+        Commander commander = null;
+        boolean random = false;
+        if (roster != null && requestedCommander == null) {
+            commander = roster.random(picks);
+            random = true;
+        } else if (roster != null) {
+            commander = pickable(requestedCommander);
+        }
+        Commander fielded = commander;
+        boolean randomPick = random;
         // Under the table's lock, like a chapter change: the welcome and the Join go to the same world.
         SeatTable.Joined joined = seats.join(connection, name, () -> engine.allocatePlayerId(), seat -> {
-            connection.send(welcome(seat, engine));
-            engine.submit(new Command.Join(seat.playerId, seat.name));
+            seat.commander = fielded;
+            connection.send(welcome(seat, engine, roster));
+            engine.submit(new Command.Join(seat.playerId, seat.name, fielded, randomPick));
         });
         if (joined == null) return;
         Seat seat = joined.seat();
@@ -331,7 +371,7 @@ public class GameServer {
     private void rejoin(ClientConnection connection, Object token) throws ProtocolException {
         if (!(token instanceof String presented)) throw new ProtocolException(ProtocolParser.BAD_ARGUMENTS);
         SeatTable.Rejoined rejoined = seats.rejoin(connection, presented,
-                seat -> connection.send(welcome(seat, engine)));
+                seat -> connection.send(welcome(seat, engine, roster)));
         if (rejoined == null) return;
         if (rejoined.replaced() != null) rejoined.replaced().close(1000, "Taken up in another window");
         log.info("{} rejoined the Dominion", rejoined.seat().name);
@@ -354,8 +394,34 @@ public class GameServer {
         log.info("{} left the Dominion", seat.name);
     }
 
-    private static String welcome(Seat seat, GameEngine engine) {
-        return SnapshotWriter.welcome(seat.playerId, seat.name, seat.token, engine.getMap(), engine.getRules());
+    private static String welcome(Seat seat, GameEngine engine, Roster roster) {
+        Roster kits = Roster.builtIn();
+        Commander commander = seat.commander != null ? seat.commander : kits.necromancer();
+        return SnapshotWriter.welcome(seat.playerId, seat.name, seat.token, engine.getMap(), engine.getRules(),
+                kits.kit(commander), roster == null ? new JSONArray() : roster.pvpKits());
+    }
+
+    /** The commander a {@code pick} or {@code join} names, if this world lets the player field it. */
+    private Commander pickable(Object requested) throws ProtocolException {
+        Roster roster = this.roster;
+        if (roster == null) throw new ProtocolException("The campaign is played as the Necromancer");
+        if (!(requested instanceof String id)) throw new ProtocolException(ProtocolParser.BAD_ARGUMENTS);
+        Commander commander = roster.get(id.trim().toUpperCase());
+        if (commander == null) throw new ProtocolException("No commander called " + id);
+        if (commander.campaignOnly()) throw new ProtocolException("The Necromancer walks only in the campaign");
+        return commander;
+    }
+
+    /** Whether the ability is in the kit and the cast names what its target kind needs. */
+    private static boolean castable(Commander commander, Command.Cast cast) {
+        Ability ability = commander.ability(cast.abilityId());
+        if (ability == null) return false;
+        return switch (ability.target()) {
+            case SELF, AROUND_SELF -> true;
+            case ENEMY, ENEMY_COMMANDER, ALLY -> cast.targetId() != null;
+            case TILE -> cast.tile() != null;
+            case CORPSE, SELECTION -> false;
+        };
     }
 
     // ------------------------------------------------------------------ game loop thread
@@ -380,10 +446,11 @@ public class GameServer {
 
             JSONArray scoreboard = SnapshotWriter.scoreboard(engine, this::isAway);
             for (Seat seat : seats.all()) {
-                ClientConnection connection = seat.connection();
-                if (connection == null || !connection.isOpen()) continue;
                 Player player = engine.getPlayer(seat.playerId);
                 if (player == null) continue;
+                if (roster != null) seat.commander = player.commander();
+                ClientConnection connection = seat.connection();
+                if (connection == null || !connection.isOpen()) continue;
                 connection.offerState(SnapshotWriter.state(engine, player, scoreboard, story, pause));
             }
 

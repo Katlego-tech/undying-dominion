@@ -1,5 +1,7 @@
 package com.undyingdominion.net;
 
+import com.undyingdominion.game.Commander;
+
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -19,6 +21,11 @@ final class Seat {
 
     private volatile ClientConnection connection;
     private long awayUntilNanos;
+    /**
+     * Who the player commands, for their welcome; null for the necromancer. Set on join and kept up
+     * to date by the loop, so a rejoin's welcome needn't read the engine from a network thread.
+     */
+    volatile Commander commander;
 
     private Seat(int playerId, String name, String token, ClientConnection connection) {
         this.playerId = playerId;

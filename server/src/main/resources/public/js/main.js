@@ -141,6 +141,7 @@ function welcome(message) {
   game.name = message.name;
   game.tickMs = 1000 / message.tickRate;
   game.unitTypes = message.unitTypes;
+  game.commander = message.commander ?? null;
   game.rules = message.rules;
   loadMap(message.map);
   renderer.buildTerrain();
