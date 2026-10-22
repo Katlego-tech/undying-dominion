@@ -9,7 +9,7 @@ import {
 import {
   initPicker, showPicker, chosenKit, closeRiseAs, risingAs,
 } from './picker.js';
-import { pick } from './commands.js';
+import { pick, setMode } from './commands.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -77,7 +77,8 @@ $('join-form').addEventListener('submit', (e) => {
     return;
   }
   const name = $('name').value.trim();
-  if (!name) return;
+  // Disabled while a join is on its way, so a second press can't open a second seat.
+  if (!name || $('join-button').disabled) return;
   $('join-error').textContent = '';
   $('join-button').disabled = true;
   game.name = name;
@@ -279,7 +280,7 @@ function applyState(message, now) {
   const risenAs = game.kits[message.you.commander];
   if (risenAs && risenAs.id !== game.commander?.id) {
     game.commander = risenAs;
-    if (game.mode?.startsWith('cast:')) game.mode = null;
+    if (game.mode?.startsWith('cast:')) setMode(null);
     initHud();
   }
 

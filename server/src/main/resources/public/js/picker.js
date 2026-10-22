@@ -67,6 +67,8 @@ export function openRiseAs(fallen, seconds) {
   if (fallen && roster.some((k) => k.id === fallen.id)) select(fallen.id);
   shownBefore ??= { title: $('join-title').textContent, tagline: $('join-tagline').innerHTML };
   $('join').classList.add('rise-mode');
+  // The name box is hidden here, and an empty required box would block the pick.
+  $('name').required = false;
   $('join-title').textContent = 'Rise as another';
   $('join-tagline').innerHTML = fallen
     ? `You fell as <b>${escape(fallen.name)}, ${escape(fallen.title)}</b>. Whoever you pick rises in ${seconds} s; Esc keeps ${escape(fallen.name)}.`
@@ -78,6 +80,7 @@ export function openRiseAs(fallen, seconds) {
 export function closeRiseAs() {
   $('join').hidden = true;
   $('join').classList.remove('rise-mode');
+  $('name').required = true;
   if (shownBefore) {
     $('join-title').textContent = shownBefore.title;
     $('join-tagline').innerHTML = shownBefore.tagline;

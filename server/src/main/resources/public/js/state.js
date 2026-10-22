@@ -176,9 +176,10 @@ export function resetWorld() {
 const coarse = window.matchMedia('(pointer: coarse)').matches;
 const glass = () => ({ w: document.documentElement.clientWidth, h: document.documentElement.clientHeight });
 
+/** A phone held upright: tablets are never turned. */
 export function isTurned() {
   const { w, h } = glass();
-  return coarse && h > w;
+  return coarse && h > w && w <= 500;
 }
 
 /** The page's size as it's laid out: the screen's, or its height × width while turned. */
