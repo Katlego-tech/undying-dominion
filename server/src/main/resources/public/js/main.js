@@ -1,5 +1,5 @@
 import {
-  game, loadMap, renderPos, myNecromancer, resetWorld, applyOrientation, lockLandscape, viewport,
+  game, loadMap, renderPos, myNecromancer, resetWorld, applyOrientation, lockLandscape, viewport, inApp, APP_FINDER,
 } from './state.js';
 import { createRenderer, TILE } from './render.js';
 import { createInput } from './input.js';
@@ -96,6 +96,25 @@ $('join-form').addEventListener('submit', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && risingAs()) closeRiseAs();
 });
+
+// After a severed connection: the browser reloads; the app goes back to its finder.
+$('return-button').addEventListener('click', () => {
+  if (inApp) location.href = APP_FINDER;
+  else location.reload();
+});
+
+/** The app's Back button: closes the rise-as picker or an aiming mode, as Esc would. Returns whether it did. */
+window.appBack = () => {
+  if (risingAs()) {
+    closeRiseAs();
+    return true;
+  }
+  if (game.mode) {
+    setMode(null);
+    return true;
+  }
+  return false;
+};
 
 function rejoin(session) {
   rejoining = session;

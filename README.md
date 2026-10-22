@@ -165,6 +165,24 @@ an ability that needs a target shows its range as a dashed square, then takes a 
 the tile or unit. A fallen commander can pick who rises next with **Rise as…**. On a phone the game
 is always landscape: held upright, the page draws itself turned.
 
+## Play on Android
+
+The app plays the same game as the browser, fullscreen and always landscape, and finds a server on
+your network by itself.
+
+1. **Build it** (needs the Android SDK, `ANDROID_HOME` set): `scripts/apk.sh`. It prints the path to
+   `dist/undying-dominion.apk`.
+2. **Install it.** With the phone plugged in and USB debugging on: `adb install -r dist/undying-dominion.apk`.
+   Or copy the file to the phone and open it, allowing installs from that app when Android asks.
+3. **Start the server on your PC** as usual (`java -jar …`). While it runs, it announces itself on the
+   network every 2 s (UDP port 5001; `--no-beacon` turns that off).
+4. **Open Undying Dominion on the phone.** Your PC is listed under *Find a Dominion*; tap it. The app
+   remembers it, so next time it's one tap on **Rejoin**.
+
+If nothing is listed, the phone and PC aren't on the same network, or the Wi-Fi keeps devices apart
+(common on guest and campus networks). Connect the PC to the phone's hotspot, or type the address
+the server's dashboard shows. On the phone, Back asks before leaving a game.
+
 ## Server dashboard
 
 Started in a terminal, the server takes over the window with a live dashboard:

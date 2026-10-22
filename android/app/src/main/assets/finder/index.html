@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Find a Dominion</title>
+  <link rel="stylesheet" href="finder.css">
+</head>
+<body>
+  <main class="finder">
+    <section class="found">
+      <h1>Find a Dominion</h1>
+      <p class="status" id="status" aria-live="polite">Looking for Dominions on this network…</p>
+      <ul class="servers" id="servers"></ul>
+      <p class="none" id="none" hidden>No Dominion answered. Some Wi-Fi networks keep devices apart:
+        connect the PC to this phone's hotspot, or type the address shown on the server's screen.</p>
+    </section>
+    <aside class="side">
+      <button type="button" class="rejoin" id="rejoin" hidden></button>
+      <form class="manual" id="manual" autocomplete="off">
+        <label for="address">Or type the address on the server's screen</label>
+        <div class="row">
+          <input id="address" inputmode="url" spellcheck="false" placeholder="10.1.1.140:5000">
+          <button type="submit">Join</button>
+        </div>
+        <p class="error" id="error" role="alert"></p>
+      </form>
+    </aside>
+  </main>
+  <script src="finder.js"></script>
+</body>
+</html>

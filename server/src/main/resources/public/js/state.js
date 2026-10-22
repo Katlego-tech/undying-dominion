@@ -174,13 +174,17 @@ export function resetWorld() {
 // §6 Client). Held upright, the page draws itself a quarter turned clockwise (body.turned in
 // style.css), so the renderer and input read the turned size and map every touch through toLayout().
 const coarse = window.matchMedia('(pointer: coarse)').matches;
+/** Inside the Android app (docs/design/android.md): the activity holds landscape, so the page never turns. */
+export const inApp = new URLSearchParams(location.search).has('app');
+/** Where the app's "Return" goes: its own finder page. */
+export const APP_FINDER = 'https://appassets.androidplatform.net/assets/finder/index.html';
 // The part of the screen actually on show: a phone's address bar takes some of 100vh, so the page is sized from this.
 const glass = () => ({ w: window.innerWidth, h: window.innerHeight });
 
 /** A phone held upright: tablets are never turned. */
 export function isTurned() {
   const { w, h } = glass();
-  return coarse && h > w && w <= 500;
+  return !inApp && coarse && h > w && w <= 500;
 }
 
 /** The page's size as it's laid out: the screen's, or its height × width while turned. */
@@ -206,6 +210,7 @@ export function applyOrientation() {
   const { w, h } = glass();
   document.body.classList.toggle('phone', coarse && Math.min(w, h) <= 500);
   document.body.classList.toggle('turned', isTurned());
+  document.body.classList.toggle('app', inApp);
   const page = viewport();
   const root = document.documentElement.style;
   root.setProperty('--glass-w', `${w}px`);
@@ -216,7 +221,7 @@ export function applyOrientation() {
 
 /** On a phone's first tap, where the browser allows it: fullscreen, locked to landscape. iOS can't, and the turn covers it. */
 export function lockLandscape() {
-  if (!document.body.classList.contains('phone')) return;
+  if (inApp || !document.body.classList.contains('phone')) return;
   const lock = () => screen.orientation?.lock?.('landscape').catch(() => {});
   const full = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
   if (full) full.then(lock, () => {});

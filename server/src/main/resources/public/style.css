@@ -257,8 +257,8 @@ html, body {
   border-radius: 6px;
   background: transparent;
   color: var(--bone-dim);
-  font-size: 9px;
-  letter-spacing: -1px;
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 .pause-button:hover { color: var(--bone); border-color: var(--bone-faint); }
@@ -777,6 +777,15 @@ body.phone .kit-card .rise { position: sticky; bottom: 0; margin-top: 12px; box-
 
 /* Play: a slim strip across the top, stick bottom-left, abilities round the bottom-right corner,
    and the command panel between them. */
+/* The phone layout stands on its own: many phones are wider than 900 px in landscape (a Pixel 7 is
+   914), so nothing here may lean on the narrow-screen rules above. */
+body.phone.touch .scores { display: none; }
+body.phone.touch .soul { transform: none; min-width: 0; }
+body.phone.touch .command { transform: none; max-width: none; min-width: 0; }
+body.phone.touch .command .buttons { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+body.phone.touch .command .buttons::-webkit-scrollbar { display: none; }
+body.phone.touch .cmd { flex: none; min-width: 0; align-content: center; }
+body.phone.touch .camera-hint { right: auto; bottom: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 body.phone.touch .card { top: 8px; left: 8px; width: 190px; padding: 6px 10px; }
 body.phone.touch .card .bar { margin-top: 4px; }
 body.phone.touch .card .caption { display: none; }

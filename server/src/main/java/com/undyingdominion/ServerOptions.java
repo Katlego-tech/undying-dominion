@@ -1,5 +1,7 @@
 package com.undyingdominion;
 
+import com.undyingdominion.net.Beacon;
+
 /** Command line options, parsed the Robot Worlds way: every flag optional, unknown flags rejected. */
 public class ServerOptions {
 
@@ -20,6 +22,8 @@ public class ServerOptions {
     private String resume;
     private int graceSeconds = DEFAULT_GRACE_SECONDS;
     private boolean mapGiven;
+    private boolean beacon = true;
+    private int beaconPort = Beacon.DEFAULT_PORT;
 
     /** Options built in code rather than read from the command line. */
     public static ServerOptions of(int port, int maxPlayers, String mapLocation, Long seed, boolean wildCreatures) {
@@ -52,6 +56,8 @@ public class ServerOptions {
                 case "--db" -> options.database = value(args, ++i, flag);
                 case "--resume" -> options.resume = value(args, ++i, flag);
                 case "--grace" -> options.graceSeconds = grace(value(args, ++i, flag));
+                case "--no-beacon" -> options.beacon = false;
+                case "--beacon-port" -> options.beaconPort = range(value(args, ++i, flag), flag, 1, 65535);
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
         }
@@ -114,4 +120,7 @@ public class ServerOptions {
     public int graceSeconds()     { return graceSeconds; }
     /** Whether to run the full-screen terminal dashboard. Ignored when there is no interactive terminal. */
     public boolean dashboard()    { return dashboard; }
+    /** Whether the Dominion announces itself on the LAN for the Android app (docs/design/android.md). */
+    public boolean beacon()       { return beacon; }
+    public int beaconPort()       { return beaconPort; }
 }
