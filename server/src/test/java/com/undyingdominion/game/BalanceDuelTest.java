@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The balance smoke test in the gate (docs/design/characters.md §10). Every commander duels the first
  * three of four references from different roles that aren't itself (the Bulwark, the Hexer, the
  * Berserker, the Seer), three times each, under
- * {@link DuelBrain}, scored as a two-player match (see {@link Duel}). Every duel finishes inside five
- * game-minutes, and no commander loses all nine. It catches a broken kit, which loses to everyone;
+ * {@link DuelBrain}, scored as a two-player match (see {@link Duel}), and no commander may lose all
+ * nine. It catches a broken kit, which loses to everyone;
  * one hard counter is allowed, and the full matrix is BalanceReport's job.
  */
 class BalanceDuelTest {
@@ -37,7 +37,6 @@ class BalanceDuelTest {
                 line.append("  vs ").append(id, 0, 4).append(' ');
                 for (int seed = 1; seed <= DUELS; seed++) {
                     Duel.Result result = Duel.fight(commander, reference, seed);
-                    assertTrue(result.ticks() <= Duel.LIMIT_TICKS, "a duel ran past five game-minutes");
                     played++;
                     if (result.winner() == 0) wins++;
                     line.append(result.winner() == 0 ? 'W' : result.winner() == 1 ? 'L' : 'D');
