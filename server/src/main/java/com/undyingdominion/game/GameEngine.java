@@ -57,6 +57,8 @@ public class GameEngine {
     /** Statuses an ability applies some time after it's cast, such as Berserk's weakness. */
     private final List<Scheduled> scheduled = new ArrayList<>();
     private final Abilities abilities = new Abilities(this);
+    /** Each player's sight, worked out at most once a tick, for units deciding whether they notice a stealthed enemy. */
+    private final Map<Integer, Visibility> sightThisTick = new HashMap<>();
 
     private record Scheduled(int unitId, Status status, int magnitude, int ticks, long atTick, int sourceUnitId) {}
 
@@ -97,6 +99,7 @@ public class GameEngine {
     /** Advances the world by one step. */
     public void tick() {
         events.clear();
+        sightThisTick.clear();
 
         Command command;
         while ((command = inbox.poll()) != null) {
@@ -580,7 +583,7 @@ public class GameEngine {
     private boolean senses(Unit unit, Unit other) {
         if (!other.has(Status.STEALTHED) || unit.getPosition().distanceTo(other.getPosition()) <= 1) return true;
         Player owner = players.get(unit.getOwnerId());
-        return owner != null && sightOf(owner).shows(other);
+        return owner != null && sightThisTick.computeIfAbsent(owner.getId(), id -> sightOf(owner)).shows(other);
     }
 
     /** What a player can see this tick, stealth and reveals included. */
