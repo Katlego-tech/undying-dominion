@@ -3,7 +3,7 @@ package com.undyingdominion.game;
 import com.undyingdominion.world.Position;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -61,7 +61,9 @@ final class Abilities {
                     player.notice("That target is gone.");
                     return;
                 }
-                if (!fits(ability.target(), caster, target)) {
+                // Stepping in front of someone needs someone else: a dash can't land on its own caster.
+                boolean dashesToSelf = target == caster && ability.effects().stream().anyMatch(e -> e instanceof Effect.Dash);
+                if (!fits(ability.target(), caster, target) || dashesToSelf) {
                     player.notice(label + " needs " + switch (ability.target()) {
                         case ALLY -> "an ally";
                         case ENEMY_COMMANDER -> "an enemy commander";
@@ -222,7 +224,7 @@ final class Abilities {
             caster.setPost(landing);  // an idle commander holds where it landed, not where it started
             centre = caster.getPosition();
             if (d.damage() <= 0) return;
-            Set<Unit> hit = new HashSet<>();
+            Set<Unit> hit = new LinkedHashSet<>();  // in the order they were passed, so a run repeats exactly
             for (Position p : passed) {
                 for (Unit u : engine.getUnits()) {
                     if (u.isAlive() && caster.isHostileTo(u) && u.getPosition().distanceTo(p) <= 1) hit.add(u);

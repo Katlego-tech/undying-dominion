@@ -15,6 +15,9 @@
         <javalin.version>7.2.3</javalin.version>
         <junit.version>5.10.2</junit.version>
         <surefire.version>3.2.5</surefire.version>
+        <!-- The full balance run is slow and lives outside the gate; -Pbalance runs it alone. -->
+        <surefire.groups></surefire.groups>
+        <surefire.excludedGroups>balance</surefire.excludedGroups>
     </properties>
 
     <dependencies>
@@ -109,10 +112,36 @@
                 <version>${surefire.version}</version>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                    <groups>${surefire.groups}</groups>
                 </configuration>
             </plugin>
 
         </plugins>
     </build>
+
+    <profiles>
+        <!-- mvn test -Pbalance: every commander against every other, written to target/balance.md -->
+        <profile>
+            <id>balance</id>
+            <properties>
+                <surefire.groups>balance</surefire.groups>
+                <surefire.excludedGroups></surefire.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/BalanceReport.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
