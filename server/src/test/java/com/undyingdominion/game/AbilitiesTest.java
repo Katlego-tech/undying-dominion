@@ -238,6 +238,20 @@ class AbilitiesTest {
     }
 
     @Test
+    void aDashMidWalkDoesntSnapBackAlongTheOldPath() {
+        Player thessa = join("Thessa", "GROVE_KNIGHT", 5, 25);
+        engine.submit(new Command.Move(thessa.getId(), List.of(unit(thessa).getId()), new Position(25, 25), false));
+        pass(6);
+        Position before = unit(thessa).getPosition();
+
+        cast(thessa, "charge", null, new Position(before.x() + 6, 25));
+        Position landed = unit(thessa).getPosition();
+        pass(3);
+
+        assertTrue(unit(thessa).getPosition().x() >= landed.x(), "kept going from where it landed, not back from " + landed);
+    }
+
+    @Test
     void aDashOverTerrainCrossesWallsAndHides() {
         Player hollin = join("Hollin", "PAPER_BINDER", 16, 5);
 

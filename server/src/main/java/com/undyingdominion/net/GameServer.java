@@ -338,7 +338,7 @@ public class GameServer {
         Roster roster = this.roster;
         Commander commander = null;
         boolean random = false;
-        if (roster != null && requestedCommander == null) {
+        if (roster != null && (requestedCommander == null || requestedCommander == JSONObject.NULL)) {
             commander = roster.random(picks);
             random = true;
         } else if (roster != null) {

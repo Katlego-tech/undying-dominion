@@ -218,6 +218,7 @@ final class Abilities {
                 return;
             }
             if (!landing.equals(from)) engine.place(caster, landing);
+            caster.clearPath();  // the old route starts where it took off; walking on plans afresh
             caster.setPost(landing);  // an idle commander holds where it landed, not where it started
             centre = caster.getPosition();
             if (d.damage() <= 0) return;
@@ -242,7 +243,9 @@ final class Abilities {
                 if (!engine.isFree(next)) break;
                 to = next;
             }
-            if (!to.equals(unit.getPosition())) engine.place(unit, to);
+            if (to.equals(unit.getPosition())) return;
+            engine.place(unit, to);
+            unit.clearPath();
         }
 
         private void summon(Effect.Summon s) {
