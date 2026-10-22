@@ -52,6 +52,15 @@ public class GameEngine {
     /** Insertion order is age order, so the oldest trap of a player is found first. */
     private final Map<Position, Trap> traps = new LinkedHashMap<>();
     private final List<GameEvent> events = new ArrayList<>();
+    /** Areas a player's ability lets them see for a while. */
+    private final List<Visibility.Reveal> reveals = new ArrayList<>();
+    /** Statuses an ability applies some time after it's cast, such as Berserk's weakness. */
+    private final List<Scheduled> scheduled = new ArrayList<>();
+    private final Abilities abilities = new Abilities(this);
+    /** Each player's sight, worked out at most once a tick, for units deciding whether they notice a stealthed enemy. */
+    private final Map<Integer, Visibility> sightThisTick = new HashMap<>();
+
+    private record Scheduled(int unitId, Status status, int magnitude, int ticks, long atTick, int sourceUnitId) {}
 
     public GameEngine(GameMap map, GameRules rules, Random random) {
         this.map = map;
@@ -90,21 +99,24 @@ public class GameEngine {
     /** Advances the world by one step. */
     public void tick() {
         events.clear();
+        sightThisTick.clear();
 
         Command command;
         while ((command = inbox.poll()) != null) {
             apply(command);
         }
 
-        respawnNecromancers();
+        respawnCommanders();
         spawnNeutrals();
         regenerateSoul();
+        tickStatuses();
 
         for (Unit unit : new ArrayList<>(units.values())) {
             if (unit.isAlive()) update(unit);
         }
 
         returnTheRaised();
+        crumbleTheTimed();
         reapTheDead();
         decayCorpses();
         tick++;
@@ -133,6 +145,8 @@ public class GameEngine {
             case Command.Mend mend -> mend(player, mend.unitIds());
             case Command.SetTrap setTrap -> setTrap(player, setTrap.unitIds());
             case Command.Dismiss dismiss -> dismiss(player, dismiss.unitIds());
+            case Command.Pick pick -> pick(player, pick.commander());
+            case Command.Cast cast -> abilities.cast(player, cast);
             case Command.Join ignored -> { }
         }
     }
@@ -140,10 +154,21 @@ public class GameEngine {
     private void join(Command.Join join) {
         if (players.containsKey(join.playerId())) return;
         String color = COLORS[(join.playerId() - 1) % COLORS.length];
-        Player player = new Player(join.playerId(), join.name(), color, rules.startingSoul());
+        Commander commander = join.commander() != null ? join.commander() : Roster.builtIn().necromancer();
+        Player player = new Player(join.playerId(), join.name(), color, rules.startingSoul(), commander);
         players.put(player.getId(), player);
-        spawnNecromancer(player);
+        spawnCommander(player);
         player.notice("Welcome to the Dominion, " + player.getName() + ".");
+        if (join.randomPick()) {
+            player.notice("You command " + commander.name() + ", " + commander.title() + ". Pick another when you fall.");
+        }
+    }
+
+    /** Fielded, the pick waits for the next rise; fallen, the player rises as it. */
+    private void pick(Player player, Commander commander) {
+        player.pick(commander);
+        String who = commander.name() + ", " + commander.title() + ".";
+        player.notice(commanderOf(player) != null ? "You will rise as " + who : "You rise as " + who);
     }
 
     private void leave(Player player) {
@@ -156,7 +181,7 @@ public class GameEngine {
 
     private void restore(Player player, Command.Restore restore) {
         player.restoreProgress(restore.level(), restore.xp(), restore.kills(), restore.deaths());
-        Unit necromancer = necromancerOf(player);
+        Unit necromancer = commanderOf(player);
         if (necromancer == null) return;
         for (UnitType type : restore.legion()) {
             if (legionSize(player) >= player.legionCap()) break;
@@ -187,7 +212,7 @@ public class GameEngine {
     private List<UnitType> legionTypes(int playerId, boolean raised) {
         List<UnitType> legion = new ArrayList<>();
         for (Unit unit : units.values()) {
-            if (unit.getOwnerId() == playerId && unit.isAlive() && unit.getType() != UnitType.NECROMANCER
+            if (unit.getOwnerId() == playerId && unit.isAlive() && !unit.getType().isCommander()
                     && unit.isRaised() == raised) {
                 legion.add(unit.getType());
             }
@@ -200,9 +225,18 @@ public class GameEngine {
             player.notice(type.label + " cannot be summoned.");
             return;
         }
-        Unit necromancer = necromancerOf(player);
+        Commander commander = player.commander();
+        if (!commander.retinue().contains(type)) {
+            player.notice(type.label + " doesn't answer to " + commander.name() + ".");
+            return;
+        }
+        Unit necromancer = commanderOf(player);
         if (necromancer == null) {
             player.notice("The dead cannot summon.");
+            return;
+        }
+        if (necromancer.has(Status.SEALED)) {
+            player.notice("You are sealed and cannot " + commander.verb().toLowerCase() + ".");
             return;
         }
         if (legionSize(player) >= player.legionCap()) {
@@ -210,7 +244,8 @@ public class GameEngine {
             return;
         }
         if (player.getSoul() < type.summonCost) {
-            player.notice("Not enough soul energy for a " + type.label + ".");
+            String energy = commander.role() == Commander.Role.NECROMANCER ? "soul energy" : commander.energy();
+            player.notice("Not enough " + energy + " for a " + type.label + ".");
             return;
         }
         Position spot = freeTileNear(necromancer.getPosition(), 2);
@@ -254,7 +289,7 @@ public class GameEngine {
             player.notice("That corpse has already gone.");
             return;
         }
-        Unit necromancer = necromancerOf(player);
+        Unit necromancer = commanderOf(player);
         if (necromancer == null) {
             player.notice("The dead cannot raise the dead.");
             return;
@@ -289,7 +324,7 @@ public class GameEngine {
             player.notice("That corpse has already gone.");
             return;
         }
-        Unit necromancer = necromancerOf(player);
+        Unit necromancer = commanderOf(player);
         if (necromancer == null) {
             player.notice("The dead cannot detonate the dead.");
             return;
@@ -383,7 +418,7 @@ public class GameEngine {
     private void dismiss(Player player, List<Integer> unitIds) {
         int dismissed = 0;
         for (Unit unit : ownedUnits(player, unitIds)) {
-            if (unit.getType() == UnitType.NECROMANCER) continue;
+            if (unit.getType().isCommander()) continue;
             events.add(GameEvent.at(GameEvent.Kind.DEATH, unit));
             removeUnit(unit);
             dismissed++;
@@ -393,24 +428,27 @@ public class GameEngine {
 
     // ------------------------------------------------------------------ world upkeep
 
-    private void spawnNecromancer(Player player) {
+    /** Puts the player's commander on the field: the one they picked while down, if any, every ability ready. */
+    private void spawnCommander(Player player) {
         Position spot = startArea == null ? randomFreeTile(6) : randomFreeTileIn(startArea);
         if (spot == null) spot = randomFreeTile(0);
         if (spot == null) {
             player.setRespawnAtTick(tick + 1);
             return;
         }
-        Unit necromancer = addUnit(UnitType.NECROMANCER, player.getId(), spot, false);
-        player.setNecromancerId(necromancer.getId());
+        player.rise();
+        Unit commander = addUnit(player.commander().unit(), player.getId(), spot, false);
+        player.setNecromancerId(commander.getId());
         player.setRespawnAtTick(-1);
-        events.add(GameEvent.at(GameEvent.Kind.SUMMON, necromancer));
+        events.add(GameEvent.at(GameEvent.Kind.SUMMON, commander));
+        passive(player);
     }
 
-    private void respawnNecromancers() {
+    private void respawnCommanders() {
         for (Player player : players.values()) {
             if (player.getNecromancerId() == null && player.getRespawnAtTick() >= 0
                     && tick >= player.getRespawnAtTick()) {
-                spawnNecromancer(player);
+                spawnCommander(player);
             }
         }
     }
@@ -430,8 +468,129 @@ public class GameEngine {
     private void regenerateSoul() {
         if (tick % rules.ticksPerSecond() != 0) return;
         for (Player player : players.values()) {
-            if (player.getNecromancerId() != null) player.addSoul(rules.soulRegenPerSecond());
+            if (player.getNecromancerId() == null) continue;
+            player.addSoul(rules.soulRegenPerSecond());
+            Passive passive = player.commander().passive();
+            if (passive.kind() == Passive.Kind.ENERGY_REGEN) player.addEnergyTenths(passive.magnitude());
         }
+    }
+
+    // ------------------------------------------------------------------ statuses
+
+    /**
+     * Every tick statuses and shields run out and delayed ones land. Every second auras and self
+     * passives are refreshed, REGEN heals and BURNING burns.
+     */
+    private void tickStatuses() {
+        reveals.removeIf(r -> r.untilTick() <= tick);
+        for (Unit unit : units.values()) unit.expire(tick);
+        if (!scheduled.isEmpty()) {
+            List<Scheduled> due = scheduled.stream().filter(s -> s.atTick() <= tick).toList();
+            scheduled.removeAll(due);
+            for (Scheduled s : due) {
+                Unit unit = units.get(s.unitId());
+                if (unit != null && unit.isAlive()) {
+                    applyStatus(unit, s.status(), s.magnitude(), tick + s.ticks(), units.get(s.sourceUnitId()));
+                }
+            }
+        }
+        if (tick % rules.ticksPerSecond() != 0) return;
+        for (Player player : players.values()) passive(player);
+        for (Unit unit : units.values()) {
+            if (!unit.isAlive()) continue;
+            if (unit.has(Status.REGEN)) unit.heal(unit.magnitude(Status.REGEN));
+            StatusEffect burning = unit.status(Status.BURNING);
+            if (burning != null) {
+                Unit source = units.get(burning.sourceUnitId());
+                unit.takeDamage(burning.magnitude(), source == null ? Unit.NEUTRAL : source.getOwnerId());
+            }
+        }
+    }
+
+    /** Refreshes the statuses a commander's passive keeps up: an aura around it, or one on itself. */
+    private void passive(Player player) {
+        Unit commander = commanderOf(player);
+        if (commander == null) return;
+        Passive passive = player.commander().passive();
+        long until = tick + rules.ticksPerSecond() * 3L / 2;
+        if (passive.kind() == Passive.Kind.SELF) {
+            applyStatus(commander, passive.status(), passive.magnitude(), until, commander);
+        } else if (passive.kind() == Passive.Kind.AURA) {
+            for (Unit unit : units.values()) {
+                if (unit.isAlive() && unit.getOwnerId() == player.getId()
+                        && unit.getPosition().distanceTo(commander.getPosition()) <= passive.radius()) {
+                    applyStatus(unit, passive.status(), passive.magnitude(), until, commander);
+                }
+            }
+        }
+    }
+
+    /**
+     * Puts a status on a unit, unless it's control from another side on an UNSTOPPABLE unit, or the
+     * unit's commander passive makes it immune. UNSTOPPABLE also strips such control already there.
+     */
+    void applyStatus(Unit unit, Status status, int magnitude, long untilTick, Unit source) {
+        int sourceId = source == null ? 0 : source.getId();
+        if (status.isControl() && unit.has(Status.UNSTOPPABLE) && fromAnotherSide(unit, sourceId)) return;
+        if (unit.getType().isCommander()) {
+            Player owner = players.get(unit.getOwnerId());
+            Passive passive = owner == null ? null : owner.commander().passive();
+            if (passive != null && passive.kind() == Passive.Kind.IMMUNE && passive.status() == status) return;
+        }
+        unit.apply(new StatusEffect(status, magnitude, untilTick, sourceId));
+        if (status == Status.UNSTOPPABLE) {
+            for (StatusEffect present : List.copyOf(unit.statuses())) {
+                if (present.status().isControl() && fromAnotherSide(unit, present.sourceUnitId())) unit.remove(present.status());
+            }
+        }
+    }
+
+    /** A unit's own side never stops it: Iron Stance roots the Bulwark while he's unstoppable. */
+    private boolean fromAnotherSide(Unit unit, int sourceUnitId) {
+        if (sourceUnitId == unit.getId()) return false;
+        Unit source = units.get(sourceUnitId);
+        return source == null || source.getOwnerId() != unit.getOwnerId();
+    }
+
+    void schedule(Unit unit, Status status, int magnitude, int ticks, long atTick, Unit source) {
+        scheduled.add(new Scheduled(unit.getId(), status, magnitude, ticks, atTick, source.getId()));
+    }
+
+    /**
+     * What a unit's blow or ability deals before the target's defences: MIGHT and WEAKENED, and a
+     * commander's bonus against retinues or commanders.
+     */
+    private int outgoing(Unit attacker, Unit target, int base) {
+        int percent = 100 + attacker.magnitude(Status.MIGHT) - attacker.magnitude(Status.WEAKENED);
+        Player owner = players.get(attacker.getOwnerId());
+        if (owner != null) {
+            Passive passive = owner.commander().passive();
+            if (passive.kind() == Passive.Kind.BONUS_VS
+                    && (passive.affects() == Ability.Affects.OWN || attacker.getType().isCommander())
+                    && ("COMMANDER".equals(passive.against()) ? target.getType().isCommander()
+                        : !target.getType().isCommander() && target.getOwnerId() != Unit.NEUTRAL)) {
+                percent += passive.magnitude();
+            }
+        }
+        return Math.max(0, base * percent / 100);
+    }
+
+    void abilityDamage(Unit caster, Unit target, int amount) {
+        target.takeDamage(outgoing(caster, target, amount), caster.getOwnerId());
+    }
+
+    /** Whether a stealthed unit can be noticed by this one: next to it, or found by its owner's sight. */
+    private boolean senses(Unit unit, Unit other) {
+        if (!other.has(Status.STEALTHED) || unit.getPosition().distanceTo(other.getPosition()) <= 1) return true;
+        Player owner = players.get(unit.getOwnerId());
+        return owner != null && sightThisTick.computeIfAbsent(owner.getId(), id -> sightOf(owner)).shows(other);
+    }
+
+    /** What a player can see this tick, stealth and reveals included. */
+    public Visibility sightOf(Player player) {
+        Passive passive = player.commander().passive();
+        int seesStealth = passive.kind() == Passive.Kind.SEES_STEALTH ? passive.radius() : 0;
+        return Visibility.of(map, units.values(), player.getId(), seesStealth, reveals);
     }
 
     /** Removes everything that died this tick, pays out for kills and leaves corpses behind. */
@@ -443,9 +602,9 @@ public class GameEngine {
                 events.add(GameEvent.at(GameEvent.Kind.DEATH, unit));
                 creditKill(unit);
 
-                if (unit.getType() == UnitType.NECROMANCER) {
-                    necromancerFell(unit);
-                } else if (unit.getType().isRaisable()) {
+                if (unit.getType().isCommander()) {
+                    commanderFell(unit);
+                } else if (unit.getType().isRaisable() && rules.corpses()) {
                     leaveCorpse(unit);
                 }
             }
@@ -461,19 +620,21 @@ public class GameEngine {
         if (killer == null) return;
 
         killer.addSoul(victim.getType().soulValue);
+        Passive passive = killer.commander().passive();
+        if (passive.kind() == Passive.Kind.ENERGY_ON_KILL) killer.addSoul(passive.magnitude());
         killer.addKill();
         if (killer.addXp(victim.getType().xpValue)) {
             events.add(GameEvent.levelUp(killer));
             killer.notice("You reached level " + killer.getLevel() + ". Legion cap is now " + killer.legionCap() + ".");
         }
-        if (victim.getType() == UnitType.NECROMANCER) {
+        if (victim.getType().isCommander()) {
             Player victimOwner = players.get(victim.getOwnerId());
             if (victimOwner != null) killer.notice("You slew " + victimOwner.getName() + ".");
         }
     }
 
-    private void necromancerFell(Unit necromancer) {
-        Player owner = players.get(necromancer.getOwnerId());
+    private void commanderFell(Unit commander) {
+        Player owner = players.get(commander.getOwnerId());
         if (owner == null) return;
         owner.setNecromancerId(null);
         owner.addDeath();
@@ -505,6 +666,16 @@ public class GameEngine {
         }
     }
 
+    /** Units an ability placed for a while, such as a decoy, crumble when their time is up. */
+    private void crumbleTheTimed() {
+        for (Unit unit : new ArrayList<>(units.values())) {
+            if (unit.isRaised() || !unit.isAlive() || unit.getExpiresAtTick() == Unit.NO_EXPIRY) continue;
+            if (tick < unit.getExpiresAtTick()) continue;
+            events.add(GameEvent.at(GameEvent.Kind.DEATH, unit));
+            removeUnit(unit);
+        }
+    }
+
     /** The dead stay until raised or exploded. Past the cap the oldest crumble, the map keeping the newest. */
     private void leaveCorpse(Unit unit) {
         long decaysAt = rules.corpseDecayTicks() > 0 ? tick + rules.corpseDecayTicks() : Corpse.NEVER;
@@ -527,8 +698,19 @@ public class GameEngine {
             return;
         }
 
+        StatusEffect taunt = unit.status(Status.TAUNTED);
+        if (taunt != null) {
+            Unit taunter = units.get(taunt.sourceUnitId());
+            if (taunter == null || !taunter.isAlive() || !inVision(unit, taunter)) {
+                unit.remove(Status.TAUNTED);
+            } else if (unit.getOrder() != Order.MOVE && unit.getType().canAttack()) {
+                engage(unit, taunter, true);
+                return;
+            }
+        }
+
         Unit target = unit.getTargetId() == null ? null : units.get(unit.getTargetId());
-        if (target != null && !target.isAlive()) target = null;
+        if (target != null && (!target.isAlive() || !senses(unit, target))) target = null;
         if (target != null && unit.isAutoTarget()
                 && unit.getPosition().distanceTo(target.getPosition()) > unit.getType().aggroRange + 3) {
             target = null;
@@ -654,6 +836,7 @@ public class GameEngine {
             if (distance > aggro || distance >= bestDistance) continue;
             if (post != null && post.distanceTo(other.getPosition()) > aggro) continue;
             if (!map.hasLineOfSight(unit.getPosition(), other.getPosition())) continue;
+            if (!senses(unit, other)) continue;
             best = other;
             bestDistance = distance;
         }
@@ -673,20 +856,36 @@ public class GameEngine {
         if (chase) stepToward(unit, target.getPosition(), true);
     }
 
+    /**
+     * One blow. EMPOWERED changes it once, and striking ends stealth. Splash, and CLEAVING within a
+     * tile, hit the enemies around the target for half.
+     */
     private void strike(Unit attacker, Unit target) {
         UnitType type = attacker.getType();
         events.add(GameEvent.attack(attacker, target));
-        target.takeDamage(type.damage, attacker.getOwnerId());
+        attacker.remove(Status.STEALTHED);
+        int damage = outgoing(attacker, target, type.damage);
+        if (attacker.has(Status.EMPOWERED)) {
+            damage = damage * attacker.magnitude(Status.EMPOWERED) / 100;
+            attacker.remove(Status.EMPOWERED);
+        }
+        target.takeStrike(damage, attacker.getOwnerId(), random);
 
-        if (type.splashRadius > 0) {
+        int around = Math.max(type.splashRadius, attacker.has(Status.CLEAVING) ? 1 : 0);
+        if (around > 0) {
             for (Unit other : units.values()) {
                 if (other == target || !other.isAlive() || !attacker.isHostileTo(other)) continue;
-                if (other.getPosition().distanceTo(target.getPosition()) <= type.splashRadius) {
-                    other.takeDamage(type.damage / 2, attacker.getOwnerId());
+                if (other.getPosition().distanceTo(target.getPosition()) <= around) {
+                    other.takeDamage(damage / 2, attacker.getOwnerId());
                 }
             }
         }
         attacker.setAttackReadyTick(tick + type.attackCooldown);
+    }
+
+    private boolean inVision(Unit unit, Unit other) {
+        return unit.getPosition().distanceTo(other.getPosition()) <= unit.getType().visionRange
+                && map.hasLineOfSight(unit.getPosition(), other.getPosition());
     }
 
     private void followOrder(Unit unit) {
@@ -719,7 +918,7 @@ public class GameEngine {
      */
     private boolean stepToward(Unit unit, Position goal, boolean chasing) {
         if (unit.getType().stationary) return false;
-        if (tick < unit.getMoveReadyTick()) return true;
+        if (tick < unit.getMoveReadyTick() || unit.has(Status.ROOTED)) return true;
 
         Predicate<Position> ownTrap = p -> {
             Trap trap = traps.get(p);
@@ -756,10 +955,17 @@ public class GameEngine {
 
     /** Moves a unit one tile, charges its move cooldown, and springs any trap it lands on. */
     private void moveUnit(Unit unit, Position next) {
+        place(unit, next);
+        long cooldown = (long) unit.getType().moveCooldown * map.terrainAt(next).moveCostMultiplier;
+        int pace = 100 - unit.magnitude(Status.HASTE) + unit.magnitude(Status.SLOW);
+        unit.setMoveReadyTick(tick + Math.max(1, cooldown * pace / 100));
+    }
+
+    /** Puts a unit on a tile at once, as a step or a dash does, springing any trap there. */
+    void place(Unit unit, Position next) {
         occupancy.remove(unit.getPosition());
         unit.stepTo(next);
         occupancy.put(next, unit);
-        unit.setMoveReadyTick(tick + (long) unit.getType().moveCooldown * map.terrainAt(next).moveCostMultiplier);
 
         Trap trap = traps.get(next);
         if (trap != null) springTrap(unit, trap);
@@ -779,11 +985,36 @@ public class GameEngine {
         if (occupancy.get(unit.getPosition()) == unit) occupancy.remove(unit.getPosition());
     }
 
-    private Unit necromancerOf(Player player) {
+    /** The player's commander unit, alive, or null while they're down. */
+    Unit commanderOf(Player player) {
         Integer id = player.getNecromancerId();
         if (id == null) return null;
-        Unit necromancer = units.get(id);
-        return necromancer != null && necromancer.isAlive() ? necromancer : null;
+        Unit commander = units.get(id);
+        return commander != null && commander.isAlive() ? commander : null;
+    }
+
+    void event(GameEvent event) {
+        events.add(event);
+    }
+
+    void addReveal(Visibility.Reveal reveal) {
+        reveals.add(reveal);
+    }
+
+    /** A route for a dash, around other units. */
+    List<Position> pathFor(Unit unit, Position goal) {
+        return pathfinder.findPath(unit.getPosition(), goal, p -> {
+            Unit other = occupancy.get(p);
+            return other != null && other != unit;
+        });
+    }
+
+    /** A unit an ability places for no energy: in the legion, and crumbling after {@code ticks} if that's not 0. */
+    Unit summonFree(UnitType type, Player player, Position spot, int ticks) {
+        Unit unit = addUnit(type, player.getId(), spot, false);
+        if (ticks > 0) unit.setExpiresAtTick(tick + ticks);
+        events.add(GameEvent.at(GameEvent.Kind.SUMMON, unit));
+        return unit;
     }
 
     /** Summoned legion members: what the legion cap limits. Raised ones don't count against it. */
@@ -794,7 +1025,7 @@ public class GameEngine {
     private int countLegion(Player player, boolean raised) {
         int size = 0;
         for (Unit unit : units.values()) {
-            if (unit.getOwnerId() == player.getId() && unit.getType() != UnitType.NECROMANCER && unit.isAlive()
+            if (unit.getOwnerId() == player.getId() && !unit.getType().isCommander() && unit.isAlive()
                     && unit.isRaised() == raised) {
                 size++;
             }
@@ -831,7 +1062,7 @@ public class GameEngine {
     }
 
     /** The nearest walkable, empty tile within {@code radius} of {@code centre}, searching ring by ring. */
-    private Position freeTileNear(Position centre, int radius) {
+    Position freeTileNear(Position centre, int radius) {
         for (Position p : rings(centre, radius)) {
             if (map.isWalkable(p) && !occupancy.containsKey(p)) return p;
         }
@@ -866,7 +1097,7 @@ public class GameEngine {
         for (int attempt = 0; attempt < 500; attempt++) {
             Position p = new Position(random.nextInt(map.getWidth()), random.nextInt(map.getHeight()));
             if (!map.isWalkable(p) || occupancy.containsKey(p) || traps.containsKey(p)) continue;
-            if (clearanceFromNecromancers > 0 && nearANecromancer(p, clearanceFromNecromancers)) continue;
+            if (clearanceFromNecromancers > 0 && nearACommander(p, clearanceFromNecromancers)) continue;
             return p;
         }
         return null;
@@ -881,10 +1112,10 @@ public class GameEngine {
         return null;
     }
 
-    private boolean nearANecromancer(Position p, int distance) {
+    private boolean nearACommander(Position p, int distance) {
         for (Player player : players.values()) {
-            Unit necromancer = necromancerOf(player);
-            if (necromancer != null && necromancer.getPosition().distanceTo(p) < distance) return true;
+            Unit commander = commanderOf(player);
+            if (commander != null && commander.getPosition().distanceTo(p) < distance) return true;
         }
         return false;
     }

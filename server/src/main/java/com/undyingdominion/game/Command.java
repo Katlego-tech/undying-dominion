@@ -12,7 +12,25 @@ public sealed interface Command {
 
     int playerId();
 
-    record Join(int playerId, String name) implements Command {}
+    /**
+     * {@code commander} null fields the necromancer. {@code randomPick} says the server chose it, so the
+     * player is told who they are.
+     */
+    record Join(int playerId, String name, Commander commander, boolean randomPick) implements Command {
+        public Join(int playerId, String name) {
+            this(playerId, name, null, false);
+        }
+
+        public Join(int playerId, String name, Commander commander) {
+            this(playerId, name, commander, false);
+        }
+    }
+
+    /** Choose who to rise as next. */
+    record Pick(int playerId, Commander commander) implements Command {}
+
+    /** Use an ability: {@code targetId} for a unit target, {@code tile} for a TILE, neither for SELF. */
+    record Cast(int playerId, String abilityId, Integer targetId, Position tile) implements Command {}
 
     record Leave(int playerId) implements Command {}
 

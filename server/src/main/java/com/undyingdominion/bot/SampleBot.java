@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * rejoins with its token, or joins afresh once the server has let its place go
  * (docs/design/bot.md). A starting point for anyone writing their own bot.
  *
- * <pre>java -cp undying-dominion-…-jar-with-dependencies.jar com.undyingdominion.bot.SampleBot [ws-url] [name]</pre>
+ * <pre>java -cp undying-dominion-…-jar-with-dependencies.jar com.undyingdominion.bot.SampleBot [ws-url] [name] [commander]</pre>
  */
 public final class SampleBot {
 
@@ -28,6 +28,8 @@ public final class SampleBot {
 
     private final URI server;
     private final String name;
+    /** Who it fields in a free-for-all; a campaign makes it the necromancer whatever this says. */
+    private final String commander;
     private final HttpClient http = HttpClient.newHttpClient();
     private final ScheduledExecutorService retries = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "bot-reconnect");
@@ -46,14 +48,20 @@ public final class SampleBot {
     private boolean reconnecting;
 
     public SampleBot(URI server, String name) {
+        this(server, name, "HEXER");
+    }
+
+    public SampleBot(URI server, String name, String commander) {
         this.server = server;
         this.name = name;
+        this.commander = commander;
     }
 
     public static void main(String[] args) throws InterruptedException {
         URI server = URI.create(args.length > 0 ? args[0] : "ws://localhost:5000/ws");
         String name = args.length > 1 ? args[1] : "Bonewright";
-        SampleBot bot = new SampleBot(server, name);
+        String commander = args.length > 2 ? args[2] : "HEXER";
+        SampleBot bot = new SampleBot(server, name, commander);
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close));
         bot.start();
         bot.closed.join();  // until close(), from a signal or from giving up
@@ -87,7 +95,7 @@ public final class SampleBot {
     }
 
     private JSONObject join() {
-        return new JSONObject().put("command", "join").put("name", name);
+        return new JSONObject().put("command", "join").put("name", name).put("commander", commander);
     }
 
     private void connect(JSONObject first) {

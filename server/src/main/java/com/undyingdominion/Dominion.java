@@ -4,6 +4,7 @@ import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameRules;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.game.PlayerState;
+import com.undyingdominion.game.Roster;
 import com.undyingdominion.net.GameServer;
 import com.undyingdominion.persistence.SaveService;
 import com.undyingdominion.persistence.SaveDao;
@@ -46,12 +47,14 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             engine = story.firstEngine();
         } else {
             GameMap map = MapConfig.load(options.mapLocation());
-            GameRules rules = GameRules.defaults();
+            // Nobody in a free-for-all can raise the dead, so they leave no corpses.
+            GameRules rules = GameRules.defaults().corpses(false);
             if (!options.wildCreatures()) rules.maxNeutrals(0);
             engine = new GameEngine(map, rules, random);
         }
 
         GameServer server = new GameServer(engine, options.maxPlayers(), Duration.ofSeconds(options.graceSeconds()), nanoClock);
+        if (story == null) server.offerCommanders(Roster.builtIn());
         if (resumed != null) holdSeatFor(server, resumed);
         try {
             server.start(options.port());

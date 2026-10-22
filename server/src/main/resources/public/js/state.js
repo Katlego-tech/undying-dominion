@@ -11,6 +11,8 @@ export const game = {
   tickMs: 100,
   map: null,            // { width, height, terrain: Uint8Array }
   unitTypes: {},
+  /** The player's commander kit from the welcome: its retinue is what the summon buttons offer. */
+  commander: null,
   rules: {},
 
   tick: 0,
@@ -72,6 +74,11 @@ export function colorOf(ownerId) {
 
 export function isMine(unit) {
   return unit.owner === game.playerId;
+}
+
+/** Whether the player is the necromancer (always, in a campaign), rather than a PvP commander. */
+export function playsNecromancer() {
+  return !game.commander || game.commander.role === 'NECROMANCER';
 }
 
 export function myNecromancer() {

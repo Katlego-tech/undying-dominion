@@ -3,8 +3,12 @@ package com.undyingdominion.game;
 import com.undyingdominion.world.Position;
 
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 /** One body on the battlefield: a necromancer, a member of a legion, or a wild creature. */
 public class Unit {
@@ -51,6 +55,11 @@ public class Unit {
     private int lastHitByOwner = NEUTRAL;
     private boolean hasBeenHit;
 
+    /** What abilities and passives have left on the unit. Not saved: a campaign has none. */
+    private final Map<Status, StatusEffect> statuses = new EnumMap<>(Status.class);
+    private int shield;
+    private long shieldUntilTick;
+
     public Unit(int id, UnitType type, int ownerId, Position position, boolean raised) {
         this.id = id;
         this.type = type;
@@ -69,13 +78,86 @@ public class Unit {
 
     /**
      * Takes damage and remembers who dealt it, so the kill can be credited. A unit setting a trap
-     * has its guard down and takes double, as a robot's shields drop while it sets a mine.
+     * has its guard down and takes double, as a robot's shields drop while it sets a mine. WARD and
+     * EXPOSED change the amount, then a shield soaks up what it can.
      */
     public void takeDamage(int amount, int attackerOwner) {
         int dealt = order == Order.SET_TRAP ? amount * 2 : amount;
-        hp = Math.max(0, hp - dealt);
+        dealt = dealt * (100 - magnitude(Status.WARD) + magnitude(Status.EXPOSED)) / 100;
+        int absorbed = Math.min(shield, Math.max(0, dealt));
+        shield -= absorbed;
+        hp = Math.max(0, hp - Math.max(0, dealt - absorbed));
         lastHitByOwner = attackerOwner;
         hasBeenHit = true;
+    }
+
+    /** A blow from another unit, which an EVADING unit may dodge. Returns whether it landed. */
+    public boolean takeStrike(int amount, int attackerOwner, Random random) {
+        if (has(Status.EVADING) && random.nextInt(100) < magnitude(Status.EVADING)) return false;
+        takeDamage(amount, attackerOwner);
+        return true;
+    }
+
+    /** Restores up to {@code amount}, never above full health. */
+    public void heal(int amount) {
+        if (isAlive()) hp = Math.min(type.maxHp, hp + amount);
+    }
+
+    // --- Statuses ---
+
+    public boolean has(Status status) {
+        return statuses.containsKey(status);
+    }
+
+    /** The status's strength, or 0 without it. */
+    public int magnitude(Status status) {
+        StatusEffect effect = statuses.get(status);
+        return effect == null ? 0 : effect.magnitude();
+    }
+
+    public StatusEffect status(Status status) {
+        return statuses.get(status);
+    }
+
+    public Collection<StatusEffect> statuses() {
+        return statuses.values();
+    }
+
+    /**
+     * Puts a status on the unit. Statuses don't stack: the stronger one stays, and of two equally
+     * strong, the one that lasts longer.
+     */
+    public void apply(StatusEffect effect) {
+        StatusEffect present = statuses.get(effect.status());
+        if (present != null && (present.magnitude() > effect.magnitude()
+                || present.magnitude() == effect.magnitude() && present.untilTick() >= effect.untilTick())) {
+            return;
+        }
+        statuses.put(effect.status(), effect);
+    }
+
+    public void remove(Status status) {
+        statuses.remove(status);
+    }
+
+    /** Takes off every control status, and BURNING. */
+    public void cleanse() {
+        statuses.keySet().removeIf(s -> s.isControl() || s == Status.BURNING);
+    }
+
+    /** Absorbs the next {@code amount} damage until {@code untilTick}. A smaller shield is replaced, a larger one kept. */
+    public void shield(int amount, long untilTick) {
+        if (amount < shield) return;
+        shield = amount;
+        shieldUntilTick = untilTick;
+    }
+
+    public int getShield() { return shield; }
+
+    /** Lets statuses and the shield run out. */
+    public void expire(long tick) {
+        if (!statuses.isEmpty()) statuses.values().removeIf(e -> e.untilTick() <= tick);
+        if (shield > 0 && shieldUntilTick <= tick) shield = 0;
     }
 
     /** Drops the unit without crediting anyone, e.g. when its necromancer falls. */

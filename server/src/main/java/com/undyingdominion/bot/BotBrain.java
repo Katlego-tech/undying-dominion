@@ -6,8 +6,10 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Decides what the sample bot does with each state. It knows only what the protocol says: the
@@ -31,6 +33,10 @@ public final class BotBrain {
     private final int raiseRange;
     private final int width;
     private final int height;
+    /** Unit types that are a player's commander: the necromancer, and every kit's own unit. */
+    private final Set<String> commanderTypes = new HashSet<>(Set.of("NECROMANCER"));
+    /** The kit's basic ability when it's aimed at an enemy, cast at the nearest one in range; else null. */
+    private final JSONObject basic;
 
     private long lastOrderTick = Long.MIN_VALUE / 2;
     private int waypoint;
@@ -42,15 +48,48 @@ public final class BotBrain {
         width = map.getInt("width");
         height = map.getInt("height");
         JSONObject types = welcome.getJSONObject("unitTypes");
+        Set<String> retinue = retinue(welcome.optJSONObject("commander"));
         for (String type : types.keySet()) {
             JSONObject stats = types.getJSONObject(type);
-            if (stats.getInt("summonCost") >= 0 && !stats.getBoolean("neutral")) {
+            if (stats.getInt("summonCost") >= 0 && !stats.getBoolean("neutral")
+                    && (retinue == null || retinue.contains(type))) {
                 summonable.add(type);
                 summonCosts.put(type, stats.getInt("summonCost"));
             }
             raiseCosts.put(type, stats.getInt("raiseCost"));
         }
         summonable.sort(Comparator.comparing((String type) -> summonCosts.get(type)).reversed());
+
+        JSONArray roster = welcome.optJSONArray("roster");
+        for (int i = 0; roster != null && i < roster.length(); i++) commanderTypes.add(unitName(roster.getJSONObject(i)));
+        JSONObject commander = welcome.optJSONObject("commander");
+        JSONObject found = null;
+        if (commander != null) {
+            commanderTypes.add(unitName(commander));
+            JSONArray abilities = commander.getJSONArray("abilities");
+            for (int i = 0; i < abilities.length(); i++) {
+                JSONObject ability = abilities.getJSONObject(i);
+                if (ability.getString("slot").equals("BASIC") && ability.getString("target").equals("ENEMY")) found = ability;
+            }
+        }
+        basic = found;
+    }
+
+    private static String unitName(JSONObject kit) {
+        Object unit = kit.get("unit");
+        return unit instanceof JSONObject stats ? stats.getString("name") : unit.toString();
+    }
+
+    /** The types the commander's kit answers to, or null for a welcome without one (an older server). */
+    private static Set<String> retinue(JSONObject commander) {
+        if (commander == null) return null;
+        Set<String> names = new HashSet<>();
+        JSONArray retinue = commander.getJSONArray("retinue");
+        for (int i = 0; i < retinue.length(); i++) {
+            Object entry = retinue.get(i);
+            names.add(entry instanceof JSONObject unit ? unit.getString("name") : entry.toString());
+        }
+        return names;
     }
 
     /** The commands to send for this state; often none. */
@@ -64,6 +103,12 @@ public final class BotBrain {
         if (necromancer == null) return commands;
         int soul = you.getInt("soul");
         boolean room = you.getInt("legion") < you.getInt("legionCap");
+
+        JSONObject cast = basicCast(you, units, necromancer, soul);
+        if (cast != null) {
+            commands.add(cast);
+            soul -= basic.getInt("cost");
+        }
 
         String summon = room ? affordableSummon(soul) : null;
         if (summon != null) {
@@ -79,6 +124,22 @@ public final class BotBrain {
             commands.addAll(orders(units, necromancer));
         }
         return commands;
+    }
+
+    /** The basic ability at the nearest enemy within its range, when it's ready and affordable. */
+    private JSONObject basicCast(JSONObject you, JSONArray units, JSONObject necromancer, int soul) {
+        if (basic == null || soul < basic.getInt("cost")) return null;
+        JSONObject cooldowns = you.optJSONObject("cooldowns");
+        if (cooldowns != null && cooldowns.optDouble(basic.getString("id"), 0) > 0) return null;
+        int range = basic.optInt("range", 0);
+        JSONObject nearest = null;
+        for (int i = 0; i < units.length(); i++) {
+            JSONObject unit = units.getJSONObject(i);
+            if (unit.getInt("owner") == playerId || distance(unit, necromancer) > range) continue;
+            if (nearest == null || distance(unit, necromancer) < distance(nearest, necromancer)) nearest = unit;
+        }
+        return nearest == null ? null : new JSONObject().put("command", "cast").put("ability", basic.getString("id"))
+                .put("target", nearest.getInt("id"));
     }
 
     private String affordableSummon(int soul) {
@@ -112,7 +173,7 @@ public final class BotBrain {
                 continue;
             }
             int distance = distance(unit, necromancer);
-            if (unit.getString("type").equals("NECROMANCER")) {
+            if (commanderTypes.contains(unit.getString("type"))) {
                 if (enemyNecromancer == null || distance < distance(enemyNecromancer, necromancer)) enemyNecromancer = unit;
             } else if (distance <= HUNT_RANGE
                     && (nearestHostile == null || distance < distance(nearestHostile, necromancer))) {

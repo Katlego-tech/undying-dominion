@@ -1,4 +1,4 @@
-import { game, selectedUnits, myNecromancer, label } from './state.js';
+import { game, selectedUnits, myNecromancer, playsNecromancer, label } from './state.js';
 import * as cmd from './commands.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,10 +18,17 @@ const touch = () => document.body.classList.contains('touch');
 let summonOrder = [];
 let lastScoreboard = '';
 
-/** Summonable unit types, cheapest first. Their hotkeys are 1, 2, 3... in this order. */
+/** What the commander's retinue lists, by type name; null from a server that sends no commander. */
+function retinue() {
+  const list = game.commander?.retinue;
+  return list ? new Set(list.map((unit) => (typeof unit === 'string' ? unit : unit.name))) : null;
+}
+
+/** The commander's summonable unit types, cheapest first. Their hotkeys are 1, 2, 3... in this order. */
 function summonable() {
+  const answers = retinue();
   return Object.entries(game.unitTypes)
-    .filter(([, t]) => t.summonCost >= 0)
+    .filter(([type, t]) => t.summonCost >= 0 && (!answers || answers.has(type)))
     .sort((a, b) => a[1].summonCost - b[1].summonCost)
     .map(([type]) => type);
 }
@@ -45,16 +52,20 @@ export function initHud() {
   const summons = $('summon-buttons');
   summons.replaceChildren(...summonOrder.map((type, i) => {
     const el = button(label(type), i + 1, () => cmd.summon(type),
-      `<span class="cost">${game.unitTypes[type].summonCost} soul</span>`);
+      `<span class="cost">${game.unitTypes[type].summonCost} ${(game.commander?.energy ?? 'Soul').toLowerCase()}</span>`);
     el.dataset.type = type;
     return el;
   }));
 
-  const abilities = [
-    ['attack-move', 'Attack-move', 'C', cmd.beginAttackMove],
+  // Raising, Corpse Explosion and fusing are the necromancer's; nothing else can use them.
+  const necromancy = playsNecromancer() ? [
     ['raise', 'Raise dead', 'R', cmd.beginRaise],
     ['explode', 'Corpse Explosion', 'X', cmd.beginExplode, `<span class="cost">${game.rules.explodeSoulCost} soul</span>`],
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
+  ] : [];
+  const abilities = [
+    ['attack-move', 'Attack-move', 'C', cmd.beginAttackMove],
+    ...necromancy,
     ['mend', 'Mend', 'M', cmd.mend],
     ['trap', 'Lay trap', 'T', cmd.layTrap],
     ['gather', 'Gather', 'G', () => cmd.gather(true)],
@@ -66,6 +77,11 @@ export function initHud() {
     el.dataset.ability = id;
     return el;
   }));
+
+  const necromancer = playsNecromancer();
+  document.querySelector('#soul-panel .label').textContent = game.commander?.energy ?? 'Soul';
+  document.querySelector('#scores h2').textContent = necromancer ? 'Necromancers' : 'Commanders';
+  $('select-necromancer').textContent = necromancer ? 'Necromancer' : 'Commander';
 
   $('hud').hidden = false;
 }
@@ -128,7 +144,7 @@ export function updateHud() {
 function describeSelection(selected) {
   if (selected.length === 0) {
     if (!myNecromancer() || touch()) return 'Nothing selected';
-    return 'Nothing selected · <b>Q</b> selects your legion, <b>E</b> your necromancer';
+    return `Nothing selected · <b>Q</b> selects your legion, <b>E</b> your ${playsNecromancer() ? 'necromancer' : 'commander'}`;
   }
   if (selected.length === 1) {
     const u = selected[0];

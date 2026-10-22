@@ -42,6 +42,8 @@ public final class GameRules {
     private int neutralSpawnIntervalTicks = 40;
     /** Wild creatures never spawn closer than this to a necromancer. */
     private int neutralSpawnClearance = 8;
+    /** Whether the dead leave corpses. Only a campaign has someone to raise them. */
+    private boolean corpses = true;
 
     public static GameRules defaults() {
         return new GameRules();
@@ -69,6 +71,7 @@ public final class GameRules {
     public int maxNeutrals()               { return maxNeutrals; }
     public int neutralSpawnIntervalTicks() { return neutralSpawnIntervalTicks; }
     public int neutralSpawnClearance()     { return neutralSpawnClearance; }
+    public boolean corpses()               { return corpses; }
 
     public GameRules startingSoul(int value)       { startingSoul = value; return this; }
     public GameRules soulRegenPerSecond(int value) { soulRegenPerSecond = value; return this; }
@@ -84,4 +87,5 @@ public final class GameRules {
     public GameRules mendTicks(int value)          { mendTicks = value; return this; }
     public GameRules trapSetTicks(int value)       { trapSetTicks = value; return this; }
     public GameRules maxNeutrals(int value)        { maxNeutrals = value; return this; }
+    public GameRules corpses(boolean value)        { corpses = value; return this; }
 }

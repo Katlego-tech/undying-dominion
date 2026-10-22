@@ -54,7 +54,8 @@ class ReconnectAcceptanceTest {
         JSONObject welcome = vesper.awaitType("welcome");
         String token = welcome.getString("token");
         assertTrue(token.matches("[A-Za-z0-9_-]{22}"), "a 22-character URL-safe token, got " + token);
-        vesper.send("{\"command\":\"summon\",\"unit\":\"SKELETON_WARRIOR\"}");
+        String retinue = welcome.getJSONObject("commander").getJSONArray("retinue").getJSONObject(0).getString("name");
+        vesper.send(new JSONObject().put("command", "summon").put("unit", retinue));
         vesper.awaitState(m -> m.getJSONObject("you").getInt("legion") == 1);
         vesper.send("{\"command\":\"pause\"}");
         JSONObject before = vesper.awaitState(m -> m.has("paused"));

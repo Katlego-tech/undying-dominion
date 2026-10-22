@@ -288,8 +288,8 @@ public class Dashboard {
 
     private TextColor unitColor(UnitDot unit) {
         TextColor owner = rgb(snapshot.colorOf(unit.owner()));
-        // Necromancers and kings stand out; everything else wears its owner's colour.
-        if (unit.type() == UnitType.NECROMANCER) return BONE;
+        // Commanders and kings stand out; everything else wears its owner's colour.
+        if (unit.type().isCommander()) return BONE;
         if (unit.type() == UnitType.SKELETON_KING) return GOLD;
         return owner;
     }

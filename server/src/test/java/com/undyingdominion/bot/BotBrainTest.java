@@ -82,6 +82,36 @@ class BotBrainTest {
     }
 
     @Test
+    void aCommanderCastsItsBasicAtTheNearestEnemyInRangeAndHuntsEnemyCommanders() {
+        JSONObject hexfire = new JSONObject().put("id", "hexfire").put("slot", "BASIC").put("target", "ENEMY")
+                .put("cost", 12).put("range", 5);
+        BotBrain hexer = new BotBrain(new JSONObject()
+                .put("playerId", ME)
+                .put("rules", new JSONObject().put("raiseRange", 6))
+                .put("map", new JSONObject().put("width", 40).put("height", 30))
+                .put("unitTypes", new JSONObject().put("HEXER", type(-1, -1, false)).put("CURSED_ARCHER", type(30, -1, false))
+                        .put("SKELETON_WARRIOR", type(20, 15, false)))
+                .put("commander", new JSONObject().put("unit", new JSONObject().put("name", "HEXER"))
+                        .put("retinue", new JSONArray().put(new JSONObject().put("name", "CURSED_ARCHER")))
+                        .put("abilities", new JSONArray().put(hexfire)))
+                .put("roster", new JSONArray().put(new JSONObject().put("unit", new JSONObject().put("name", "BULWARK")))));
+        JSONArray units = units(unit(10, "HEXER", ME, 20, 15), unit(11, "CURSED_ARCHER", ME, 19, 15),
+                unit(30, "BULWARK", 4, 24, 15), unit(31, "WOLF", 0, 27, 15));
+
+        List<JSONObject> commands = hexer.decide(state(45, 0, units, corpses()));
+
+        JSONObject cast = command(commands, "cast");
+        assertEquals("hexfire", cast.getString("ability"));
+        assertEquals(30, cast.getInt("target"));
+        assertEquals("CURSED_ARCHER", command(commands, "summon").getString("unit"), "only its retinue, with what's left");
+        assertEquals(24, command(commands, "move").getInt("x"), "the legion goes for the enemy commander");
+
+        JSONObject cooling = state(40, 20, units, corpses());
+        cooling.getJSONObject("you").put("cooldowns", new JSONObject().put("hexfire", 3.5));
+        assertTrue(hexer.decide(cooling).stream().noneMatch(c -> c.getString("command").equals("cast")));
+    }
+
+    @Test
     void itDoesNothingWhilePausedOrFallen() {
         JSONObject paused = state(100, 0, units(necromancer(20, 15)), corpses()).put("paused", new JSONObject());
         assertTrue(brain.decide(paused).isEmpty());
