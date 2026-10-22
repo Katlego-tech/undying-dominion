@@ -61,7 +61,9 @@ final class Abilities {
                     player.notice("That target is gone.");
                     return;
                 }
-                if (!fits(ability.target(), caster, target)) {
+                // Stepping in front of someone needs someone else: a dash can't land on its own caster.
+                boolean dashesToSelf = target == caster && ability.effects().stream().anyMatch(e -> e instanceof Effect.Dash);
+                if (!fits(ability.target(), caster, target) || dashesToSelf) {
                     player.notice(label + " needs " + switch (ability.target()) {
                         case ALLY -> "an ally";
                         case ENEMY_COMMANDER -> "an enemy commander";

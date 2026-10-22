@@ -25,14 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The template every kit is drawn to (docs/design/characters.md §7.1), enforced so a kit can't quietly drift. */
 class RosterTest {
 
-    /** Role base rows: hp, damage, range, attack cd, move cd, aggro, vision. */
+    /** Role base rows: hp, damage, range, attack cd, move cd, aggro, vision. Rebased in T073 from the duel report. */
     private static final Map<Commander.Role, int[]> BASE = Map.of(
-            Commander.Role.SUMMONER,   new int[] {200,  8, 3, 12, 4, 3, 8},
-            Commander.Role.CASTER,     new int[] {180, 12, 4, 12, 4, 4, 8},
-            Commander.Role.FRONT_LINE, new int[] {320, 11, 1, 10, 5, 4, 7},
-            Commander.Role.FIGHTER,    new int[] {260, 15, 1, 10, 4, 4, 7},
+            Commander.Role.SUMMONER,   new int[] {250,  9, 3, 12, 4, 3, 8},
+            Commander.Role.CASTER,     new int[] {240, 14, 4, 12, 4, 4, 8},
+            Commander.Role.FRONT_LINE, new int[] {280, 11, 1, 10, 5, 4, 7},
+            Commander.Role.FIGHTER,    new int[] {230, 14, 1, 10, 4, 4, 7},
             Commander.Role.ASSASSIN,   new int[] {180, 18, 1,  9, 3, 3, 8},
-            Commander.Role.SUPPORT,    new int[] {200,  7, 3, 12, 4, 3, 8});
+            Commander.Role.SUPPORT,    new int[] {280, 11, 3, 12, 4, 3, 8});
 
     private final Roster roster = Roster.builtIn();
 
@@ -171,7 +171,7 @@ class RosterTest {
         assertTrue(!summon.unit().isSummonable() && !summon.unit().canAttack());
         assertEquals(new Effect.Taunt(40, true, null), decoy.effects().get(1));
 
-        assertEquals(new Passive("kill-the-summoner", "Kill the Summoner", Passive.Kind.BONUS_VS, null, 15, 0,
+        assertEquals(new Passive("kill-the-summoner", "Kill the Summoner", Passive.Kind.BONUS_VS, null, 10, 0,
                 Ability.Affects.OWN, "COMMANDER"), roster.get("WARD_MAGE").passive());
         assertEquals(Passive.Kind.SEES_STEALTH, roster.get("DAWN_RIDER").passive().kind());
         assertEquals(4, roster.get("SHADE").passive().radius());

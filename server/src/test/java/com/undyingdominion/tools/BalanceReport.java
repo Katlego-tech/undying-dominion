@@ -23,7 +23,8 @@ import java.util.stream.IntStream;
 @Tag("balance")
 class BalanceReport {
 
-    static final int SEEDS = 20;
+    /** 20 by default; {@code -Dbalance.seeds=60} for a steadier read of single pairings. */
+    static final int SEEDS = Integer.getInteger("balance.seeds", 20);
 
     @Test
     void writeTheMatrix() throws IOException {

@@ -105,7 +105,7 @@ public final class DuelBrain {
             case ENEMY_COMMANDER -> self.getPosition().distanceTo(foe.getPosition()) <= ability.range()
                     && (!signature || foeLow || enemies.size() >= 3) ? cast(ability, foe.getId(), null) : null;
             case ALLY -> {
-                Unit hurt = mostHurt(self, ability.range());
+                Unit hurt = mostHurt(self, ability.range(), dashes(ability));
                 yield hurt == null ? null : cast(ability, hurt.getId(), null);
             }
             case TILE -> {
@@ -196,11 +196,11 @@ public final class DuelBrain {
         return out;
     }
 
-    private Unit mostHurt(Unit self, int range) {
+    private Unit mostHurt(Unit self, int range, boolean othersOnly) {
         Unit best = null;
         double worst = 0.9;
         for (Unit unit : engine.getUnits()) {
-            if (!unit.isAlive() || unit.getOwnerId() != me.getId()) continue;
+            if (!unit.isAlive() || unit.getOwnerId() != me.getId() || othersOnly && unit == self) continue;
             if (self.getPosition().distanceTo(unit.getPosition()) > range) continue;
             double share = (double) unit.getHp() / unit.getType().maxHp;
             if (share < worst) {

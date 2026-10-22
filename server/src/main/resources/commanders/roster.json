@@ -8,18 +8,18 @@
   "energy": "Spirit",
   "verb": "Summon",
   "campaignOnly": false,
-  "unit": {"name": "GROVE_CALLER", "label": "Sylvane", "look": "HUMANOID", "hp": 200, "damage": 8, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "GROVE_CALLER", "label": "Sylvane", "look": "HUMANOID", "hp": 250, "damage": 9, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "WISP", "label": "Wisp", "archetype": "SHOT", "look": "PLANT", "cost": 24, "hp": 28},
     {"name": "GROVE_SENTINEL", "label": "Grove Sentinel", "archetype": "GUARD", "look": "PLANT"},
     {"name": "ELDER_SPIRIT", "label": "Elder Spirit", "archetype": "ADEPT", "look": "PLANT"}
   ],
   "abilities": [
-    {"id": "spirit-bloom", "label": "Spirit Bloom", "slot": "BASIC", "target": "ALLY", "cost": 12, "cooldown": 6, "range": 5, "effects": [{"kind": "heal", "amount": 30}]},
-    {"id": "wisp-swarm", "label": "Wisp Swarm", "slot": "UTILITY", "target": "SELF", "cost": 25, "cooldown": 20, "effects": [{"kind": "summon", "unit": "WISP", "count": 2}]},
-    {"id": "groves-embrace", "label": "Grove's Embrace", "slot": "SIGNATURE", "target": "TILE", "cost": 40, "cooldown": 60, "range": 6, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 20}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 3}]}
+    {"id": "spirit-bloom", "label": "Spirit Bloom", "slot": "BASIC", "target": "ALLY", "cost": 12, "cooldown": 6, "range": 5, "effects": [{"kind": "heal", "amount": 24}]},
+    {"id": "wisp-swarm", "label": "Wisp Swarm", "slot": "UTILITY", "target": "SELF", "cost": 25, "cooldown": 20, "effects": [{"kind": "summon", "unit": "WISP", "count": 2, "seconds": 12}]},
+    {"id": "groves-embrace", "label": "Grove's Embrace", "slot": "SIGNATURE", "target": "TILE", "cost": 40, "cooldown": 60, "range": 6, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 20}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 2}]}
   ],
-  "passive": {"id": "living-wood", "label": "Living Wood", "kind": "aura", "status": "REGEN", "magnitude": 1, "radius": 4, "affects": "OWN"}
+  "passive": {"id": "living-wood", "label": "Living Wood", "kind": "aura", "status": "REGEN", "magnitude": 1, "radius": 3, "affects": "OWN"}
 },
 {
   "id": "DAWN_RIDER",
@@ -30,16 +30,16 @@
   "energy": "Radiance",
   "verb": "Summon",
   "campaignOnly": false,
-  "unit": {"name": "DAWN_RIDER", "label": "Aurelle", "look": "HUMANOID", "hp": 170, "damage": 8, "range": 3, "attackCooldown": 12, "moveCooldown": 3, "aggro": 3, "vision": 8},
+  "unit": {"name": "DAWN_RIDER", "label": "Aurelle", "look": "HUMANOID", "hp": 225, "damage": 9, "range": 3, "attackCooldown": 12, "moveCooldown": 3, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "HALO_SPRITE", "label": "Halo Sprite", "archetype": "SHOT"},
     {"name": "DAWN_HOUND", "label": "Dawn Hound", "archetype": "GRUNT", "look": "BEAST", "moveCooldown": 3, "hp": 51},
     {"name": "SUNLIT_LANCER", "label": "Sunlit Lancer", "archetype": "GUARD"}
   ],
   "abilities": [
-    {"id": "dawnlight-orb", "label": "Dawnlight Orb", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 8, "range": 6, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 22}]},
-    {"id": "steeds-ward", "label": "Steed's Ward", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 25, "cooldown": 20, "radius": 2, "affects": "OWN", "effects": [{"kind": "shield", "amount": 35, "seconds": 6}]},
-    {"id": "radiant-descent", "label": "Radiant Descent", "slot": "SIGNATURE", "target": "TILE", "cost": 45, "cooldown": 75, "range": 7, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "dash", "tiles": 7}, {"kind": "damage", "amount": 35}, {"kind": "status", "status": "WARD", "magnitude": 30, "seconds": 5, "affects": "OWN"}]}
+    {"id": "dawnlight-orb", "label": "Dawnlight Orb", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 8, "range": 6, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 26}]},
+    {"id": "steeds-ward", "label": "Steed's Ward", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 25, "cooldown": 20, "radius": 2, "affects": "OWN", "effects": [{"kind": "shield", "amount": 45, "seconds": 6}]},
+    {"id": "radiant-descent", "label": "Radiant Descent", "slot": "SIGNATURE", "target": "TILE", "cost": 45, "cooldown": 75, "range": 7, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "dash", "tiles": 7}, {"kind": "damage", "amount": 42}, {"kind": "status", "status": "WARD", "magnitude": 30, "seconds": 5, "affects": "OWN"}]}
   ],
   "passive": {"id": "light-of-dawn", "label": "Light of Dawn", "kind": "seesStealth", "radius": 4}
 },
@@ -52,7 +52,7 @@
   "energy": "Ink",
   "verb": "Summon",
   "campaignOnly": false,
-  "unit": {"name": "PAPER_BINDER", "label": "Hollin", "look": "HUMANOID", "hp": 200, "damage": 8, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "PAPER_BINDER", "label": "Hollin", "look": "HUMANOID", "hp": 250, "damage": 9, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "PAPER_FAMILIAR", "label": "Paper Familiar", "archetype": "GRUNT", "cost": 15, "hp": 45},
     {"name": "CRANE_FAMILIAR", "label": "Crane Familiar", "archetype": "SHOT", "look": "BEAST", "moveCooldown": 3, "hp": 30},
@@ -62,7 +62,7 @@
     {"name": "PAPER_DOUBLE", "label": "Paper Double", "archetype": "GRUNT", "hp": 50, "damage": 0}
   ],
   "abilities": [
-    {"id": "talisman-volley", "label": "Talisman Volley", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 6, "range": 6, "effects": [{"kind": "damage", "amount": 24}]},
+    {"id": "talisman-volley", "label": "Talisman Volley", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 6, "range": 6, "effects": [{"kind": "damage", "amount": 28}]},
     {"id": "paper-double", "label": "Paper Double", "slot": "UTILITY", "target": "TILE", "cost": 20, "cooldown": 20, "range": 5, "radius": 3, "affects": "ENEMIES", "effects": [{"kind": "summon", "unit": "PAPER_DOUBLE", "count": 1, "seconds": 8}, {"kind": "taunt", "seconds": 4, "toward": "summoned"}]},
     {"id": "paper-wings", "label": "Paper Wings", "slot": "SIGNATURE", "target": "TILE", "cost": 35, "cooldown": 50, "range": 9, "effects": [{"kind": "dash", "tiles": 9, "overTerrain": true}, {"kind": "status", "status": "STEALTHED", "magnitude": 0, "seconds": 3, "affects": "CASTER"}]}
   ],
@@ -77,13 +77,13 @@
   "energy": "Mana",
   "verb": "Conjure",
   "campaignOnly": false,
-  "unit": {"name": "ELEMENTALIST", "label": "Brisa", "look": "HUMANOID", "hp": 180, "damage": 12, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
+  "unit": {"name": "ELEMENTALIST", "label": "Brisa", "look": "HUMANOID", "hp": 240, "damage": 14, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
   "retinue": [
     {"name": "FLAME_IMP", "label": "Flame Imp", "archetype": "GRUNT", "look": "DEMON", "damage": 12, "hp": 50},
     {"name": "FROST_WISP", "label": "Frost Wisp", "archetype": "SHOT", "look": "PLANT", "hp": 38, "damage": 6}
   ],
   "abilities": [
-    {"id": "fireball", "label": "Fireball", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 6, "range": 6, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 22}]},
+    {"id": "fireball", "label": "Fireball", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 6, "range": 6, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 25}]},
     {"id": "frost-ring", "label": "Frost Ring", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 20, "cooldown": 15, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 15}, {"kind": "status", "status": "SLOW", "magnitude": 40, "seconds": 3}]},
     {"id": "firestorm", "label": "Firestorm", "slot": "SIGNATURE", "target": "TILE", "cost": 50, "cooldown": 70, "range": 7, "radius": 3, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 55}]}
   ],
@@ -98,7 +98,7 @@
   "energy": "Mana",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "HEXER", "label": "Morrow", "look": "HUMANOID", "hp": 180, "damage": 12, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
+  "unit": {"name": "HEXER", "label": "Morrow", "look": "HUMANOID", "hp": 240, "damage": 14, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
   "retinue": [
     {"name": "HEXBOUND_THRALL", "label": "Hexbound Thrall", "archetype": "GRUNT", "hp": 66, "damage": 9, "cost": 20},
     {"name": "CURSED_ARCHER", "label": "Cursed Archer", "archetype": "SHOT"}
@@ -119,17 +119,17 @@
   "energy": "Mana",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "WARD_MAGE", "label": "Calder", "look": "HUMANOID", "hp": 200, "damage": 11, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
+  "unit": {"name": "WARD_MAGE", "label": "Calder", "look": "HUMANOID", "hp": 266, "damage": 13, "range": 4, "attackCooldown": 12, "moveCooldown": 4, "aggro": 4, "vision": 8},
   "retinue": [
     {"name": "BATTLE_ACOLYTE", "label": "Battle Acolyte", "archetype": "SHOT"},
     {"name": "EMBER_GUARD", "label": "Ember Guard", "archetype": "GUARD"}
   ],
   "abilities": [
     {"id": "firebolt", "label": "Firebolt", "slot": "BASIC", "target": "ENEMY", "cost": 10, "cooldown": 5, "range": 5, "effects": [{"kind": "damage", "amount": 20}]},
-    {"id": "fire-ring", "label": "Fire Ring", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 20, "cooldown": 14, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 20}, {"kind": "push", "tiles": 2}]},
-    {"id": "energy-shield", "label": "Energy Shield", "slot": "SIGNATURE", "target": "SELF", "cost": 30, "cooldown": 40, "effects": [{"kind": "shield", "amount": 120, "seconds": 8}]}
+    {"id": "fire-ring", "label": "Fire Ring", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 20, "cooldown": 14, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 16}, {"kind": "push", "tiles": 2}]},
+    {"id": "energy-shield", "label": "Energy Shield", "slot": "SIGNATURE", "target": "SELF", "cost": 30, "cooldown": 40, "effects": [{"kind": "shield", "amount": 70, "seconds": 8}]}
   ],
-  "passive": {"id": "kill-the-summoner", "label": "Kill the Summoner", "kind": "bonusVs", "against": "COMMANDER", "magnitude": 15, "who": "OWN"}
+  "passive": {"id": "kill-the-summoner", "label": "Kill the Summoner", "kind": "bonusVs", "against": "COMMANDER", "magnitude": 10, "who": "OWN"}
 },
 {
   "id": "GROVE_KNIGHT",
@@ -140,17 +140,17 @@
   "energy": "Valor",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "GROVE_KNIGHT", "label": "Thessa", "look": "HUMANOID", "hp": 320, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
+  "unit": {"name": "GROVE_KNIGHT", "label": "Thessa", "look": "HUMANOID", "hp": 314, "damage": 10, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "SQUIRE", "label": "Squire", "archetype": "GRUNT"},
     {"name": "WARDEN_ARCHER", "label": "Warden Archer", "archetype": "SHOT"}
   ],
   "abilities": [
     {"id": "taunt", "label": "Taunt", "slot": "BASIC", "target": "AROUND_SELF", "cost": 10, "cooldown": 10, "radius": 3, "affects": "ENEMIES", "effects": [{"kind": "taunt", "seconds": 3, "toward": "caster"}]},
-    {"id": "charge", "label": "Charge", "slot": "UTILITY", "target": "TILE", "cost": 20, "cooldown": 14, "range": 6, "effects": [{"kind": "dash", "tiles": 6, "damage": 25}]},
-    {"id": "shield-wall", "label": "Shield Wall", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 40, "cooldown": 60, "radius": 3, "affects": "OWN", "effects": [{"kind": "status", "status": "WARD", "magnitude": 40, "seconds": 6}]}
+    {"id": "charge", "label": "Charge", "slot": "UTILITY", "target": "TILE", "cost": 20, "cooldown": 14, "range": 6, "effects": [{"kind": "dash", "tiles": 6, "damage": 32}]},
+    {"id": "shield-wall", "label": "Shield Wall", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 40, "cooldown": 60, "radius": 3, "affects": "OWN", "effects": [{"kind": "status", "status": "WARD", "magnitude": 50, "seconds": 6}]}
   ],
-  "passive": {"id": "captains-call", "label": "Captain's Call", "kind": "aura", "status": "HASTE", "magnitude": 10, "radius": 4, "affects": "OWN"}
+  "passive": {"id": "captains-call", "label": "Captain's Call", "kind": "aura", "status": "HASTE", "magnitude": 20, "radius": 4, "affects": "OWN"}
 },
 {
   "id": "BULWARK",
@@ -161,15 +161,15 @@
   "energy": "Valor",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "BULWARK", "label": "Dunstan", "look": "HUMANOID", "hp": 360, "damage": 10, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
+  "unit": {"name": "BULWARK", "label": "Dunstan", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "SHIELDBEARER", "label": "Shieldbearer", "archetype": "GUARD"},
     {"name": "MILITIA", "label": "Militia", "archetype": "GRUNT", "cost": 18, "hp": 54}
   ],
   "abilities": [
-    {"id": "shield-bash", "label": "Shield Bash", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 9, "range": 1, "effects": [{"kind": "damage", "amount": 18}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 2}]},
-    {"id": "stand-in-front", "label": "Stand in Front", "slot": "UTILITY", "target": "ALLY", "cost": 20, "cooldown": 18, "range": 4, "effects": [{"kind": "dash", "tiles": 4}, {"kind": "shield", "amount": 50, "seconds": 4}]},
-    {"id": "iron-stance", "label": "Iron Stance", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 35, "cooldown": 55, "radius": 3, "affects": "ENEMIES", "effects": [{"kind": "status", "status": "WARD", "magnitude": 60, "seconds": 6, "affects": "CASTER"}, {"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 6, "affects": "CASTER"}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 6, "affects": "CASTER"}, {"kind": "taunt", "seconds": 4, "toward": "caster"}]}
+    {"id": "shield-bash", "label": "Shield Bash", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 9, "range": 1, "effects": [{"kind": "damage", "amount": 13}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 1}]},
+    {"id": "stand-in-front", "label": "Stand in Front", "slot": "UTILITY", "target": "ALLY", "cost": 20, "cooldown": 18, "range": 4, "effects": [{"kind": "dash", "tiles": 4}, {"kind": "shield", "amount": 20, "seconds": 4}]},
+    {"id": "iron-stance", "label": "Iron Stance", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 45, "cooldown": 75, "radius": 3, "affects": "ENEMIES", "effects": [{"kind": "status", "status": "WARD", "magnitude": 45, "seconds": 6, "affects": "CASTER"}, {"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 6, "affects": "CASTER"}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 6, "affects": "CASTER"}, {"kind": "taunt", "seconds": 4, "toward": "caster"}]}
   ],
   "passive": {"id": "stout", "label": "Stout", "kind": "self", "status": "REGEN", "magnitude": 1}
 },
@@ -182,17 +182,17 @@
   "energy": "Faith",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "LIGHTWARD", "label": "Osric", "look": "HUMANOID", "hp": 320, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
+  "unit": {"name": "LIGHTWARD", "label": "Osric", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "TEMPLAR_INITIATE", "label": "Templar Initiate", "archetype": "GRUNT", "hp": 69, "damage": 9},
     {"name": "CHAPLAIN", "label": "Chaplain", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "smite", "label": "Smite", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 26}]},
-    {"id": "holy-shield", "label": "Holy Shield", "slot": "UTILITY", "target": "ALLY", "cost": 20, "cooldown": 16, "range": 5, "effects": [{"kind": "shield", "amount": 60, "seconds": 6}]},
-    {"id": "sanctuary", "label": "Sanctuary", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 45, "cooldown": 70, "radius": 3, "affects": "OWN", "effects": [{"kind": "heal", "amount": 50}, {"kind": "status", "status": "WARD", "magnitude": 25, "seconds": 5}]}
+    {"id": "smite", "label": "Smite", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 18}]},
+    {"id": "holy-shield", "label": "Holy Shield", "slot": "UTILITY", "target": "ALLY", "cost": 20, "cooldown": 16, "range": 5, "effects": [{"kind": "shield", "amount": 30, "seconds": 6}]},
+    {"id": "sanctuary", "label": "Sanctuary", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 45, "cooldown": 70, "radius": 3, "affects": "OWN", "effects": [{"kind": "heal", "amount": 30}, {"kind": "status", "status": "WARD", "magnitude": 20, "seconds": 5}]}
   ],
-  "passive": {"id": "holy-aura", "label": "Holy Aura", "kind": "aura", "status": "WARD", "magnitude": 10, "radius": 3, "affects": "OWN"}
+  "passive": {"id": "holy-aura", "label": "Holy Aura", "kind": "aura", "status": "REGEN", "magnitude": 1, "radius": 3, "affects": "OWN"}
 },
 {
   "id": "SUNWARD",
@@ -203,14 +203,14 @@
   "energy": "Faith",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "SUNWARD", "label": "Lucan", "look": "HUMANOID", "hp": 320, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
+  "unit": {"name": "SUNWARD", "label": "Lucan", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 1, "attackCooldown": 10, "moveCooldown": 5, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "SUNGUARD", "label": "Sunguard", "archetype": "GUARD"},
     {"name": "LIGHTBEARER", "label": "Lightbearer", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "radiant-strike", "label": "Radiant Strike", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 24}]},
-    {"id": "blazing-aura", "label": "Blazing Aura", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 25, "cooldown": 18, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "status", "status": "BURNING", "magnitude": 5, "seconds": 5}]},
+    {"id": "radiant-strike", "label": "Radiant Strike", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 28}]},
+    {"id": "blazing-aura", "label": "Blazing Aura", "slot": "UTILITY", "target": "AROUND_SELF", "cost": 25, "cooldown": 18, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "status", "status": "BURNING", "magnitude": 7, "seconds": 5}]},
     {"id": "unbreakable-aura", "label": "Unbreakable Aura", "slot": "SIGNATURE", "target": "SELF", "cost": 40, "cooldown": 70, "effects": [{"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 6}, {"kind": "status", "status": "WARD", "magnitude": 50, "seconds": 6}]}
   ],
   "passive": {"id": "aura-of-valor", "label": "Aura of Valor", "kind": "aura", "status": "MIGHT", "magnitude": 10, "radius": 3, "affects": "OWN"}
@@ -224,15 +224,15 @@
   "energy": "Fury",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "PYRE_CHAMPION", "label": "Ignar", "look": "HUMANOID", "hp": 260, "damage": 15, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
+  "unit": {"name": "PYRE_CHAMPION", "label": "Ignar", "look": "HUMANOID", "hp": 230, "damage": 14, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "ZEALOT", "label": "Zealot", "archetype": "GRUNT", "cost": 24, "hp": 72},
     {"name": "CENSER_BEARER", "label": "Censer Bearer", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "flame-cleave", "label": "Flame Cleave", "slot": "BASIC", "target": "AROUND_SELF", "cost": 12, "cooldown": 7, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 10}, {"kind": "status", "status": "BURNING", "magnitude": 3, "seconds": 3}]},
+    {"id": "flame-cleave", "label": "Flame Cleave", "slot": "BASIC", "target": "AROUND_SELF", "cost": 12, "cooldown": 5, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 18}, {"kind": "status", "status": "BURNING", "magnitude": 5, "seconds": 3}]},
     {"id": "red-carpet", "label": "Red Carpet", "slot": "UTILITY", "target": "TILE", "cost": 20, "cooldown": 20, "range": 5, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "dash", "tiles": 5}, {"kind": "push", "tiles": 1}]},
-    {"id": "pyre-body", "label": "Pyre Body", "slot": "SIGNATURE", "target": "SELF", "cost": 50, "cooldown": 90, "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 100, "seconds": 8}, {"kind": "status", "status": "WARD", "magnitude": 50, "seconds": 8}, {"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 8}]}
+    {"id": "pyre-body", "label": "Pyre Body", "slot": "SIGNATURE", "target": "SELF", "cost": 35, "cooldown": 50, "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 100, "seconds": 8}, {"kind": "status", "status": "WARD", "magnitude": 50, "seconds": 8}, {"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 8}]}
   ],
   "passive": {"id": "fire-touched", "label": "Fire-Touched", "kind": "immune", "status": "BURNING"}
 },
@@ -245,7 +245,7 @@
   "energy": "Fury",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "BERSERKER", "label": "Garrick", "look": "HUMANOID", "hp": 230, "damage": 17, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
+  "unit": {"name": "BERSERKER", "label": "Garrick", "look": "HUMANOID", "hp": 204, "damage": 16, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "GUILD_BRAVO", "label": "Guild Bravo", "archetype": "GRUNT", "damage": 12, "hp": 51},
     {"name": "GUILD_CROSSBOW", "label": "Guild Crossbow", "archetype": "SHOT"}
@@ -266,14 +266,14 @@
   "energy": "Valor",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "BRIGHT_BLADE", "label": "Seren", "look": "HUMANOID", "hp": 260, "damage": 15, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
+  "unit": {"name": "BRIGHT_BLADE", "label": "Seren", "look": "HUMANOID", "hp": 230, "damage": 14, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
   "retinue": [
     {"name": "SWORDSMAN", "label": "Swordsman", "archetype": "GRUNT"},
     {"name": "LANCER", "label": "Lancer", "archetype": "GUARD"}
   ],
   "abilities": [
-    {"id": "whirling-light", "label": "Whirling Light", "slot": "BASIC", "target": "AROUND_SELF", "cost": 15, "cooldown": 8, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 16}]},
-    {"id": "radiant-step", "label": "Radiant Step", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 4, "effects": [{"kind": "dash", "tiles": 4, "damage": 15}]},
+    {"id": "whirling-light", "label": "Whirling Light", "slot": "BASIC", "target": "AROUND_SELF", "cost": 15, "cooldown": 8, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 20}]},
+    {"id": "radiant-step", "label": "Radiant Step", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 4, "effects": [{"kind": "dash", "tiles": 4, "damage": 20}]},
     {"id": "holy-edge", "label": "Holy Edge", "slot": "SIGNATURE", "target": "SELF", "cost": 35, "cooldown": 50, "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 40, "seconds": 8}, {"kind": "status", "status": "CLEAVING", "magnitude": 0, "seconds": 8}]}
   ],
   "passive": {"id": "steady-blade", "label": "Steady Blade", "kind": "self", "status": "WARD", "magnitude": 10}
@@ -293,7 +293,7 @@
     {"name": "SHADOW_ARCHER", "label": "Shadow Archer", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "fatal-strike", "label": "Fatal Strike", "slot": "BASIC", "target": "ENEMY", "cost": 15, "cooldown": 10, "range": 1, "effects": [{"kind": "damage", "amount": 30, "stealthBonus": 100}]},
+    {"id": "fatal-strike", "label": "Fatal Strike", "slot": "BASIC", "target": "ENEMY", "cost": 15, "cooldown": 10, "range": 1, "effects": [{"kind": "damage", "amount": 26, "stealthBonus": 100}]},
     {"id": "stealth", "label": "Stealth", "slot": "UTILITY", "target": "SELF", "cost": 20, "cooldown": 15, "effects": [{"kind": "status", "status": "STEALTHED", "magnitude": 0, "seconds": 8}, {"kind": "status", "status": "HASTE", "magnitude": 20, "seconds": 8}]},
     {"id": "quickening-charm", "label": "Quickening Charm", "slot": "SIGNATURE", "target": "SELF", "cost": 30, "cooldown": 70, "effects": [{"kind": "resetCooldowns"}]}
   ],
@@ -314,11 +314,11 @@
     {"name": "KNIFE_THROWER", "label": "Knife Thrower", "archetype": "SHOT", "range": 4, "damage": 8}
   ],
   "abilities": [
-    {"id": "dagger-flurry", "label": "Dagger Flurry", "slot": "BASIC", "target": "ENEMY", "cost": 15, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 32}]},
+    {"id": "dagger-flurry", "label": "Dagger Flurry", "slot": "BASIC", "target": "ENEMY", "cost": 15, "cooldown": 8, "range": 1, "effects": [{"kind": "damage", "amount": 27}]},
     {"id": "tumble", "label": "Tumble", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 3, "effects": [{"kind": "dash", "tiles": 3}]},
-    {"id": "evasion-dance", "label": "Evasion Dance", "slot": "SIGNATURE", "target": "SELF", "cost": 30, "cooldown": 45, "effects": [{"kind": "status", "status": "EVADING", "magnitude": 75, "seconds": 5}]}
+    {"id": "evasion-dance", "label": "Evasion Dance", "slot": "SIGNATURE", "target": "SELF", "cost": 30, "cooldown": 45, "effects": [{"kind": "status", "status": "EVADING", "magnitude": 60, "seconds": 5}]}
   ],
-  "passive": {"id": "agility", "label": "Agility", "kind": "self", "status": "EVADING", "magnitude": 15}
+  "passive": {"id": "agility", "label": "Agility", "kind": "self", "status": "EVADING", "magnitude": 10}
 },
 {
   "id": "GROVE_ELDER",
@@ -329,17 +329,17 @@
   "energy": "Mana",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "GROVE_ELDER", "label": "Elowen", "look": "HUMANOID", "hp": 200, "damage": 7, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "GROVE_ELDER", "label": "Elowen", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "GROVE_GUARDIAN", "label": "Grove Guardian", "archetype": "GUARD", "look": "PLANT"},
     {"name": "THORN_ARCHER", "label": "Thorn Archer", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "mending-light", "label": "Mending Light", "slot": "BASIC", "target": "ALLY", "cost": 12, "cooldown": 5, "range": 5, "effects": [{"kind": "heal", "amount": 35}]},
+    {"id": "mending-light", "label": "Mending Light", "slot": "BASIC", "target": "ALLY", "cost": 12, "cooldown": 5, "range": 5, "effects": [{"kind": "heal", "amount": 55}]},
     {"id": "entangle", "label": "Entangle", "slot": "UTILITY", "target": "ENEMY", "cost": 20, "cooldown": 14, "range": 5, "effects": [{"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 3}]},
     {"id": "clarity", "label": "Clarity", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 30, "cooldown": 40, "radius": 4, "affects": "OWN", "effects": [{"kind": "cleanse"}, {"kind": "status", "status": "UNSTOPPABLE", "magnitude": 0, "seconds": 3}]}
   ],
-  "passive": {"id": "grove-calm", "label": "Grove Calm", "kind": "aura", "status": "REGEN", "magnitude": 1, "radius": 3, "affects": "OWN"}
+  "passive": {"id": "grove-calm", "label": "Grove Calm", "kind": "aura", "status": "REGEN", "magnitude": 2, "radius": 3, "affects": "OWN"}
 },
 {
   "id": "SPRING_ELDER",
@@ -350,17 +350,17 @@
   "energy": "Mana",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "SPRING_ELDER", "label": "Rowena", "look": "HUMANOID", "hp": 200, "damage": 7, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "SPRING_ELDER", "label": "Rowena", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "SPRING_WARDEN", "label": "Spring Warden", "archetype": "GUARD"},
     {"name": "HERBALIST", "label": "Herbalist", "archetype": "SHOT", "hp": 32, "cost": 27}
   ],
   "abilities": [
-    {"id": "potion-toss", "label": "Potion Toss", "slot": "BASIC", "target": "ALLY", "cost": 10, "cooldown": 4, "range": 4, "effects": [{"kind": "heal", "amount": 22}]},
-    {"id": "renewal", "label": "Renewal", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 5, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "REGEN", "magnitude": 6, "seconds": 5}]},
-    {"id": "wellspring", "label": "Wellspring", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 45, "cooldown": 75, "radius": 3, "affects": "OWN", "effects": [{"kind": "heal", "amount": 80}]}
+    {"id": "potion-toss", "label": "Potion Toss", "slot": "BASIC", "target": "ALLY", "cost": 10, "cooldown": 4, "range": 4, "effects": [{"kind": "heal", "amount": 36}]},
+    {"id": "renewal", "label": "Renewal", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 5, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "REGEN", "magnitude": 8, "seconds": 5}]},
+    {"id": "wellspring", "label": "Wellspring", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 45, "cooldown": 75, "radius": 3, "affects": "OWN", "effects": [{"kind": "heal", "amount": 110}]}
   ],
-  "passive": {"id": "potion-belt", "label": "Potion Belt", "kind": "self", "status": "REGEN", "magnitude": 2}
+  "passive": {"id": "potion-belt", "label": "Potion Belt", "kind": "self", "status": "REGEN", "magnitude": 4}
 },
 {
   "id": "SEER",
@@ -371,17 +371,17 @@
   "energy": "Grace",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "SEER", "label": "Pell", "look": "HUMANOID", "hp": 200, "damage": 7, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "SEER", "label": "Pell", "look": "HUMANOID", "hp": 280, "damage": 11, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "ACOLYTE_GUARD", "label": "Acolyte Guard", "archetype": "GRUNT"},
     {"name": "ORACLE_ARCHER", "label": "Oracle Archer", "archetype": "SHOT"}
   ],
   "abilities": [
-    {"id": "blessing-of-might", "label": "Blessing of Might", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 10, "range": 6, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 20, "seconds": 8}]},
-    {"id": "blessing-of-speed", "label": "Blessing of Speed", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 6, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "HASTE", "magnitude": 25, "seconds": 8}]},
+    {"id": "blessing-of-might", "label": "Blessing of Might", "slot": "BASIC", "target": "TILE", "cost": 15, "cooldown": 10, "range": 6, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 35, "seconds": 8}]},
+    {"id": "blessing-of-speed", "label": "Blessing of Speed", "slot": "UTILITY", "target": "TILE", "cost": 15, "cooldown": 10, "range": 6, "radius": 2, "affects": "OWN", "effects": [{"kind": "status", "status": "HASTE", "magnitude": 35, "seconds": 8}]},
     {"id": "foresight", "label": "Foresight", "slot": "SIGNATURE", "target": "TILE", "cost": 30, "cooldown": 45, "range": 10, "radius": 5, "effects": [{"kind": "reveal", "seconds": 10}]}
   ],
-  "passive": {"id": "clear-sight", "label": "Clear Sight", "kind": "energyRegen", "magnitude": 5}
+  "passive": {"id": "clear-sight", "label": "Clear Sight", "kind": "energyRegen", "magnitude": 10}
 },
 {
   "id": "WARLORD",
@@ -392,15 +392,18 @@
   "energy": "Command",
   "verb": "Call",
   "campaignOnly": false,
-  "unit": {"name": "WARLORD", "label": "Varro", "look": "HUMANOID", "hp": 230, "damage": 6, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
+  "unit": {"name": "WARLORD", "label": "Varro", "look": "HUMANOID", "hp": 322, "damage": 9, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
   "retinue": [
     {"name": "LEGIONARY", "label": "Legionary", "archetype": "GRUNT"},
     {"name": "CROSSBOWMAN", "label": "Crossbowman", "archetype": "SHOT"}
   ],
+  "units": [
+    {"name": "LEVY", "label": "Levy", "archetype": "GRUNT", "hp": 45, "damage": 8}
+  ],
   "abilities": [
     {"id": "rally", "label": "Rally", "slot": "BASIC", "target": "AROUND_SELF", "cost": 15, "cooldown": 10, "radius": 4, "affects": "OWN", "effects": [{"kind": "status", "status": "HASTE", "magnitude": 30, "seconds": 4}, {"kind": "cleanse"}]},
-    {"id": "form-ranks", "label": "Form Ranks", "slot": "UTILITY", "target": "SELF", "cost": 25, "cooldown": 20, "effects": [{"kind": "summon", "unit": "LEGIONARY", "count": 2}]},
-    {"id": "morale-boost", "label": "Morale Boost", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 50, "cooldown": 90, "radius": 8, "affects": "OWN", "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 30, "seconds": 20}, {"kind": "status", "status": "WARD", "magnitude": 30, "seconds": 20}]}
+    {"id": "form-ranks", "label": "Form Ranks", "slot": "UTILITY", "target": "SELF", "cost": 25, "cooldown": 20, "effects": [{"kind": "summon", "unit": "LEVY", "count": 2, "seconds": 20}]},
+    {"id": "morale-boost", "label": "Morale Boost", "slot": "SIGNATURE", "target": "AROUND_SELF", "cost": 50, "cooldown": 90, "radius": 8, "affects": "OWN", "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 30, "seconds": 12}, {"kind": "status", "status": "WARD", "magnitude": 30, "seconds": 12}]}
   ],
   "passive": {"id": "presence", "label": "Presence", "kind": "aura", "status": "MIGHT", "magnitude": 5, "radius": 4, "affects": "OWN"}
 },

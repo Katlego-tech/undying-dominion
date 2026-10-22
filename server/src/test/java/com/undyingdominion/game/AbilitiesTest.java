@@ -82,6 +82,17 @@ class AbilitiesTest {
     }
 
     @Test
+    void steppingInFrontNeedsSomeoneElse() {
+        Player dunstan = join("Dunstan", "BULWARK", 5, 5);
+
+        cast(dunstan, "stand-in-front", unit(dunstan));
+
+        assertTrue(dunstan.takeNotices().contains("Stand in Front needs an ally."));
+        assertEquals(0, unit(dunstan).getShield());
+        assertEquals(100, dunstan.getSoul());
+    }
+
+    @Test
     void aWallBetweenCasterAndTargetBlocksSight() {
         Player morrow = join("Morrow", "HEXER", 18, 5);
         Player pell = join("Pell", "SEER", 22, 5);
@@ -129,19 +140,20 @@ class AbilitiesTest {
     void healingNeverGoesAboveMaxAndAShieldSoaksDamageUntilItRunsOut() {
         Player elowen = join("Elowen", "GROVE_ELDER", 5, 5);
         Unit self = unit(elowen);
-        self.takeDamage(50, Unit.NEUTRAL);
+        int max = self.getType().maxHp;
+        self.takeDamage(100, Unit.NEUTRAL);
         cast(elowen, "mending-light", self);
-        assertEquals(185, self.getHp());
+        assertEquals(max - 45, self.getHp(), "55 back of 100");
         pass(50);
         cast(elowen, "mending-light", self);
-        assertEquals(200, self.getHp());
+        assertEquals(max, self.getHp());
 
         Player calder = join("Calder", "WARD_MAGE", 15, 15);
         cast(calder, "energy-shield");
-        assertEquals(120, unit(calder).getShield());
-        unit(calder).takeDamage(100, Unit.NEUTRAL);
-        assertEquals(200, unit(calder).getHp(), "all of it absorbed");
-        assertEquals(20, unit(calder).getShield());
+        assertEquals(70, unit(calder).getShield());
+        unit(calder).takeDamage(60, Unit.NEUTRAL);
+        assertEquals(unit(calder).getType().maxHp, unit(calder).getHp(), "all of it absorbed");
+        assertEquals(10, unit(calder).getShield());
         pass(80);
         assertEquals(0, unit(calder).getShield(), "gone after 8 s");
     }
@@ -190,7 +202,7 @@ class AbilitiesTest {
         cast(varro, "form-ranks");
 
         assertEquals(10, engine.legionSizeOf(varro));
-        assertTrue(varro.takeNotices().contains("Your legion is full: 1 Legionary could not answer."));
+        assertTrue(varro.takeNotices().contains("Your legion is full: 1 Levy could not answer."));
         assertEquals(75, varro.getSoul(), "the cast still counts");
     }
 
@@ -234,7 +246,7 @@ class AbilitiesTest {
         cast(thessa, "charge", null, new Position(11, 15));
 
         assertEquals(new Position(11, 15), unit(thessa).getPosition());
-        assertEquals(45 - 25, wolf.getHp());
+        assertEquals(45 - 32, wolf.getHp());
     }
 
     @Test
@@ -271,7 +283,7 @@ class AbilitiesTest {
         cast(calder, "fire-ring");
 
         assertEquals(new Position(13, 15), wolf.getPosition());
-        assertEquals(45 - 20, wolf.getHp());
+        assertEquals(45 - 16, wolf.getHp());
     }
 
     @Test
@@ -322,7 +334,7 @@ class AbilitiesTest {
         cast(dunstan, "iron-stance");
         assertTrue(unit(dunstan).has(Status.UNSTOPPABLE));
         assertTrue(unit(dunstan).has(Status.ROOTED), "his own stance roots him");
-        assertEquals(60, unit(dunstan).magnitude(Status.WARD));
+        assertEquals(45, unit(dunstan).magnitude(Status.WARD));
     }
 
     @Test
@@ -363,7 +375,7 @@ class AbilitiesTest {
         int hp = wolf.getHp();
 
         pass(5);
-        assertEquals(hp - 34, wolf.getHp(), "17 × 200 %");
+        assertEquals(hp - 32, wolf.getHp(), "16 × 200 %");
         assertFalse(unit(garrick).has(Status.EMPOWERED));
     }
 
@@ -378,8 +390,8 @@ class AbilitiesTest {
         engine.submit(new Command.Attack(seren.getId(), List.of(unit(seren).getId()), first.getId()));
         pass(3);
 
-        assertEquals(95 - 21, first.getHp(), "15 + 40 %");
-        assertEquals(95 - 10, beside.getHp());
+        assertEquals(95 - 19, first.getHp(), "14 + 40 %");
+        assertEquals(95 - 9, beside.getHp());
     }
 
     @Test
@@ -479,7 +491,7 @@ class AbilitiesTest {
         cast(vey, "stealth");
 
         cast(vey, "fatal-strike", knight);
-        assertEquals(95 - 60, knight.getHp(), "30 + 100 % from stealth");
+        assertEquals(95 - 52, knight.getHp(), "26 + 100 % from stealth");
 
         cast(vey, "quickening-charm");
         assertEquals(0, vey.cooldownLeft("stealth", engine.getTick()));
