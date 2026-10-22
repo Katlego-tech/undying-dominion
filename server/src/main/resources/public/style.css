@@ -552,3 +552,270 @@ body.touch .notices { bottom: 300px; }
   letter-spacing: 0.08em;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------- commanders: the picker */
+
+.mark { width: 16px; height: 16px; flex: none; fill: currentColor; fill-rule: evenodd; }
+
+.join.picking { place-items: stretch; overflow: auto; padding: 28px 32px; }
+.pick-stage {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 28px;
+  align-items: start;
+}
+.pick-stage .pick-head h1 {
+  margin: 0;
+  font: 700 34px/1.1 var(--display);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 32px rgba(167, 139, 250, 0.35);
+}
+.pick-stage .pick-head .tagline { margin: 6px 0 18px; }
+.pick-stage .pick-name { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.pick-stage .pick-name label { margin: 0; white-space: nowrap; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-dim); }
+.pick-stage .pick-name #name { width: 240px; text-align: left; }
+
+.roster-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.roster-head h2 { margin: 0; font: 600 11px var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-dim); }
+.roster-head p { margin: 0; font-size: 12px; color: var(--bone-faint); }
+
+.roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 14px; }
+.role h3 {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 8px;
+  font: 600 11px var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-dim);
+}
+.role h3 .mark { width: 13px; height: 13px; color: var(--bone-faint); }
+.role ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.kit-tile {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 226, 208, 0.10);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--bone);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.kit-tile .mark { grid-row: span 2; width: 18px; height: 18px; color: var(--bone-faint); }
+.kit-tile b { font-weight: 600; font-size: 14px; }
+.kit-tile small { color: var(--bone-dim); font-size: 12px; }
+.kit-tile:hover { border-color: rgba(94, 234, 212, 0.4); background: rgba(94, 234, 212, 0.05); }
+.kit-tile:focus-visible { outline: 2px solid var(--soul); outline-offset: 2px; }
+.kit-tile[aria-pressed="true"] { border-color: var(--soul); background: rgba(94, 234, 212, 0.10); }
+.kit-tile[aria-pressed="true"] .mark { color: var(--soul); }
+.kit-tile.random { width: auto; margin-left: auto; padding: 5px 12px; display: flex; gap: 8px; border-style: dashed; }
+.kit-tile.random .mark { width: 14px; height: 14px; }
+
+/* The kit card: everything a pick changes, in the order you'll use it. */
+.kit-card { padding: 20px 20px 18px; position: sticky; top: 0; }
+.kit-role { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soul); }
+.kit-role .mark { width: 13px; height: 13px; }
+.kit-card h2 { margin: 8px 0 0; font: 700 30px/1.1 var(--display); letter-spacing: 0.03em; }
+.kit-title { margin: 2px 0 10px; color: var(--bone-dim); }
+.kit-blurb { margin: 0 0 14px; color: var(--bone); font-size: 13px; }
+.kit-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  margin: 0 0 16px; padding: 8px 0;
+  border-top: 1px solid var(--panel-edge); border-bottom: 1px solid var(--panel-edge);
+}
+.kit-stats div { display: grid; gap: 1px; text-align: center; }
+.kit-stats dt { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-faint); }
+.kit-stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kit-card h4 { margin: 0 0 6px; font: 600 10px var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-faint); }
+.kit-retinue { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+.kit-retinue li { display: flex; gap: 8px; align-items: baseline; }
+.kit-retinue kbd { min-width: 16px; }
+.kit-retinue .cost { margin-left: auto; color: var(--soul); font-size: 12px; font-variant-numeric: tabular-nums; }
+.kit-abilities { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.kit-abilities li { display: grid; grid-template-columns: 26px 1fr; column-gap: 10px; }
+.kit-abilities kbd { grid-row: span 3; width: 26px; height: 26px; line-height: 24px; font-size: 12px; }
+.kit-abilities li.signature kbd { border-color: rgba(251, 191, 36, 0.55); color: var(--gold); }
+.kit-abilities li.passive kbd { border-style: dashed; color: var(--bone-faint); }
+.kit-abilities .name { font-weight: 600; font-size: 13px; }
+.kit-abilities .name span { margin-left: 6px; font-weight: 500; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-faint); }
+.kit-abilities .meta { font-size: 11px; color: var(--soul); font-variant-numeric: tabular-nums; }
+.kit-abilities .does { font-size: 12px; color: var(--bone-dim); }
+.kit-card .rise {
+  margin-top: 18px; width: 100%; padding: 12px;
+  border: 0; border-radius: 8px;
+  background: linear-gradient(180deg, #2dd4bf, #0f766e);
+  color: #041312; font: 700 15px var(--display); letter-spacing: 0.08em; cursor: pointer;
+}
+.kit-card .rise:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- commanders: the ability bar */
+
+.kit-bar { display: flex; gap: 6px; }
+.ability {
+  position: relative;
+  width: 118px;
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 226, 208, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--bone);
+  font: 600 12px var(--ui);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+.ability .key { position: absolute; top: 6px; right: 8px; font: 600 11px var(--ui); color: var(--bone-dim); }
+.ability .slot { font: 500 9px var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-faint); }
+.ability .cost { font: 500 11px var(--ui); color: var(--soul); font-variant-numeric: tabular-nums; }
+.ability.signature { border-color: rgba(251, 191, 36, 0.35); }
+.ability.signature .slot { color: rgba(251, 191, 36, 0.75); }
+.ability:hover:not(.cooling):not(.blocked) { border-color: rgba(94, 234, 212, 0.45); background: rgba(94, 234, 212, 0.08); }
+.ability.aiming { border-color: var(--soul); background: rgba(94, 234, 212, 0.14); box-shadow: 0 0 0 1px var(--soul), 0 0 18px rgba(94, 234, 212, 0.25); }
+
+/* Cooldown: a dark shutter that drains downward as the ability comes back, whole seconds over it. */
+.ability.cooling::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--left) * 100%);
+  background: rgba(5, 4, 7, 0.62);
+  border-top: 1px solid rgba(94, 234, 212, 0.55);
+  pointer-events: none;
+}
+.ability .secs {
+  position: absolute; inset: 0; z-index: 1;
+  display: none; place-items: center;
+  font: 700 24px var(--display); color: var(--bone);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.ability.cooling .secs { display: grid; }
+.ability.cooling > :not(.secs):not(.key) { opacity: 0.3; }
+
+/* Can't be cast for a reason other than time: the reason replaces the cost. */
+.ability.blocked { cursor: not-allowed; border-color: rgba(232, 226, 208, 0.08); background: rgba(255, 255, 255, 0.015); }
+.ability.blocked > :not(.why):not(.key) { opacity: 0.4; }
+.ability .why { display: none; font: 500 11px var(--ui); color: var(--blood); }
+.ability.blocked .why { display: block; }
+.ability.blocked .cost { display: none; }
+
+.ability.passive { cursor: default; border-style: dashed; background: transparent; }
+.ability.passive .cost { color: var(--bone-dim); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Your commander's own statuses, readable: a chip per status with its seconds. */
+.my-statuses { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; }
+.my-statuses:empty { display: none; }
+.status-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+  font: 500 11px/16px var(--ui);
+  font-variant-numeric: tabular-nums;
+}
+.status-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-chip.buff { color: var(--gold); }
+.status-chip.control { color: var(--violet); }
+.status-chip.dot { color: var(--blood); }
+.status-chip.stealth { color: var(--bone-dim); border-style: dashed; }
+.status-chip span { color: var(--bone); }
+
+.fallen-box .rise-as { margin-top: 16px; width: auto; padding: 10px 22px; background: transparent; border: 1px solid var(--soul-deep); color: var(--soul); font: 600 14px var(--ui); letter-spacing: 0.02em; pointer-events: auto; }
+.fallen-box .rising { margin-top: 12px; color: var(--soul); font: 700 17px var(--display); letter-spacing: 0.03em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-tile, .ability { transition: none; }
+}
+
+/* ---------------------------------------------------------------- phone: landscape only */
+
+/* The game is landscape only on a phone, from the first screen, and never asks to be turned
+   (Katlego, 2026-10-22). Held upright, the page draws itself already turned a quarter clockwise,
+   so it reads as landscape to whoever holds the phone sideways. state.js applyOrientation() sets
+   body.phone (a touch screen at most 500 px on its short side) and body.turned (upright), and its
+   viewport() and toLayout() give the renderer and input the turned page. */
+body.turned {
+  position: fixed;
+  top: 0;
+  left: 100vw;
+  width: 100vh;
+  height: 100vw;
+  transform: rotate(90deg);
+  transform-origin: top left;
+}
+body.turned #world { width: 100%; height: 100%; }
+body.phone.turned .pick-stage { height: calc(100vw - 20px); }
+
+/* The picker: the desktop's two columns, squeezed to the height. Both columns scroll. */
+body.phone .join.picking { padding: 10px 16px; }
+body.phone .pick-stage { grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; height: calc(100vh - 20px); }
+body.phone .pick-stage > div { overflow: auto; scrollbar-width: none; }
+body.phone .pick-head h1 { font-size: 18px; }
+body.phone .pick-head .tagline, body.phone .roster-head p { display: none; }
+body.phone .pick-name { margin: 8px 0 10px; gap: 8px; }
+body.phone .pick-name #name { width: 200px; padding: 6px 10px; font-size: 14px; }
+body.phone .roster-head { margin-bottom: 6px; }
+body.phone .roster { gap: 10px 8px; }
+body.phone .role h3 { margin-bottom: 5px; }
+body.phone .role ul { gap: 4px; }
+body.phone .kit-tile { padding: 5px 8px; min-height: 40px; }
+body.phone .kit-tile .mark { width: 15px; height: 15px; }
+body.phone .kit-tile b { font-size: 13px; }
+body.phone .kit-tile small { font-size: 11px; }
+body.phone .kit-card { position: static; height: 100%; overflow: auto; padding: 12px 14px 0; scrollbar-width: thin; }
+body.phone .kit-card h2 { font-size: 22px; margin-top: 4px; }
+body.phone .kit-title { margin-bottom: 6px; }
+body.phone .kit-blurb { margin-bottom: 8px; font-size: 12px; }
+body.phone .kit-stats { margin-bottom: 10px; padding: 5px 0; }
+body.phone .kit-card .rise { position: sticky; bottom: 0; margin-top: 12px; box-shadow: 0 0 0 12px rgb(14, 12, 18); }
+
+/* Play: a slim strip across the top, stick bottom-left, abilities round the bottom-right corner,
+   and the command panel between them. */
+body.phone.touch .card { top: 8px; left: 8px; width: 190px; padding: 6px 10px; }
+body.phone.touch .card .bar { margin-top: 4px; }
+body.phone.touch .card .caption { display: none; }
+body.phone.touch .soul { top: 8px; left: 206px; right: auto; width: 250px; padding: 6px 10px; }
+body.phone.touch .soul .legion-row { margin-top: 2px; }
+body.phone.touch #minimap { top: 8px; right: 8px; bottom: auto; width: 108px; height: 72px; }
+body.phone.touch .objective { top: 60px; left: 8px; width: 260px; }
+body.phone.touch .notices { top: 88px; bottom: auto; left: auto; right: 8px; width: 250px; }
+body.phone.touch .notice { padding: 5px 10px; font-size: 12px; }
+body.phone.touch .mode-hint { top: 60px; bottom: auto; left: 50%; transform: translateX(-50%); width: max-content; max-width: 400px; font-size: 12px; }
+body.phone.touch .camera-hint { top: 92px; }
+body.phone.touch .stick { left: 12px; bottom: 12px; width: 112px; height: 112px; }
+body.phone.touch .stick-knob { width: 46px; height: 46px; }
+body.phone.touch .chips { left: 134px; bottom: 12px; width: 104px; }
+body.phone.touch .chip { height: 32px; }
+body.phone.touch .command { left: 248px; right: 178px; bottom: 8px; padding: 6px; gap: 5px; }
+body.phone.touch .command .selection { display: none; }
+body.phone.touch .cmd { min-height: 38px; padding: 4px 9px; }
+body.phone.touch .status-chip { font-size: 10px; line-height: 14px; }
+
+body.phone.touch .kit-bar.thumbs { display: block; position: absolute; right: 10px; bottom: 10px; width: 156px; height: 150px; }
+body.phone.touch .thumbs .ability { position: absolute; display: grid; place-content: center; width: 60px; height: 60px;
+  padding: 0; border-radius: 50%; text-align: center; background: rgba(14, 12, 18, 0.82); border-width: 1.5px; }
+/* The basic, used most, sits under the thumb in the corner; the others reach left and up. */
+body.phone.touch .thumbs .basic { right: 0; bottom: 0; width: 70px; height: 70px; }
+body.phone.touch .thumbs .utility { right: 82px; bottom: 2px; }
+body.phone.touch .thumbs .signature { right: 4px; bottom: 82px; }
+body.phone.touch .thumbs .ability > span:nth-child(3) { font-size: 10px; line-height: 1.15; padding: 0 5px; }
+body.touch .thumbs .ability .slot, body.touch .thumbs .ability .range,
+body.phone.touch .thumbs .ability .key, body.phone.touch .thumbs .ability .why { display: none; }
+body.phone.touch .thumbs .ability .cost { font-size: 10px; }
+/* A long name takes two smaller lines, so it stays inside its round button. */
+body.phone.touch .thumbs .ability.long > span:nth-child(3) { font-size: 8.5px; max-width: 56px; justify-self: center; }
+body.phone.touch .thumbs .ability.blocked .cost { display: block; color: var(--blood); }
+body.phone.touch .thumbs .ability.cooling > :not(.secs) { opacity: 0; }
+body.phone.touch .thumbs .ability.passive { display: none; }
+
+/* The real form: one element that is the plain name box in a campaign and the picker in the free-for-all. */
+.pick-stage .howto, .pick-stage #join-button { display: none; }
+.pick-stage .tagline b { color: var(--bone); }
+.kit-card .error:empty { display: none; }
+.join.rise-mode { background: radial-gradient(ellipse at center, rgba(60, 10, 16, 0.55), rgba(9, 8, 12, 0.94)); }
+.join.rise-mode .pick-name { display: none; }

@@ -1,5 +1,9 @@
-import { game, selectedUnits, myNecromancer, playsNecromancer, label } from './state.js';
+import { game, selectedUnits, myNecromancer, playsNecromancer, label, aimedAbility } from './state.js';
 import * as cmd from './commands.js';
+import {
+  SLOTS, SLOT_KEYS, familyOf, statusName, describePassive,
+} from './kits.js';
+import { openRiseAs, risingAs } from './picker.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,6 +18,16 @@ const TOUCH_MODE_HINTS = {
   explode: 'Corpse Explosion: tap a corpse inside the dashed square. Tap here to cancel.',
 };
 const touch = () => document.body.classList.contains('touch');
+const phone = () => document.body.classList.contains('phone');
+const NEEDS = { TILE: 'a tile', ENEMY: 'an enemy', ALLY: 'an ally', ENEMY_COMMANDER: 'an enemy commander' };
+
+/** The hint while aiming an ability, by what it needs. */
+function castHint(ability) {
+  const what = NEEDS[ability.target];
+  return touch()
+    ? `${ability.label}: tap ${what} in the square. Tap here to cancel.`
+    : `${ability.label}: click ${what} inside the dashed square. Esc cancels.`;
+}
 
 let summonOrder = [];
 let lastScoreboard = '';
@@ -78,6 +92,8 @@ export function initHud() {
     return el;
   }));
 
+  buildKitBar();
+
   const necromancer = playsNecromancer();
   document.querySelector('#soul-panel .label').textContent = game.commander?.energy ?? 'Soul';
   document.querySelector('#scores h2').textContent = necromancer ? 'Necromancers' : 'Commanders';
@@ -136,9 +152,114 @@ export function updateHud() {
   updateScoreboard();
   updateObjective();
 
-  $('fallen').hidden = alive || !!game.paused;
+  updateKitBar(alive);
+  updateStatuses();
+
+  $('fallen').hidden = alive || !!game.paused || risingAs();
   showPause();
-  if (!alive) $('respawn-in').textContent = Math.ceil(you.respawnIn / (1000 / game.tickMs));
+  if (!alive) {
+    $('respawn-in').textContent = Math.ceil(you.respawnIn / (1000 / game.tickMs));
+    updateRising();
+  }
+}
+
+// ---------------------------------------------------------------- a commander's kit
+
+/** The R / F / X tiles and the passive: in the command panel, or round the thumb's corner on a phone. */
+function buildKitBar() {
+  const bar = $('kit-bar');
+  const kit = game.commander;
+  const abilities = playsNecromancer() ? [] : SLOTS.map((slot) => kit.abilities?.find((a) => a.slot === slot)).filter(Boolean);
+  bar.hidden = abilities.length === 0;
+  if (bar.hidden) return;
+  const energy = kit.energy.toLowerCase();
+  bar.replaceChildren(...abilities.map((a) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = `ability ${a.slot.toLowerCase()}${a.label.length > 12 ? ' long' : ''}`;
+    el.dataset.ability = a.id;
+    el.innerHTML = `<span class="key">${SLOT_KEYS[a.slot]}</span><span class="slot">${a.slot.toLowerCase()}</span><span class="ability-label"></span>
+      <span class="cost">${a.cost} ${energy}${a.range ? `<span class="range"> · ${a.range} tiles</span>` : ''}</span>
+      <span class="why"></span><span class="secs"></span>`;
+    el.querySelector('.ability-label').textContent = a.label;
+    el.addEventListener('click', () => cmd.useAbility(a.slot));
+    return el;
+  }));
+  if (kit.passive) {
+    const passive = document.createElement('div');
+    passive.className = 'ability passive';
+    passive.title = describePassive(kit.passive);
+    passive.innerHTML = '<span class="slot">passive</span><span class="ability-label"></span><span class="cost"></span>';
+    passive.querySelector('.ability-label').textContent = kit.passive.label;
+    passive.querySelector('.cost').textContent = describePassive(kit.passive);
+    bar.append(passive);
+  }
+  // On a phone the abilities are thumb buttons in the bottom-right corner, outside the panel.
+  bar.classList.toggle('thumbs', phone());
+  if (phone()) $('hud').append(bar);
+  else $('command').insertBefore(bar, $('summon-buttons'));
+}
+
+/** Each tile: ready, cooling (a shutter the height of the time left), blocked with its reason, or aiming. */
+function updateKitBar(alive) {
+  const bar = $('kit-bar');
+  if (bar.hidden) return;
+  const you = game.you;
+  const silenced = myNecromancer()?.statuses?.some((s) => s.id === 'silenced');
+  const energy = game.commander.energy.toLowerCase();
+  for (const el of bar.querySelectorAll('button.ability')) {
+    const a = game.commander.abilities.find((x) => x.id === el.dataset.ability);
+    const left = you.cooldowns?.[a.id] ?? 0;
+    let why = '';
+    if (!alive) why = 'Fallen';
+    else if (silenced) why = 'Silenced';
+    else if (left <= 0 && you.soul < a.cost) why = `Needs ${a.cost} ${energy}`;
+    const cooling = !why && left > 0;
+    el.classList.toggle('cooling', cooling);
+    el.classList.toggle('blocked', !!why);
+    el.classList.toggle('aiming', game.mode === `cast:${a.id}`);
+    el.style.setProperty('--left', cooling ? Math.min(1, left / a.cooldown) : 0);
+    el.querySelector('.why').textContent = why;
+    el.querySelector('.secs').textContent = cooling ? Math.ceil(left) : '';
+    // On a phone the reason takes the cost's place on the round button.
+    if (phone()) el.querySelector('.cost').textContent = why || `${a.cost} ${energy}`;
+    el.setAttribute('aria-disabled', String(!!why || cooling));
+  }
+}
+
+/** A chip per status on your own commander: family colour, name and whole seconds. */
+function updateStatuses() {
+  const statuses = myNecromancer()?.statuses ?? [];
+  const box = $('my-statuses');
+  const key = statuses.map((s) => `${s.id}${Math.ceil(s.for)}`).join();
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.replaceChildren(...statuses.map((s) => {
+    const id = s.id.toUpperCase();
+    const chip = document.createElement('span');
+    chip.className = `status-chip ${familyOf(id)}`;
+    chip.append(`${statusName(id)} `);
+    const secs = document.createElement('span');
+    secs.textContent = `${Math.ceil(s.for)}s`;
+    chip.append(secs);
+    return chip;
+  }));
+}
+
+/** While fallen in the free-for-all: who you'll rise as, and the button to pick another. */
+function updateRising() {
+  const offered = Object.keys(game.kits).length > 0;
+  $('rise-as').hidden = !offered;
+  const next = game.you.next ? game.kits[game.you.next] : null;
+  $('rising').hidden = !next;
+  if (next) $('rising').textContent = `You will rise as ${next.name}, ${next.title}`;
+  $('rise-as').textContent = next ? 'Pick another' : 'Rise as…';
+}
+
+export function initRiseAs() {
+  $('rise-as').addEventListener('click', () => {
+    openRiseAs(game.commander, Math.ceil(game.you.respawnIn / (1000 / game.tickMs)));
+  });
 }
 
 function describeSelection(selected) {
@@ -201,9 +322,15 @@ export function notice(text) {
 export function showModeHint(mode) {
   const hint = $('mode-hint');
   hint.hidden = !mode;
-  hint.textContent = (touch() ? TOUCH_MODE_HINTS : MODE_HINTS)[mode] ?? '';
+  const aimed = aimedAbility();
+  hint.textContent = aimed ? castHint(aimed) : (touch() ? TOUCH_MODE_HINTS : MODE_HINTS)[mode] ?? '';
+  // Just above the command panel, however tall the kit makes it; touch layouts place it themselves.
+  hint.style.bottom = touch() ? '' : `${$('command').offsetHeight + 28}px`;
   for (const el of $('ability-buttons').children) {
     el.classList.toggle('active', mode === el.dataset.ability);
+  }
+  for (const el of $('kit-bar').querySelectorAll('button.ability')) {
+    el.classList.toggle('aiming', mode === `cast:${el.dataset.ability}`);
   }
 }
 

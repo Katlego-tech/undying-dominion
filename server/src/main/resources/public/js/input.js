@@ -1,5 +1,5 @@
 import {
-  game, unitAtTile, isMine, myNecromancer, playsNecromancer, renderPos, isWalkable,
+  game, unitAtTile, isMine, myNecromancer, playsNecromancer, renderPos, isWalkable, toLayout, layoutRect,
 } from './state.js';
 import { TILE } from './render.js';
 import * as cmd from './commands.js';
@@ -23,13 +23,20 @@ export function createInput(canvas, minimap, renderer) {
   let gatheredTo = null;   // the necromancer's tile the legion was last called to, while G is held
   let stick = [0, 0];      // the thumb stick's direction, as WASD would give it
 
+  /** Where a pointer event is on the page: the glass point, turned with the page on an upright phone. */
+  function at(e) {
+    return toLayout(e.clientX, e.clientY);
+  }
+
   function updatePointer(e) {
     const p = game.pointer;
-    p.sx = e.clientX;
-    p.sy = e.clientY;
+    const { x: sx, y: sy } = at(e);
+    p.sx = sx;
+    p.sy = sy;
+    p.inside = e.target === canvas;
     const { x, y, zoom } = game.camera;
-    p.tx = Math.floor((e.clientX / zoom + x) / TILE);
-    p.ty = Math.floor((e.clientY / zoom + y) / TILE);
+    p.tx = Math.floor((sx / zoom + x) / TILE);
+    p.ty = Math.floor((sy / zoom + y) / TILE);
   }
 
   function clampCamera() {
@@ -149,6 +156,10 @@ export function createInput(canvas, minimap, renderer) {
         if (cmd.explodeAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
         return;
       }
+      if (game.mode?.startsWith('cast:')) {
+        if (cmd.castAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
+        return;
+      }
       game.drag = { sx0: sx, sy0: sy, sx1: sx, sy1: sy, additive: e.shiftKey };
     } else if (e.button === 1) {
       e.preventDefault();
@@ -172,15 +183,16 @@ export function createInput(canvas, minimap, renderer) {
   window.addEventListener('mousemove', (e) => {
     updatePointer(e);
     if (game.drag) {
-      game.drag.sx1 = e.clientX;
-      game.drag.sy1 = e.clientY;
+      game.drag.sx1 = game.pointer.sx;
+      game.drag.sy1 = game.pointer.sy;
     }
     if (panning) {
-      game.camera.x = panning.x - (e.clientX - panning.sx) / game.camera.zoom;
-      game.camera.y = panning.y - (e.clientY - panning.sy) / game.camera.zoom;
+      game.camera.x = panning.x - (game.pointer.sx - panning.sx) / game.camera.zoom;
+      game.camera.y = panning.y - (game.pointer.sy - panning.sy) / game.camera.zoom;
       clampCamera();
     }
   });
+  canvas.addEventListener('mouseleave', () => { game.pointer.inside = false; });
 
   window.addEventListener('mouseup', (e) => {
     if (e.button === 0 && game.drag) finishDrag(performance.now());
@@ -278,7 +290,8 @@ export function createInput(canvas, minimap, renderer) {
     e.preventDefault();  // no compatibility mouse events: a tap is not also a click
     document.body.classList.add('touch');
     canvas.setPointerCapture(e.pointerId);
-    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = at(e);
+    fingers.set(e.pointerId, p);
     if (fingers.size === 2) {
       clearTimeout(gesture?.timer);
       game.drag = null;
@@ -286,7 +299,7 @@ export function createInput(canvas, minimap, renderer) {
       return;
     }
     if (fingers.size > 2) return;
-    gesture = { kind: 'press', x0: e.clientX, y0: e.clientY, camX: game.camera.x, camY: game.camera.y };
+    gesture = { kind: 'press', x0: p.x, y0: p.y, camX: game.camera.x, camY: game.camera.y };
     gesture.timer = setTimeout(() => {
       if (gesture?.kind !== 'press') return;
       gesture.kind = 'hold';
@@ -297,7 +310,8 @@ export function createInput(canvas, minimap, renderer) {
 
   canvas.addEventListener('pointermove', (e) => {
     if (e.pointerType !== 'touch' || !fingers.has(e.pointerId)) return;
-    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = at(e);
+    fingers.set(e.pointerId, p);
     if (!gesture) return;
     const cam = game.camera;
     if (gesture.kind === 'pinch' && fingers.size >= 2) {
@@ -311,19 +325,19 @@ export function createInput(canvas, minimap, renderer) {
       clampCamera();
       return;
     }
-    const moved = Math.hypot(e.clientX - gesture.x0, e.clientY - gesture.y0) > TAP_SLOP;
+    const moved = Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > TAP_SLOP;
     if (gesture.kind === 'press' && moved) {
       clearTimeout(gesture.timer);
       gesture.kind = 'pan';
       setFollow(false);
     }
     if (gesture.kind === 'pan') {
-      cam.x = gesture.camX - (e.clientX - gesture.x0) / cam.zoom;
-      cam.y = gesture.camY - (e.clientY - gesture.y0) / cam.zoom;
+      cam.x = gesture.camX - (p.x - gesture.x0) / cam.zoom;
+      cam.y = gesture.camY - (p.y - gesture.y0) / cam.zoom;
       clampCamera();
     } else if (gesture.kind === 'hold' && game.drag) {
-      game.drag.sx1 = e.clientX;
-      game.drag.sy1 = e.clientY;
+      game.drag.sx1 = p.x;
+      game.drag.sy1 = p.y;
       game.drag.moved ||= moved;
     }
   });
@@ -348,7 +362,8 @@ export function createInput(canvas, minimap, renderer) {
       const dragged = game.drag?.moved;
       if (dragged) {
         // A box that came back to a point picks the unit there, so give finishDrag this finger's tile.
-        Object.assign(game.pointer, { sx: e.clientX, sy: e.clientY }, tileAt(e.clientX, e.clientY));
+        const p = at(e);
+        Object.assign(game.pointer, { sx: p.x, sy: p.y }, tileAt(p.x, p.y));
         finishDrag(performance.now());
       } else {
         game.drag = null;
@@ -387,6 +402,10 @@ export function createInput(canvas, minimap, renderer) {
       if (cmd.explodeAt(tx, ty)) cmd.setMode(null);
       return;
     }
+    if (game.mode?.startsWith('cast:')) {
+      if (cmd.castAt(tx, ty)) cmd.setMode(null);
+      return;
+    }
     if (unit && isMine(unit)) {
       if (double) {
         selectSameTypeOnScreen(unit);
@@ -407,10 +426,11 @@ export function createInput(canvas, minimap, renderer) {
   let stickFinger = null;
 
   function steer(e) {
-    const rect = stickEl.getBoundingClientRect();
+    const rect = layoutRect(stickEl);
     const radius = rect.width / 2;
-    let dx = e.clientX - (rect.left + radius);
-    let dy = e.clientY - (rect.top + radius);
+    const p = at(e);
+    let dx = p.x - (rect.left + radius);
+    let dy = p.y - (rect.top + radius);
     const length = Math.hypot(dx, dy);
     if (length > radius) {
       dx *= radius / length;
@@ -461,19 +481,21 @@ export function createInput(canvas, minimap, renderer) {
   // ---------------------------------------------------------------- minimap
 
   function minimapJump(e) {
-    const rect = minimap.getBoundingClientRect();
-    const tx = ((e.clientX - rect.left) / rect.width) * game.map.width;
-    const ty = ((e.clientY - rect.top) / rect.height) * game.map.height;
+    const rect = layoutRect(minimap);
+    const p = at(e);
+    const tx = ((p.x - rect.left) / rect.width) * game.map.width;
+    const ty = ((p.y - rect.top) / rect.height) * game.map.height;
     centerOn(tx - 0.5, ty - 0.5);
     setFollow(false);
   }
   minimap.addEventListener('mousedown', (e) => {
     if (!game.map) return;
     if (e.button === 2 && game.selection.size) {
-      const rect = minimap.getBoundingClientRect();
+      const rect = layoutRect(minimap);
+      const p = at(e);
       cmd.moveTo(
-        Math.floor(((e.clientX - rect.left) / rect.width) * game.map.width),
-        Math.floor(((e.clientY - rect.top) / rect.height) * game.map.height),
+        Math.floor(((p.x - rect.left) / rect.width) * game.map.width),
+        Math.floor(((p.y - rect.top) / rect.height) * game.map.height),
         false,
       );
       return;
@@ -488,6 +510,8 @@ export function createInput(canvas, minimap, renderer) {
 
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || !game.map || document.body.classList.contains('reading')) return;
+    // The picker is open over the field ("Rise as another"): its keys are its own.
+    if (!document.getElementById('join').hidden) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const key = e.key.toLowerCase();
     if (key === 'p' && !e.repeat) {
@@ -516,10 +540,10 @@ export function createInput(canvas, minimap, renderer) {
     }
     switch (key) {
       case 'c': cmd.beginAttackMove(); break;
-      // A commander's abilities take these keys with the commander screens (T075).
-      case 'r': if (playsNecromancer()) cmd.beginRaise(); break;
-      case 'x': if (playsNecromancer()) cmd.beginExplode(); break;
-      case 'f': if (playsNecromancer()) cmd.fuse(); break;
+      // The necromancer's raise, explode and fuse keys are a commander's three abilities, so the hand never moves.
+      case 'r': if (playsNecromancer()) cmd.beginRaise(); else cmd.useAbility('BASIC'); break;
+      case 'x': if (playsNecromancer()) cmd.beginExplode(); else cmd.useAbility('SIGNATURE'); break;
+      case 'f': if (playsNecromancer()) cmd.fuse(); else cmd.useAbility('UTILITY'); break;
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;
       case 'h': cmd.stop(); break;

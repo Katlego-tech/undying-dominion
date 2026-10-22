@@ -1,6 +1,10 @@
 import {
-  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, label, terrainAt,
+  game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, label, terrainAt, viewport as pageSize,
+  kitOf, aimedAbility, canTarget,
 } from './state.js';
+import {
+  roleOf, familyOf, FAMILY_COLORS, statusName,
+} from './kits.js';
 
 export const TILE = 28;
 
@@ -47,8 +51,7 @@ export function createRenderer(canvas, minimap) {
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    vw = window.innerWidth;
-    vh = window.innerHeight;
+    ({ width: vw, height: vh } = pageSize());
     canvas.width = Math.round(vw * dpr);
     canvas.height = Math.round(vh * dpr);
   }
@@ -470,6 +473,13 @@ export function createRenderer(canvas, minimap) {
     },
   };
 
+  // Role marks as canvas paths, from the same SVG data the picker draws.
+  const ROLE_MARKS = new Map();
+  function roleMark(role) {
+    if (!ROLE_MARKS.has(role)) ROLE_MARKS.set(role, new Path2D(roleOf(role).mark));
+    return ROLE_MARKS.get(role);
+  }
+
   function glyphFor(type) {
     return GLYPHS[type] ?? LOOKS[game.unitTypes[type]?.look] ?? GLYPHS.SKELETON_WARRIOR;
   }
@@ -488,6 +498,8 @@ export function createRenderer(canvas, minimap) {
     const r = unitRadius(unit.type);
     const color = colorOf(unit.owner);
     const selected = game.selection.has(unit.id);
+    const stealthed = unit.statuses?.some((s) => s.id === 'stealthed');
+    if (stealthed) ctx.globalAlpha = 0.5;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
     ctx.beginPath();
@@ -553,17 +565,76 @@ export function createRenderer(canvas, minimap) {
       ctx.stroke();
     }
 
+    ctx.globalAlpha = 1;
+    if (stealthed) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(232, 226, 208, 0.7)';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 3, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const maxHp = game.unitTypes[unit.type]?.maxHp ?? unit.hp;
-    if (unit.hp < maxHp || selected) {
+    const y0 = cy - r - 7;
+    // A shielded unit always shows its health bar, so the shield line has something to lie on.
+    if (unit.hp < maxHp || selected || unit.shield > 0) {
       const ratio = unit.hp / maxHp;
       const w = r * 2;
       const x0 = cx - r;
-      const y0 = cy - r - 7;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
       ctx.fillRect(x0 - 1, y0 - 1, w + 2, 5);
       ctx.fillStyle = ratio > 0.6 ? '#4ade80' : ratio > 0.3 ? '#fbbf24' : '#f87171';
       ctx.fillRect(x0, y0, w * ratio, 3);
     }
+    if (unit.shield > 0) drawShield(cx, r, y0, unit.shield / maxHp);
+    const kit = kitOf(unit);
+    if (kit) drawRoleMark(kit, cx, y0 - (unit.shield > 0 ? 16 : 13), color);
+    drawPips(unit, cx, cy - r - 1);
+  }
+
+  /** A pale line, lightly glowing, over the health bar's top edge: its length the shield's share of max hp. */
+  function drawShield(cx, r, y0, share) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(cx - r - 1, y0 - 5, r * 2 + 2, 4);
+    ctx.fillStyle = '#e0f2fe';
+    ctx.shadowColor = '#bae6fd';
+    ctx.shadowBlur = 6;
+    ctx.fillRect(cx - r, y0 - 4, r * 2 * Math.min(1, share), 2);
+    ctx.shadowBlur = 0;
+  }
+
+  /** A commander's role mark above its health bar, on a dark disc, in its owner's colour. */
+  function drawRoleMark(kit, cx, top, color) {
+    const s = 11 / 24;
+    ctx.save();
+    ctx.fillStyle = 'rgba(9, 8, 12, 0.85)';
+    ctx.beginPath();
+    ctx.arc(cx, top + 5.5, 8, 0, TAU);
+    ctx.fill();
+    ctx.translate(cx - 5.5, top);
+    ctx.scale(s, s);
+    ctx.fillStyle = color;
+    ctx.fill(roleMark(kit.role), 'evenodd');
+    ctx.restore();
+  }
+
+  /** One pip per status under the health bar, at most five, coloured by family. Stealth is the dashed ring instead. */
+  function drawPips(unit, cx, y) {
+    const pips = (unit.statuses ?? []).filter((s) => s.id !== 'stealthed').slice(0, 5);
+    pips.forEach((s, i) => {
+      const px = cx - ((pips.length - 1) * 6) / 2 + i * 6;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.beginPath();
+      ctx.arc(px, y, 3, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = FAMILY_COLORS[familyOf(s.id.toUpperCase())];
+      ctx.beginPath();
+      ctx.arc(px, y, 2, 0, TAU);
+      ctx.fill();
+    });
   }
 
   /**
@@ -724,6 +795,19 @@ export function createRenderer(canvas, minimap) {
           }
           break;
         }
+        case 'cast-flash':
+          ctx.fillStyle = `rgba(232, 226, 208, ${0.5 * (1 - k)})`;
+          ctx.beginPath();
+          ctx.arc(x, y, TILE * (0.3 + 0.4 * k), 0, TAU);
+          ctx.fill();
+          break;
+        case 'cast-ring': {
+          const half = (e.radius + 0.5) * TILE;
+          ctx.strokeStyle = `rgba(167, 139, 250, ${1 - k})`;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x - half * (0.6 + 0.4 * k), y - half * (0.6 + 0.4 * k), half * 2 * (0.6 + 0.4 * k), half * 2 * (0.6 + 0.4 * k));
+          break;
+        }
         case 'marker':
           ctx.strokeStyle = e.hostile ? `rgba(248, 113, 113, ${1 - k})` : `rgba(94, 234, 212, ${1 - k})`;
           ctx.lineWidth = 2;
@@ -781,9 +865,8 @@ export function createRenderer(canvas, minimap) {
 
   // ---------------------------------------------------------------- overlays
 
-  function drawRaiseRange(necromancer, now, color = '94, 234, 212') {
+  function drawRaiseRange(necromancer, now, color = '94, 234, 212', range = game.rules.raiseRange) {
     const p = renderPos(necromancer, now);
-    const range = game.rules.raiseRange;
     ctx.strokeStyle = `rgba(${color}, 0.55)`;
     ctx.setLineDash([6, 6]);
     ctx.lineWidth = 1.5;
@@ -791,6 +874,44 @@ export function createRenderer(canvas, minimap) {
     ctx.setLineDash([]);
     ctx.fillStyle = `rgba(${color}, 0.04)`;
     ctx.fillRect((p.x - range) * TILE, (p.y - range) * TILE, (range * 2 + 1) * TILE, (range * 2 + 1) * TILE);
+  }
+
+  /**
+   * An ability in hand: its range as the dashed square round the commander (Chebyshev tiles); for a
+   * tile, the blast as a violet square under the cursor; and a violet floor ring under whoever it would land on.
+   */
+  function drawTargeting(ability, caster, now) {
+    if (ability.range) drawRaiseRange(caster, now, '94, 234, 212', ability.range);
+    const { tx, ty, inside } = game.pointer;
+    if (!inside) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(167, 139, 250, 0.85)';
+    ctx.lineWidth = 1.5;
+    if (ability.target === 'TILE') {
+      const rad = ability.radius ?? 0;
+      ctx.fillStyle = 'rgba(167, 139, 250, 0.14)';
+      ctx.fillRect((tx - rad) * TILE, (ty - rad) * TILE, (rad * 2 + 1) * TILE, (rad * 2 + 1) * TILE);
+      ctx.strokeRect((tx - rad) * TILE, (ty - rad) * TILE, (rad * 2 + 1) * TILE, (rad * 2 + 1) * TILE);
+      ctx.strokeStyle = 'rgba(232, 226, 208, 0.9)';
+      ctx.strokeRect(tx * TILE + 2, ty * TILE + 2, TILE - 4, TILE - 4);
+      ctx.strokeStyle = 'rgba(167, 139, 250, 0.85)';
+      for (const u of game.units.values()) {
+        if (isMine(u) || Math.max(Math.abs(u.x - tx), Math.abs(u.y - ty)) > rad) continue;
+        floorRing(u, now);
+      }
+    } else {
+      for (const u of game.units.values()) {
+        if (u.x === tx && u.y === ty && canTarget(ability, u)) floorRing(u, now);
+      }
+    }
+    ctx.restore();
+  }
+
+  function floorRing(unit, now) {
+    const p = renderPos(unit, now);
+    ctx.beginPath();
+    ctx.ellipse((p.x + 0.5) * TILE, (p.y + 0.5) * TILE + TILE * 0.2, TILE * 0.42, TILE * 0.18, 0, 0, TAU);
+    ctx.stroke();
   }
 
   function drawHoverTile() {
@@ -816,7 +937,12 @@ export function createRenderer(canvas, minimap) {
         const maxHp = game.unitTypes[unit.type]?.maxHp ?? unit.hp;
         const owner = unit.owner === 0 ? 'Wild' : game.players.find((p) => p.id === unit.owner)?.name ?? '';
         const timeLeft = unit.expiresIn != null ? ` · ${clock(unit.expiresIn)} left` : '';
-        text = `${unit.raised ? 'Raised ' : ''}${levelledLabel(unit.type)} · ${unit.hp}/${maxHp}${timeLeft}${owner && !isMine(unit) ? ` · ${owner}` : ''}`;
+        const kit = kitOf(unit);
+        const parts = [`${unit.raised ? 'Raised ' : ''}${levelledLabel(unit.type)}${kit ? `, ${kit.title}` : ''} · ${unit.hp}/${maxHp}${timeLeft}`];
+        if (unit.shield > 0) parts.push(`shield ${unit.shield}`);
+        for (const s of unit.statuses ?? []) parts.push(`${statusName(s.id.toUpperCase())} ${Math.ceil(s.for)}s`);
+        if (owner && !isMine(unit)) parts.push(owner);
+        text = parts.join(' · ');
         break;
       }
     }
@@ -881,6 +1007,10 @@ export function createRenderer(canvas, minimap) {
         if (canRaise(corpse, necromancer)) drawCorpseLabel(corpse);
       }
     }
+
+    // An ability in hand is drawn over the units, so its rings show who it would land on.
+    const aimed = aimedAbility();
+    if (aimed && necromancer) drawTargeting(aimed, necromancer, now);
 
     drawEffects(now);
 

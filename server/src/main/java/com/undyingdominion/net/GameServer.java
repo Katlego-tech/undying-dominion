@@ -121,6 +121,8 @@ public class GameServer {
             // Robot Worlds' Web API iteration asked for GET /world: the world's layout as JSON.
             // Unit positions are left out so the API cannot be used to see through the fog.
             config.routes.get("/api/world", ctx -> ctx.contentType("application/json").result(worldJson.get()));
+            // The join form shows the kits before there's a socket (docs/design/characters.md §6 Client).
+            config.routes.get("/roster", ctx -> ctx.contentType("application/json").result(rosterJson()));
         });
 
         app.start(port);
@@ -392,6 +394,14 @@ public class GameServer {
         engine.submit(new Command.Leave(seat.playerId));
         runOnLoop(() -> released(seat.playerId));
         log.info("{} left the Dominion", seat.name);
+    }
+
+    /** The pickable kits and the unit types they name; nothing in a campaign, where the form is a name box. */
+    private String rosterJson() {
+        Roster roster = this.roster;
+        return roster == null
+                ? new JSONObject().put("roster", new JSONArray()).put("unitTypes", new JSONObject()).toString()
+                : new JSONObject().put("roster", roster.pvpKits()).put("unitTypes", SnapshotWriter.unitTypes()).toString();
     }
 
     private static String welcome(Seat seat, GameEngine engine, Roster roster) {
