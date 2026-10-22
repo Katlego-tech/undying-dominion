@@ -99,8 +99,8 @@ docker run -p 5050:5050 -v dominion-data:/data undying-dominion
   labelled with what it is and its cost.
 - **The raised take no room in the legion**, but they last only as long as their master's power
   holds them: **2 minutes plus 30 seconds per level** of the necromancer who raised them. Then it returns to the dead, leaving no second corpse. Its tooltip shows the time left,
-  and a ring drains around it in its last 30 seconds. The HUD shows how many you have raised next to
-  your legion.
+  and a ring drains around it in its last 30 seconds. Only summoned warriors can fuse into a
+  Skeleton King. The HUD shows how many you have raised next to your legion.
 - **If your necromancer falls**, your whole legion crumbles into corpses for the others to take. You
   rise again elsewhere after six seconds with half your soul.
 - **Mending and trap-laying are commitments.** A unit doing either ignores orders until it finishes,

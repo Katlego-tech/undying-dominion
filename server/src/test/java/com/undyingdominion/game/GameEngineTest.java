@@ -350,6 +350,30 @@ class GameEngineTest {
     }
 
     @Test
+    void raisedWarriorsCannotBeFusedIntoAPermanentKing() {
+        Position necromancer = necromancerOf(vesper).getPosition();
+        for (int i = 0; i < 5; i++) {
+            spawnNear(UnitType.SKELETON_WARRIOR, 99, necromancer, 2 + i % 3, 2 + i / 3).takeDamage(10_000, vesper.getId());
+        }
+        engine.tick();
+        vesper.setSoul(200);
+        for (Corpse corpse : List.copyOf(engine.getCorpses())) {
+            engine.submit(new Command.Raise(vesper.getId(), corpse.id()));
+        }
+        engine.tick();
+        List<Integer> raised = owned(vesper, UnitType.SKELETON_WARRIOR).stream().map(Unit::getId).toList();
+        assertEquals(5, raised.size());
+        vesper.takeNotices();
+
+        engine.submit(new Command.Fuse(vesper.getId(), raised));
+        engine.tick();
+
+        assertTrue(owned(vesper, UnitType.SKELETON_KING).isEmpty(), "a king would be permanent and counted, escaping both limits");
+        assertEquals(5, engine.raisedSizeOf(vesper));
+        assertTrue(vesper.takeNotices().contains("Only summoned Skeleton Warriors can be fused. The raised are held only for a while."));
+    }
+
+    @Test
     void fourWarriorsAreNotEnoughToFuse() {
         Position necromancer = necromancerOf(vesper).getPosition();
         List<Integer> ids = new java.util.ArrayList<>();

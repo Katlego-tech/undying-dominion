@@ -314,12 +314,20 @@ public class GameEngine {
                 corpse.position().x(), corpse.position().y(), 0, 0));
     }
 
+    /**
+     * Fuses summoned Skeleton Warriors into a Skeleton King. Raised warriors can't take part: the king
+     * is summoned and permanent, so fusing the raised would turn units that take no legion room and
+     * expire into one that counts and never does.
+     */
     private void fuse(Player player, List<Integer> unitIds) {
-        List<Unit> warriors = ownedUnits(player, unitIds).stream()
+        List<Unit> selected = ownedUnits(player, unitIds).stream()
                 .filter(u -> u.getType() == UnitType.SKELETON_WARRIOR && !u.isRooted())
                 .toList();
+        List<Unit> warriors = selected.stream().filter(u -> !u.isRaised()).toList();
         if (warriors.size() < rules.fuseCount()) {
-            player.notice("Select at least " + rules.fuseCount() + " Skeleton Warriors to fuse.");
+            player.notice(warriors.size() < selected.size()
+                    ? "Only summoned Skeleton Warriors can be fused. The raised are held only for a while."
+                    : "Select at least " + rules.fuseCount() + " Skeleton Warriors to fuse.");
             return;
         }
         Position centre = centroid(warriors);
