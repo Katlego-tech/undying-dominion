@@ -17,6 +17,7 @@ import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -25,6 +26,8 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 /** Runs a Dominion with the full-screen dashboard in the terminal that started it. */
 public final class ServerTui {
@@ -74,7 +77,7 @@ public final class ServerTui {
         AtomicReference<Boolean> running = new AtomicReference<>(true);
         AdminConsole console = new AdminConsole(server, InputStream.nullInputStream(), captured,
                 () -> running.set(false)).withStory(dominion.story()).withSaves(dominion.saves());
-        String lanUrl = lanAddress() == null ? null : "http://" + lanAddress() + ":" + port;
+        Supplier<String> lanUrl = inviteLink(ServerTui::lanAddress, port, System::nanoTime);
 
         Dashboard[] holder = new Dashboard[1];
         Dashboard dashboard = new Dashboard(dominion.map(), mapName(options), port, options.maxPlayers(), lanUrl, log,
@@ -103,8 +106,9 @@ public final class ServerTui {
                     }
                 });
         holder[0] = dashboard;
+        String invite = lanUrl.get();
         log.add("The Dominion is open on port " + port + ". Players join at http://localhost:" + port
-                + (lanUrl == null ? "" : " or " + lanUrl));
+                + (invite == null ? "" : " or " + invite));
 
         screen.startScreen();
         screen.setCursorPosition(null);
@@ -169,11 +173,51 @@ public final class ServerTui {
         return "No browser available here. Open " + url + " yourself.";
     }
 
-    /** This machine's address on the local network, for inviting players, or null if there is none. */
+    /** How often the invite link is looked up again, so it follows the machine onto a new network. */
+    private static final long INVITE_REFRESH_NANOS = 5_000_000_000L;
+
+    /** The link other players open, from {@code address}, looked up again every few seconds. */
+    static Supplier<String> inviteLink(Supplier<String> address, int port, LongSupplier nanoClock) {
+        return new Supplier<>() {
+            private String url;
+            private long lookedUpAt;
+            private boolean looked;
+
+            @Override
+            public synchronized String get() {
+                long now = nanoClock.getAsLong();
+                if (!looked || now - lookedUpAt >= INVITE_REFRESH_NANOS) {
+                    String host = address.get();
+                    url = host == null ? null : "http://" + host + ":" + port;
+                    lookedUpAt = now;
+                    looked = true;
+                }
+                return url;
+            }
+        };
+    }
+
+    /** Container and virtual-machine bridges: a phone on the same Wi-Fi can't reach them. */
+    static boolean invitable(String nicName) {
+        return !nicName.matches("(docker|br-|virbr|veth|vmnet|vboxnet).*");
+    }
+
+    /**
+     * This machine's address on the local network, for inviting players, or null if there is none: the
+     * address its default route leaves from, else the first one that isn't a bridge.
+     */
     static String lanAddress() {
+        // Connecting a UDP socket sends nothing; it only asks which local address the route would use.
+        try (DatagramSocket probe = new DatagramSocket()) {
+            probe.connect(InetAddress.getByAddress(new byte[] {8, 8, 8, 8}), 53);
+            InetAddress local = probe.getLocalAddress();
+            if (local instanceof Inet4Address && local.isSiteLocalAddress()) return local.getHostAddress();
+        } catch (IOException | RuntimeException ignored) {
+            // no default route; fall back to the interfaces
+        }
         try {
             for (NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!nic.isUp() || nic.isLoopback() || nic.isVirtual()) continue;
+                if (!nic.isUp() || nic.isLoopback() || nic.isVirtual() || !invitable(nic.getName())) continue;
                 for (InetAddress address : Collections.list(nic.getInetAddresses())) {
                     if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
                         return address.getHostAddress();

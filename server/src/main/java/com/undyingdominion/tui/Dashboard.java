@@ -17,6 +17,7 @@ import com.undyingdominion.world.Terrain;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 /**
  * The server dashboard: a fog-free view of the whole world, the necromancers, and the log, drawn on
@@ -61,7 +62,7 @@ public class Dashboard {
     private final String mapName;
     private final int port;
     private final int maxPlayers;
-    private final String lanUrl;
+    private final Supplier<String> lanUrl;
     private final LogBuffer log;
     private final Actions actions;
 
@@ -73,7 +74,7 @@ public class Dashboard {
     private String paused;
     private long statusUntil;
 
-    public Dashboard(GameMap map, String mapName, int port, int maxPlayers, String lanUrl, LogBuffer log, Actions actions) {
+    public Dashboard(GameMap map, String mapName, int port, int maxPlayers, Supplier<String> lanUrl, LogBuffer log, Actions actions) {
         this.map = map;
         this.mapName = mapName;
         this.port = port;
@@ -232,7 +233,8 @@ public class Dashboard {
         x = segment(g, x, "tick " + String.format(Locale.ROOT, "%,d", snapshot.tick()), DIM, width);
         x = segment(g, x, String.format(Locale.ROOT, "%.1f ms", snapshot.tickMillis()), snapshot.tickMillis() > 50 ? BLOOD : DIM, width);
         x = segment(g, x, snapshot.players().size() + "/" + maxPlayers + " necromancers", DIM, width);
-        if (lanUrl != null) segment(g, x, lanUrl, VIOLET, width);
+        String invite = lanUrl.get();
+        if (invite != null) segment(g, x, invite, VIOLET, width);
         g.setBackgroundColor(BG);
     }
 
