@@ -24,7 +24,7 @@ public final class UnitType {
     private static final Map<String, UnitType> REGISTRY = new LinkedHashMap<>();
 
     //                                                   label               hp  dmg rng atkCd mvCd aggro vision summon raise soul  xp splash chase  neutral
-    public static final UnitType NECROMANCER      = builtIn("NECROMANCER",      "Necromancer",     220,  9,  3,  12,   4,   3,    8,    -1,   -1,  40, 100, 0, false, false, Look.UNDEAD);
+    public static final UnitType NECROMANCER      = register(row("NECROMANCER", "Necromancer",  220,  9,  3,  12,   4,   3,    8,    -1,   -1,  40, 100, 0, false, false, Look.UNDEAD).commander(true).build());
     public static final UnitType SKELETON_WARRIOR = builtIn("SKELETON_WARRIOR", "Skeleton Warrior", 60, 10,  1,   8,   4,   5,    6,    20,   12,   6,   8, 0, true,  false, Look.UNDEAD);
     public static final UnitType SKELETON_ARCHER  = builtIn("SKELETON_ARCHER",  "Skeleton Archer",  35,  7,  5,  12,   4,   6,    7,    30,   18,   8,  10, 0, true,  false, Look.UNDEAD);
     public static final UnitType LICH             = builtIn("LICH",             "Lich",             75, 16,  4,  20,   6,   5,    7,    70,   40,  20,  25, 1, true,  false, Look.UNDEAD);
@@ -59,6 +59,8 @@ public final class UnitType {
     public final boolean boss;
     /** Rooted in place, like a tree that lashes out at whatever comes near. */
     public final boolean stationary;
+    /** A player's own body on the field: the necromancer, or a PvP commander's unit. */
+    public final boolean commander;
 
     private UnitType(Builder b) {
         this.name = b.name;
@@ -81,18 +83,27 @@ public final class UnitType {
         this.level = b.level;
         this.boss = b.boss;
         this.stationary = b.stationary;
+        this.commander = b.commander;
     }
 
     private static UnitType builtIn(String name, String label, int maxHp, int damage, int range, int attackCooldown,
                                     int moveCooldown, int aggroRange, int visionRange, int summonCost, int raiseCost,
                                     int soulValue, int xpValue, int splashRadius, boolean chasesWhenIdle,
                                     boolean neutral, Look look) {
+        return register(row(name, label, maxHp, damage, range, attackCooldown, moveCooldown, aggroRange, visionRange,
+                summonCost, raiseCost, soulValue, xpValue, splashRadius, chasesWhenIdle, neutral, look).build());
+    }
+
+    private static Builder row(String name, String label, int maxHp, int damage, int range, int attackCooldown,
+                               int moveCooldown, int aggroRange, int visionRange, int summonCost, int raiseCost,
+                               int soulValue, int xpValue, int splashRadius, boolean chasesWhenIdle,
+                               boolean neutral, Look look) {
         Builder b = builder(name, label).stats(maxHp, damage, range, attackCooldown, moveCooldown)
                 .senses(aggroRange, visionRange).costs(summonCost, raiseCost).rewards(soulValue, xpValue)
                 .splash(splashRadius).look(look);
         b.chasesWhenIdle = chasesWhenIdle;
         b.neutral = neutral;
-        return register(b.build());
+        return b;
     }
 
     /** Adds a type so it can be looked up by name. A type with the same name replaces the old one. */
@@ -122,6 +133,7 @@ public final class UnitType {
     public boolean isRaisable()   { return raiseCost >= 0; }
     public boolean canAttack()    { return damage > 0; }
     public boolean laysTraps()    { return this == GRAVE_WARDEN; }
+    public boolean isCommander()  { return commander; }
 
     /**
      * How close an enemy trap must be before this unit notices it: a quarter of its vision,
@@ -143,7 +155,7 @@ public final class UnitType {
         private int maxHp = 50, damage = 8, range = 1, attackCooldown = 10, moveCooldown = 4;
         private int aggroRange = 5, visionRange = 6;
         private int summonCost = -1, raiseCost = 15, soulValue = 8, xpValue = 10, splashRadius;
-        private boolean chasesWhenIdle = true, neutral = true, boss, stationary;
+        private boolean chasesWhenIdle = true, neutral = true, boss, stationary, commander;
         private Look look = Look.BEAST;
         private int level;
 
@@ -187,6 +199,9 @@ public final class UnitType {
         public Builder level(int level) { this.level = level; return this; }
         public Builder boss(boolean boss) { this.boss = boss; return this; }
         public Builder stationary(boolean stationary) { this.stationary = stationary; return this; }
+        public Builder commander(boolean commander) { this.commander = commander; return this; }
+        public Builder chasesWhenIdle(boolean chases) { this.chasesWhenIdle = chases; return this; }
+        public Builder neutral(boolean neutral) { this.neutral = neutral; return this; }
 
         public UnitType build() {
             if (stationary) chasesWhenIdle = false;
