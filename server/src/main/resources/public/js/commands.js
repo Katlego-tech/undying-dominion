@@ -1,9 +1,10 @@
 // Every order the player can give, used by the keyboard, the mouse and the command bar alike.
 
 import {
-  game, selectedUnits, myNecromancer, corpseNear, isMine,
+  game, selectedUnits, myNecromancer, corpseNear, isMine, unitAtTile, canTarget, aimedAbility,
 } from './state.js';
 import { notice, showModeHint } from './hud.js';
+import { needsTarget } from './kits.js';
 
 function selectedIds() {
   return selectedUnits().map((u) => u.id);
@@ -185,7 +186,7 @@ export function beginRaise() {
 export function selectLegion() {
   game.selection.clear();
   for (const unit of game.units.values()) {
-    if (isMine(unit) && unit.type !== 'NECROMANCER') game.selection.add(unit.id);
+    if (isMine(unit) && unit.id !== game.you?.necromancerId) game.selection.add(unit.id);
   }
 }
 
@@ -193,4 +194,61 @@ export function selectNecromancer() {
   const necromancer = myNecromancer();
   game.selection.clear();
   if (necromancer) game.selection.add(necromancer.id);
+}
+
+// ---------------------------------------------------------------- a commander's abilities
+
+const NEEDS = { ENEMY: 'an enemy', ALLY: 'an ally', ENEMY_COMMANDER: 'an enemy commander' };
+
+/** Why the commander can't use this ability right now, in the server's own words, or null if it can. */
+export function refusal(ability) {
+  const you = game.you;
+  const commander = myNecromancer();
+  if (!commander) return `The fallen cannot use ${ability.label}.`;
+  if (commander.statuses?.some((s) => s.id === 'silenced')) return 'You are silenced.';
+  const left = you.cooldowns?.[ability.id] ?? 0;
+  if (left > 0) return `${ability.label} is ready in ${Math.ceil(left)}s.`;
+  if (you.soul < ability.cost) return `Not enough ${game.commander.energy} for ${ability.label}.`;
+  return null;
+}
+
+/** R, F or X: casts an ability that needs no target, or takes aim with one that does. */
+export function useAbility(slot) {
+  const ability = game.commander?.abilities?.find((a) => a.slot === slot);
+  if (!ability) return;
+  if (game.mode === `cast:${ability.id}`) {
+    setMode(null);
+    return;
+  }
+  const why = refusal(ability);
+  if (why) {
+    notice(why);
+    return;
+  }
+  if (needsTarget(ability)) setMode(`cast:${ability.id}`);
+  else game.send({ command: 'cast', ability: ability.id });
+}
+
+/** Casts the aimed ability at this tile, or at the unit on it. Returns whether it was cast. */
+export function castAt(tx, ty) {
+  const ability = aimedAbility();
+  if (!ability) return false;
+  if (ability.target === 'TILE') {
+    game.send({ command: 'cast', ability: ability.id, x: tx, y: ty });
+    marker(tx, ty, true);
+    return true;
+  }
+  const unit = unitAtTile(tx, ty);
+  if (!canTarget(ability, unit)) {
+    notice(`${ability.label} needs ${NEEDS[ability.target]}.`);
+    return false;
+  }
+  game.send({ command: 'cast', ability: ability.id, target: unit.id });
+  marker(unit.x, unit.y, ability.target !== 'ALLY');
+  return true;
+}
+
+/** Picks the commander to rise as next. */
+export function pick(id) {
+  game.send({ command: 'pick', commander: id });
 }

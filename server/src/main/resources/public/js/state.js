@@ -13,6 +13,8 @@ export const game = {
   unitTypes: {},
   /** The player's commander kit from the welcome: its retinue is what the summon buttons offer. */
   commander: null,
+  /** Every PvP kit, by id: a commander unit's type is its kit's id. Empty in a campaign. */
+  kits: {},
   rules: {},
 
   tick: 0,
@@ -28,7 +30,7 @@ export const game = {
   fogVersion: 0,
 
   selection: new Set(),
-  mode: null,           // null | 'attack-move' | 'raise' | 'explode'
+  mode: null,           // null | 'attack-move' | 'raise' | 'explode' | 'cast:<ability id>'
   story: null,          // the campaign's progress, from the latest state
   paused: null,         // { by, reason: 'player' | 'host' | 'story' } while the world is stopped
   effects: [],
@@ -79,6 +81,26 @@ export function isMine(unit) {
 /** Whether the player is the necromancer (always, in a campaign), rather than a PvP commander. */
 export function playsNecromancer() {
   return !game.commander || game.commander.role === 'NECROMANCER';
+}
+
+/** The kit a commander unit plays, or null for any other unit. */
+export function kitOf(unit) {
+  return game.kits[unit.type] ?? null;
+}
+
+/** The ability the player is aiming, while in a cast mode. */
+export function aimedAbility() {
+  if (!game.mode?.startsWith('cast:')) return null;
+  const id = game.mode.slice(5);
+  return game.commander?.abilities?.find((a) => a.id === id) ?? null;
+}
+
+/** Whether the aimed ability may be cast on this unit: an ally is one of yours, an enemy anyone else's. */
+export function canTarget(ability, unit) {
+  if (!unit) return false;
+  if (ability.target === 'ALLY') return isMine(unit);
+  if (ability.target === 'ENEMY_COMMANDER') return !isMine(unit) && !!kitOf(unit);
+  return ability.target === 'ENEMY' && !isMine(unit);
 }
 
 export function myNecromancer() {
@@ -144,4 +166,59 @@ export function resetWorld() {
   game.effects = [];
   game.selection.clear();
   game.mode = null;
+}
+
+// ---------------------------------------------------------------- landscape only
+
+// On a phone the game is landscape from load, and never asks to be turned (docs/design/characters.md
+// §6 Client). Held upright, the page draws itself a quarter turned clockwise (body.turned in
+// style.css), so the renderer and input read the turned size and map every touch through toLayout().
+const coarse = window.matchMedia('(pointer: coarse)').matches;
+// The part of the screen actually on show: a phone's address bar takes some of 100vh, so the page is sized from this.
+const glass = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+/** A phone held upright: tablets are never turned. */
+export function isTurned() {
+  const { w, h } = glass();
+  return coarse && h > w && w <= 500;
+}
+
+/** The page's size as it's laid out: the screen's, or its height × width while turned. */
+export function viewport() {
+  const { w, h } = glass();
+  return isTurned() ? { width: h, height: w } : { width: w, height: h };
+}
+
+/** A point on the glass to a point on the page: x' = y, y' = W − x while turned. */
+export function toLayout(x, y) {
+  return isTurned() ? { x: y, y: glass().w - x } : { x, y };
+}
+
+/** An element's box on the page, from its box on the glass. */
+export function layoutRect(el) {
+  const r = el.getBoundingClientRect();
+  if (!isTurned()) return { left: r.left, top: r.top, width: r.width, height: r.height };
+  return { left: r.top, top: glass().w - r.right, width: r.height, height: r.width };
+}
+
+/** Marks a phone (a touch screen at most 500 px on its short side) and whether it's held upright. */
+export function applyOrientation() {
+  const { w, h } = glass();
+  document.body.classList.toggle('phone', coarse && Math.min(w, h) <= 500);
+  document.body.classList.toggle('turned', isTurned());
+  const page = viewport();
+  const root = document.documentElement.style;
+  root.setProperty('--glass-w', `${w}px`);
+  root.setProperty('--glass-h', `${h}px`);
+  root.setProperty('--page-w', `${page.width}px`);
+  root.setProperty('--page-h', `${page.height}px`);
+}
+
+/** On a phone's first tap, where the browser allows it: fullscreen, locked to landscape. iOS can't, and the turn covers it. */
+export function lockLandscape() {
+  if (!document.body.classList.contains('phone')) return;
+  const lock = () => screen.orientation?.lock?.('landscape').catch(() => {});
+  const full = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
+  if (full) full.then(lock, () => {});
+  else lock();
 }

@@ -49,24 +49,6 @@ public final class SnapshotWriter {
      */
     public static String welcome(int playerId, String name, String token, GameMap map, GameRules rules,
                                  JSONObject commander, JSONArray roster) {
-        JSONObject types = new JSONObject();
-        for (UnitType type : UnitType.values()) {
-            types.put(type.name(), new JSONObject()
-                    .put("label", type.label)
-                    .put("maxHp", type.maxHp)
-                    .put("damage", type.damage)
-                    .put("range", type.range)
-                    .put("moveCooldown", type.moveCooldown)
-                    .put("visionRange", type.visionRange)
-                    .put("summonCost", type.summonCost)
-                    .put("raiseCost", type.raiseCost)
-                    .put("neutral", type.neutral)
-                    .put("laysTraps", type.laysTraps())
-                    .put("look", type.look.name())
-                    .put("level", type.level)
-                    .put("boss", type.boss)
-                    .put("stationary", type.stationary));
-        }
         return new JSONObject()
                 .put("type", "welcome")
                 .put("playerId", playerId)
@@ -85,10 +67,33 @@ public final class SnapshotWriter {
                         .put("explodeSoulCost", rules.explodeSoulCost())
                         .put("explodeRadius", rules.explodeRadius())
                         .put("maxCorpses", rules.maxCorpses()))
-                .put("unitTypes", types)
+                .put("unitTypes", unitTypes())
                 .put("commander", commander == null ? JSONObject.NULL : commander)
                 .put("roster", roster)
                 .toString();
+    }
+
+    /** Every unit type the world knows, as the welcome and {@code GET /roster} describe them. */
+    public static JSONObject unitTypes() {
+        JSONObject types = new JSONObject();
+        for (UnitType type : UnitType.values()) {
+            types.put(type.name(), new JSONObject()
+                    .put("label", type.label)
+                    .put("maxHp", type.maxHp)
+                    .put("damage", type.damage)
+                    .put("range", type.range)
+                    .put("moveCooldown", type.moveCooldown)
+                    .put("visionRange", type.visionRange)
+                    .put("summonCost", type.summonCost)
+                    .put("raiseCost", type.raiseCost)
+                    .put("neutral", type.neutral)
+                    .put("laysTraps", type.laysTraps())
+                    .put("look", type.look.name())
+                    .put("level", type.level)
+                    .put("boss", type.boss)
+                    .put("stationary", type.stationary));
+        }
+        return types;
     }
 
     public static JSONObject mapJson(GameMap map) {

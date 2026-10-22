@@ -1,9 +1,15 @@
-import { game, loadMap, renderPos, myNecromancer, resetWorld } from './state.js';
+import {
+  game, loadMap, renderPos, myNecromancer, resetWorld, applyOrientation, lockLandscape, viewport,
+} from './state.js';
 import { createRenderer, TILE } from './render.js';
 import { createInput } from './input.js';
 import {
-  initHud, updateHud, notice, saveReply, showStory, initStory, initPause,
+  initHud, updateHud, notice, saveReply, showStory, initStory, initPause, initRiseAs,
 } from './hud.js';
+import {
+  initPicker, showPicker, chosenKit, closeRiseAs, risingAs,
+} from './picker.js';
+import { pick, setMode } from './commands.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,27 +51,50 @@ function forgetSession() {
   }
 }
 
+applyOrientation();
 renderer.resize();
 window.addEventListener('resize', () => {
+  applyOrientation();
   renderer.resize();
   input.clampCamera();
 });
 
 // ---------------------------------------------------------------- joining
 
+// The free-for-all's join form shows the kits before there's a socket; a campaign's stays a name box.
+fetch('/roster')
+  .then((response) => (response.ok ? response.json() : { roster: [] }))
+  .then(({ roster, unitTypes }) => {
+    if (initPicker(roster, unitTypes) && !rejoining && !joined) showPicker();
+  })
+  .catch(() => {});
+
 $('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  if (risingAs()) {
+    pick(chosenKit());
+    closeRiseAs();
+    return;
+  }
   const name = $('name').value.trim();
-  if (!name) return;
+  // Disabled while a join is on its way, so a second press can't open a second seat.
+  if (!name || $('join-button').disabled) return;
   $('join-error').textContent = '';
   $('join-button').disabled = true;
   game.name = name;
+  lockLandscape();
 
+  const commander = chosenKit();
+  const join = commander ? { command: 'join', name, commander } : { command: 'join', name };
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ command: 'join', name }));
+    socket.send(JSON.stringify(join));
     return;
   }
-  connect({ command: 'join', name });
+  connect(join);
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && risingAs()) closeRiseAs();
 });
 
 function rejoin(session) {
@@ -83,6 +112,7 @@ function stopRejoining(reason) {
   $('join-error').textContent = reason;
   $('join-button').disabled = false;
   $('join-button').focus();
+  showPicker();
 }
 
 function connect(first) {
@@ -142,15 +172,18 @@ function welcome(message) {
   game.tickMs = 1000 / message.tickRate;
   game.unitTypes = message.unitTypes;
   game.commander = message.commander ?? null;
+  game.kits = Object.fromEntries((message.roster ?? []).map((kit) => [kit.id, kit]));
+  initPicker(message.roster, message.unitTypes);
   game.rules = message.rules;
   loadMap(message.map);
   renderer.buildTerrain();
   // Frame roughly thirty tiles across, so the legion is readable on any screen.
-  game.camera.zoom = Math.min(1.8, Math.max(1, window.innerWidth / (TILE * 30)));
+  game.camera.zoom = Math.min(1.8, Math.max(1, viewport().width / (TILE * 30)));
   initHud();
   if (!nextChapter) {
     initStory();
     initPause();
+    initRiseAs();
   }
   $('join').hidden = true;
 }
@@ -220,6 +253,12 @@ function applyState(message, now) {
         kind: 'attack', x: e.x, y: e.y, x2: e.x2, y2: e.y2, attackerType: attacker?.type,
         t0: now, duration: distance <= 1 ? 260 : 140 + distance * 45,
       });
+    } else if (e.kind === 'CAST') {
+      // A short flash at the caster and a ring of the ability's radius where it lands (T085 makes them more).
+      game.effects.push({ kind: 'cast-flash', x: e.x, y: e.y, t0: now, duration: 400 });
+      if (e.x2 !== e.x || e.y2 !== e.y || e.radius) {
+        game.effects.push({ kind: 'cast-ring', x: e.x2, y: e.y2, radius: e.radius ?? 0, t0: now, duration: 600 });
+      }
     } else if (e.kind === 'LEVEL_UP') {
       const necromancer = myNecromancer();
       if (e.a === game.playerId && necromancer) {
@@ -235,6 +274,14 @@ function applyState(message, now) {
   for (const text of message.you.notices) {
     notice(text);
     saveReply(text);
+  }
+
+  // Risen as another commander: the kit bar and summons follow the new kit.
+  const risenAs = game.kits[message.you.commander];
+  if (risenAs && risenAs.id !== game.commander?.id) {
+    game.commander = risenAs;
+    if (game.mode?.startsWith('cast:')) setMode(null);
+    initHud();
   }
 
   // Find the necromancer on joining, and again each time it rises from death somewhere new.

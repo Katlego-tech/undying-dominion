@@ -10,6 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -246,7 +250,37 @@ class CommanderAcceptanceTest {
         }
     }
 
+    @Test
+    void theRosterIsServedBeforeJoiningAndIsEmptyInACampaign() throws Exception {
+        dominion = raise("-p", "0", "--seed", "4", "--no-wild");
+        JSONObject free = getJson("/roster");
+        JSONArray roster = free.getJSONArray("roster");
+        assertEquals(19, roster.length(), "the join form shows the 19 before there is a socket");
+        JSONObject types = free.getJSONObject("unitTypes");
+        for (int i = 0; i < roster.length(); i++) {
+            JSONArray retinue = roster.getJSONObject(i).getJSONArray("retinue");
+            for (int j = 0; j < retinue.length(); j++) {
+                String type = retinue.getJSONObject(j).getString("name");
+                assertTrue(types.has(type), type + " is described for the kit card");
+            }
+        }
+        dominion.close();
+
+        dominion = raise("-p", "0", "--campaign", trialCampaign().toString(), "--seed", "4");
+        JSONObject campaign = getJson("/roster");
+        assertEquals(0, campaign.getJSONArray("roster").length());
+        assertTrue(campaign.getJSONObject("unitTypes").isEmpty(), "a campaign's form stays the plain name box");
+    }
+
     // --- helpers ---
+
+    private JSONObject getJson(String path) throws IOException, InterruptedException {
+        HttpResponse<String> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + dominion.server().port() + path)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode(), path);
+        return new JSONObject(response.body());
+    }
 
     private Dominion raise(String... args) {
         try {

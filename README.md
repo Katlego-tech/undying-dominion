@@ -159,8 +159,11 @@ necromancer walks only in the campaign.
 - **No corpses.** Nobody can raise the dead in a free-for-all, so the dead leave nothing behind.
 - Every kit's numbers are in `server/src/main/resources/commanders/roster.json`.
 
-In the browser, commanders walk, call their retinue and fight today. Casting from the browser
-arrives with the commander screens; over the protocol, `cast` works now.
+In the browser, the join screen lists the 19 by role with a card for each: stats, retinue,
+abilities and passive, each ability described from its own numbers. Press `R`, `F` or `X` to cast;
+an ability that needs a target shows its range as a dashed square, then takes a click (or a tap) on
+the tile or unit. A fallen commander can pick who rises next with **Rise as…**. On a phone the game
+is always landscape: held upright, the page draws itself turned.
 
 ## Server dashboard
 
@@ -189,6 +192,10 @@ reading the same commands plus `quit` from standard input.
 
 `GET /api/world` returns the map and the scoreboard as JSON. Unit positions are deliberately left out
 so the API can't be used to see through the fog.
+
+`GET /roster` returns `{"roster": [...], "unitTypes": {...}}`: every pickable kit, as in the welcome,
+and the unit types they name, so a join screen can show them before connecting. A campaign answers
+with both empty.
 
 ## Protocol
 

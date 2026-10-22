@@ -55,6 +55,8 @@
 
     <section class="panel command" id="command">
       <div class="selection" id="selection">Nothing selected</div>
+      <div class="my-statuses" id="my-statuses" aria-label="Your statuses"></div>
+      <div class="kit-bar" id="kit-bar" role="group" aria-label="Abilities" hidden></div>
       <div class="buttons" id="summon-buttons"></div>
       <div class="buttons" id="ability-buttons"></div>
     </section>
@@ -112,35 +114,52 @@
     <div class="fallen-box">
       <h2>You have fallen</h2>
       <p>Your legion crumbles to bone. You rise again in <b id="respawn-in">6</b>s.</p>
+      <p class="rising" id="rising" hidden></p>
+      <button type="button" class="rise-as" id="rise-as" hidden>Rise as…</button>
     </div>
   </div>
 
   <div class="overlay join" id="join">
     <form class="join-box" id="join-form" autocomplete="off">
-      <h1>Undying Dominion</h1>
-      <p class="tagline">Raise the fallen. Command the legion. Outlast every rival.</p>
-      <p class="rejoin-status" id="rejoin-status" role="status">Rejoining as <b id="rejoin-name"></b>…</p>
-      <label for="name">Your name, necromancer</label>
-      <input id="name" name="name" maxlength="16" placeholder="Vesper" required autofocus>
-      <button type="submit" id="join-button">Rise</button>
-      <p class="error" id="join-error" role="alert"></p>
-      <details class="howto">
-        <summary>How to play</summary>
-        <ul>
-          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk your necromancer. The camera follows it.</li>
-          <li><kbd>1</kbd>–<kbd>4</kbd> summon skeletons beside your necromancer.</li>
-          <li>Left-drag to select your legion, right-click to move or attack.</li>
-          <li>Everything that dies leaves a corpse. A green ring means you can raise it: <kbd>R</kbd> then click. Raised dead don't count against your legion, but return to the grave after a few minutes.</li>
-          <li>Five warriors standing together <kbd>F</kbd>use into a Skeleton King.</li>
-          <li><kbd>X</kbd> then click a corpse: Corpse Explosion, damage to everything around it.</li>
-          <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
-          <li><kbd>G</kbd> gathers the selected units to your necromancer, or the whole legion if none are selected. Hold it to have them follow.</li>
-          <li><kbd>C</kbd> then click to attack-move, <kbd>H</kbd> to stop.</li>
-          <li><kbd>Del</kbd> twice dismisses the selected units from your legion, to free their slots.</li>
-          <li><kbd>P</kbd> pauses the world for everyone. Anyone can resume.</li>
-          <li>Arrows, middle-drag or the minimap to look around. <kbd>Space</kbd> returns to your necromancer.</li>
-        </ul>
-      </details>
+      <div class="pick-main">
+        <div class="pick-head">
+          <h1 id="join-title">Undying Dominion</h1>
+          <p class="tagline" id="join-tagline">Raise the fallen. Command the legion. Outlast every rival.</p>
+        </div>
+        <p class="rejoin-status" id="rejoin-status" role="status">Rejoining as <b id="rejoin-name"></b>…</p>
+        <div class="pick-name">
+          <label for="name" id="name-label">Your name, necromancer</label>
+          <input id="name" name="name" maxlength="16" placeholder="Vesper" required autofocus>
+        </div>
+        <div class="roster-picker" id="roster-picker" hidden>
+          <div class="roster-head">
+            <h2>Commanders</h2>
+            <p>Every one is free to play. Pick another whenever you fall.</p>
+            <button type="button" class="kit-tile random" id="random"></button>
+          </div>
+          <div class="roster" id="roster"></div>
+        </div>
+        <button type="submit" id="join-button">Rise</button>
+        <p class="error" id="join-error" role="alert"></p>
+        <details class="howto">
+          <summary>How to play</summary>
+          <ul>
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk your necromancer. The camera follows it.</li>
+            <li><kbd>1</kbd>–<kbd>4</kbd> summon skeletons beside your necromancer.</li>
+            <li>Left-drag to select your legion, right-click to move or attack.</li>
+            <li>Everything that dies leaves a corpse. A green ring means you can raise it: <kbd>R</kbd> then click. Raised dead don't count against your legion, but return to the grave after a few minutes.</li>
+            <li>Five warriors standing together <kbd>F</kbd>use into a Skeleton King.</li>
+            <li><kbd>X</kbd> then click a corpse: Corpse Explosion, damage to everything around it.</li>
+            <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
+            <li><kbd>G</kbd> gathers the selected units to your necromancer, or the whole legion if none are selected. Hold it to have them follow.</li>
+            <li><kbd>C</kbd> then click to attack-move, <kbd>H</kbd> to stop.</li>
+            <li><kbd>Del</kbd> twice dismisses the selected units from your legion, to free their slots.</li>
+            <li><kbd>P</kbd> pauses the world for everyone. Anyone can resume.</li>
+            <li>Arrows, middle-drag or the minimap to look around. <kbd>Space</kbd> returns to your necromancer.</li>
+          </ul>
+        </details>
+      </div>
+      <aside class="panel kit-card" id="kit-card" aria-live="polite" hidden></aside>
     </form>
   </div>
 
