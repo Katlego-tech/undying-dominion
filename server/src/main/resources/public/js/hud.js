@@ -89,6 +89,7 @@ export function updateHud() {
   $('soul-fill').style.width = `${(you.soul / you.soulMax) * 100}%`;
   $('legion-value').textContent = you.legion;
   $('legion-cap').textContent = you.legionCap;
+  $('legion-raised').textContent = you.raised ? `+${you.raised} raised` : '';
 
   const alive = you.necromancerId != null;
   const legionFull = you.legion >= you.legionCap;

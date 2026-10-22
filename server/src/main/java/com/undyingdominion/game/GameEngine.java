@@ -104,6 +104,7 @@ public class GameEngine {
             if (unit.isAlive()) update(unit);
         }
 
+        returnTheRaised();
         reapTheDead();
         decayCorpses();
         tick++;
@@ -159,17 +160,35 @@ public class GameEngine {
         if (necromancer == null) return;
         for (UnitType type : restore.legion()) {
             if (legionSize(player) >= player.legionCap()) break;
-            Position spot = freeTileNear(necromancer.getPosition(), 4);
-            if (spot == null) break;
-            addUnit(type, player.getId(), spot, false);
+            if (!placeNear(necromancer, type, player, false)) break;
+        }
+        for (UnitType type : restore.raised()) {
+            if (!placeNear(necromancer, type, player, true)) break;
         }
     }
 
-    /** The types in a player's legion, to carry into another world. */
+    private boolean placeNear(Unit necromancer, UnitType type, Player player, boolean raised) {
+        Position spot = freeTileNear(necromancer.getPosition(), 4);
+        if (spot == null) return false;
+        addUnit(type, player.getId(), spot, raised);
+        return true;
+    }
+
+    /** The types of a player's summoned legion, to carry into another world. */
     public List<UnitType> legionOf(int playerId) {
+        return legionTypes(playerId, false);
+    }
+
+    /** The types of a player's raised legion, carried apart so they stay raised and outside the cap. */
+    public List<UnitType> raisedOf(int playerId) {
+        return legionTypes(playerId, true);
+    }
+
+    private List<UnitType> legionTypes(int playerId, boolean raised) {
         List<UnitType> legion = new ArrayList<>();
         for (Unit unit : units.values()) {
-            if (unit.getOwnerId() == playerId && unit.isAlive() && unit.getType() != UnitType.NECROMANCER) {
+            if (unit.getOwnerId() == playerId && unit.isAlive() && unit.getType() != UnitType.NECROMANCER
+                    && unit.isRaised() == raised) {
                 legion.add(unit.getType());
             }
         }
@@ -244,10 +263,6 @@ public class GameEngine {
             player.notice("Too far away to raise. Move within " + rules.raiseRange() + " tiles.");
             return;
         }
-        if (legionSize(player) >= player.legionCap()) {
-            player.notice("Your legion is full (" + player.legionCap() + ").");
-            return;
-        }
         if (player.getSoul() < corpse.type().raiseCost) {
             player.notice("Not enough soul energy to raise a " + corpse.type().label + ".");
             return;
@@ -260,6 +275,7 @@ public class GameEngine {
         player.spendSoul(corpse.type().raiseCost);
         corpses.remove(corpseId);
         Unit unit = addUnit(corpse.type(), player.getId(), spot, true);
+        unit.setExpiresAtTick(tick + rules.raisedTicks(player.getLevel()));
         events.add(GameEvent.at(GameEvent.Kind.RAISE, unit));
     }
 
@@ -298,12 +314,20 @@ public class GameEngine {
                 corpse.position().x(), corpse.position().y(), 0, 0));
     }
 
+    /**
+     * Fuses summoned Skeleton Warriors into a Skeleton King. Raised warriors can't take part: the king
+     * is summoned and permanent, so fusing the raised would turn units that take no legion room and
+     * expire into one that counts and never does.
+     */
     private void fuse(Player player, List<Integer> unitIds) {
-        List<Unit> warriors = ownedUnits(player, unitIds).stream()
+        List<Unit> selected = ownedUnits(player, unitIds).stream()
                 .filter(u -> u.getType() == UnitType.SKELETON_WARRIOR && !u.isRooted())
                 .toList();
+        List<Unit> warriors = selected.stream().filter(u -> !u.isRaised()).toList();
         if (warriors.size() < rules.fuseCount()) {
-            player.notice("Select at least " + rules.fuseCount() + " Skeleton Warriors to fuse.");
+            player.notice(warriors.size() < selected.size()
+                    ? "Only summoned Skeleton Warriors can be fused. The raised are held only for a while."
+                    : "Select at least " + rules.fuseCount() + " Skeleton Warriors to fuse.");
             return;
         }
         Position centre = centroid(warriors);
@@ -422,9 +446,7 @@ public class GameEngine {
                 if (unit.getType() == UnitType.NECROMANCER) {
                     necromancerFell(unit);
                 } else if (unit.getType().isRaisable()) {
-                    Corpse corpse = new Corpse(nextCorpseId++, unit.getType(), unit.getPosition(),
-                            tick + rules.corpseDecayTicks());
-                    corpses.put(corpse.id(), corpse);
+                    leaveCorpse(unit);
                 }
             }
             // A fallen necromancer takes its legion with it, so go round again.
@@ -460,6 +482,36 @@ public class GameEngine {
         owner.notice("You have fallen. Your legion crumbles to bone.");
         for (Unit unit : units.values()) {
             if (unit.getOwnerId() == owner.getId()) unit.collapse();
+        }
+    }
+
+    /**
+     * Raised units last only a while, longer for a stronger necromancer (GameRules#raisedTicks), then
+     * return to the dead: no corpse, no credit, as with a dismissal. One without a time yet (from an
+     * older save, or carried into a new chapter) is given a full one now.
+     */
+    private void returnTheRaised() {
+        for (Unit unit : new ArrayList<>(units.values())) {
+            if (!unit.isRaised() || !unit.isAlive()) continue;
+            Player owner = players.get(unit.getOwnerId());
+            if (unit.getExpiresAtTick() == Unit.NO_EXPIRY) {
+                if (owner != null) unit.setExpiresAtTick(tick + rules.raisedTicks(owner.getLevel()));
+                continue;
+            }
+            if (tick < unit.getExpiresAtTick()) continue;
+            events.add(GameEvent.at(GameEvent.Kind.DEATH, unit));
+            removeUnit(unit);
+            if (owner != null) owner.notice("Your raised " + unit.getType().label + " returns to the dead.");
+        }
+    }
+
+    /** The dead stay until raised or exploded. Past the cap the oldest crumble, the map keeping the newest. */
+    private void leaveCorpse(Unit unit) {
+        long decaysAt = rules.corpseDecayTicks() > 0 ? tick + rules.corpseDecayTicks() : Corpse.NEVER;
+        Corpse corpse = new Corpse(nextCorpseId++, unit.getType(), unit.getPosition(), decaysAt);
+        corpses.put(corpse.id(), corpse);
+        while (corpses.size() > rules.maxCorpses()) {
+            corpses.remove(corpses.keySet().iterator().next());  // insertion order: the oldest first
         }
     }
 
@@ -734,10 +786,18 @@ public class GameEngine {
         return necromancer != null && necromancer.isAlive() ? necromancer : null;
     }
 
+    /** Summoned legion members: what the legion cap limits. Raised ones don't count against it. */
     private int legionSize(Player player) {
+        return countLegion(player, false);
+    }
+
+    private int countLegion(Player player, boolean raised) {
         int size = 0;
         for (Unit unit : units.values()) {
-            if (unit.getOwnerId() == player.getId() && unit.getType() != UnitType.NECROMANCER && unit.isAlive()) size++;
+            if (unit.getOwnerId() == player.getId() && unit.getType() != UnitType.NECROMANCER && unit.isAlive()
+                    && unit.isRaised() == raised) {
+                size++;
+            }
         }
         return size;
     }
@@ -877,8 +937,14 @@ public class GameEngine {
     /** What happened during the most recent tick. */
     public List<GameEvent> getEvents()    { return events; }
 
+    /** Summoned legion members, counted against the legion cap. */
     public int legionSizeOf(Player player) {
         return legionSize(player);
+    }
+
+    /** Legion members raised from corpses, which take no room under the cap. */
+    public int raisedSizeOf(Player player) {
+        return countLegion(player, true);
     }
 
     /** Finds a player by name, ignoring case, as Robot Worlds looked up robots. */

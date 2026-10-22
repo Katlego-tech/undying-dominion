@@ -871,6 +871,10 @@
                 },
                 "explodeRadius": {
                   "type": "integer"
+                },
+                "maxCorpses": {
+                  "type": "integer",
+                  "description": "The most corpses a world keeps. Past it the oldest crumble."
                 }
               }
             },
@@ -1026,7 +1030,8 @@
                   "type": "integer"
                 },
                 "legion": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Summoned legion members, counted against legionCap."
                 },
                 "legionCap": {
                   "type": "integer"
@@ -1048,6 +1053,10 @@
                     "type": "string"
                   },
                   "description": "Messages for you since the last state, including replies to save."
+                },
+                "raised": {
+                  "type": "integer",
+                  "description": "Legion members raised from corpses. They take no room under legionCap."
                 }
               }
             },
@@ -1093,6 +1102,10 @@
                   "modeEndsIn": {
                     "type": "integer",
                     "description": "Present while rooted mending or laying a trap: ticks left."
+                  },
+                  "expiresIn": {
+                    "type": "integer",
+                    "description": "Present on a unit raised from a corpse: ticks until it returns to the dead. A raised unit lasts 120 s plus 30 s per level of the necromancer who raised it."
                   }
                 }
               }
@@ -1115,8 +1128,11 @@
                     "type": "integer"
                   },
                   "decaysIn": {
-                    "type": "integer",
-                    "description": "Ticks until it crumbles."
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "Ticks until it crumbles, or null: corpses stay until used. A world keeps its newest 400, and past that the oldest crumble."
                   }
                 }
               }

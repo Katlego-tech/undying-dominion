@@ -20,7 +20,8 @@ public sealed interface Command {
      * Gives a player back what they carried out of the previous chapter: their progress, and their
      * legion, which rises again around their necromancer. Server-side only.
      */
-    record Restore(int playerId, int level, int xp, int kills, int deaths, List<UnitType> legion) implements Command {}
+    record Restore(int playerId, int level, int xp, int kills, int deaths, List<UnitType> legion,
+                   List<UnitType> raised) implements Command {}
 
     record Summon(int playerId, UnitType type) implements Command {}
 
