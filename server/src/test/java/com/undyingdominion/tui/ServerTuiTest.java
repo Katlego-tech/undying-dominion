@@ -3,8 +3,14 @@ package com.undyingdominion.tui;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayDeque;
+import java.util.List;
+import java.util.function.Supplier;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The dashboard's pause label, for every reason the world can stop (GameServer.currentPause). */
 class ServerTuiTest {
@@ -22,6 +28,31 @@ class ServerTuiTest {
     @Test
     void anUnknownReasonWithoutANameStillLabelsInsteadOfCrashing() {
         assertEquals("lobby", ServerTui.pauseLabel(pause("lobby", null)));
+    }
+
+    @Test
+    void containerAndVirtualMachineBridgesAreNeverOfferedAsTheInviteAddress() {
+        for (String bridge : List.of("docker0", "br-7ce113a1c528", "virbr0", "veth12ab", "vmnet8", "vboxnet0", "tun0", "wg0", "tailscale0")) {
+            assertFalse(ServerTui.invitable(bridge), bridge);
+        }
+        for (String nic : List.of("wlp1s0", "eth0", "enp3s0", "enx7aa679d12603", "wlan0")) {
+            assertTrue(ServerTui.invitable(nic), nic);
+        }
+    }
+
+    @Test
+    void theInviteLinkFollowsTheAddressWhenTheNetworkChanges() {
+        ArrayDeque<String> addresses = new ArrayDeque<>(List.of("192.168.26.147", "10.1.1.140"));
+        long[] now = {0};
+        Supplier<String> link = ServerTui.inviteLink(addresses::poll, 5000, () -> now[0]);
+
+        assertEquals("http://192.168.26.147:5000", link.get());
+        now[0] += 1_000_000_000L;
+        assertEquals("http://192.168.26.147:5000", link.get(), "looked up again only every few seconds");
+        now[0] += 5_000_000_000L;
+        assertEquals("http://10.1.1.140:5000", link.get());
+        now[0] += 5_000_000_000L;
+        assertNull(link.get(), "no network, no link");
     }
 
     private static JSONObject pause(String reason, String by) {

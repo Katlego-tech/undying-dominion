@@ -39,7 +39,7 @@ class DashboardTest {
 
         log = new LogBuffer(100);
         log.add("12:00:01 INFO GameServer - Vesper joined the Dominion");
-        dashboard = new Dashboard(map, "The Sundered Barrow", 5000, 8, "http://192.168.1.5:5000", log,
+        dashboard = new Dashboard(map, "The Sundered Barrow", 5000, 8, () -> "http://192.168.1.5:5000", log,
                 new Dashboard.Actions() {
                     public void purge(int playerId) { calls.add("purge " + playerId); }
                     public void openInBrowser() { calls.add("open"); }
