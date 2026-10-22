@@ -4,6 +4,9 @@ A multiplayer necromancer RTS in the browser. Summon skeletons, raise everything
 own legion, fuse warriors into a Skeleton King, and outlast every rival necromancer in a fog-shrouded
 barrow.
 
+The necromancer belongs to the story campaigns. Against other players, each player fields one of 19
+**commanders** instead (see Commanders).
+
 One authoritative Java server runs the world at 10 ticks a second and speaks JSON over WebSocket.
 The browser client is plain JavaScript on a canvas, with no build step. Anything that speaks the
 protocol can play, including bots.
@@ -128,6 +131,37 @@ docker run -p 5050:5050 -v dominion-data:/data undying-dominion
 | Swamp | half speed | clear |
 | Abyss | blocked | clear |
 
+## Commanders
+
+In the free-for-all every player is a commander: their own unit on the field, an energy pool named
+for them, a **retinue** they summon or call with `1` `2` `3`, three abilities and a passive. The
+necromancer walks only in the campaign.
+
+| Role | Commanders |
+|---|---|
+| Summoner | Sylvane, the Grove Caller · Aurelle, the Dawn Rider · Hollin, the Paper Binder |
+| Caster | Brisa, the Elementalist · Morrow, the Hexer · Calder, the Ward Mage |
+| Front line | Thessa, the Grove Knight · Dunstan, the Bulwark · Osric, the Lightward · Lucan, the Sunward |
+| Fighter | Ignar, the Pyre Champion · Garrick, the Berserker · Seren, the Bright Blade |
+| Assassin | Vey, the Shade · Kestrel, the Knife |
+| Support | Elowen, the Grove Elder · Rowena, the Spring Elder · Pell, the Seer · Varro, the Warlord |
+
+- **Picking.** Join with a `commander` to field that one; join without and you get one at random,
+  with a notice naming it. `pick` chooses who you rise as after your next fall.
+- **Abilities** sit on `R` (basic), `F` (utility) and `X` (signature), the necromancer's raise, fuse
+  and explode keys. Each has an energy cost and a cooldown. Summons, calls and casts all spend the
+  same energy, so every kit trades a bigger retinue against more abilities. Cooldowns clear when you
+  rise.
+- **Statuses** such as ward, haste, root, silence, seal and stealth last a few seconds, and two of
+  the same kind don't stack: the stronger stays. A stealthed unit is hidden from other players
+  unless one of their units stands next to it, a commander who sees through stealth is near, or a
+  reveal covers it.
+- **No corpses.** Nobody can raise the dead in a free-for-all, so the dead leave nothing behind.
+- Every kit's numbers are in `server/src/main/resources/commanders/roster.json`.
+
+In the browser, commanders walk, call their retinue and fight today. Casting from the browser
+arrives with the commander screens; over the protocol, `cast` works now.
+
 ## Server dashboard
 
 Started in a terminal, the server takes over the window with a live dashboard:
@@ -162,9 +196,13 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 `command`:
 
 ```json
-{ "command": "join", "name": "Vesper" }
+{ "command": "join", "name": "Vesper", "commander": "BULWARK" }
 { "command": "rejoin", "token": "q3V9cX0bTqKk1yH6m2wJ8A" }
-{ "command": "summon", "unit": "SKELETON_WARRIOR" }
+{ "command": "summon", "unit": "SHIELDBEARER" }
+{ "command": "pick", "commander": "HEXER" }
+{ "command": "cast", "ability": "shield-bash", "target": 41 }
+{ "command": "cast", "ability": "withering-curse", "x": 21, "y": 9 }
+{ "command": "cast", "ability": "iron-stance" }
 { "command": "move", "units": [4, 7], "x": 20, "y": 11, "attackMove": true }
 { "command": "attack", "units": [4, 7], "target": 31 }
 { "command": "stop", "units": [4] }
@@ -179,6 +217,14 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 { "command": "reading", "open": true }
 { "command": "save", "name": "crypt", "force": false }
 ```
+
+`join` takes an optional `commander` (an id from the welcome's `roster`); a campaign ignores it.
+`summon` takes a type from your commander's retinue; another answers with the notice
+`Skeleton Warrior doesn't answer to Dunstan.` `cast` names an ability of your kit, with `target`
+(a unit id) for one aimed at a unit, `x` and `y` for one aimed at a tile, and neither for one cast
+on yourself. A cast that can't go off spends nothing, and a notice says why: `Hexfire is ready in
+4s.`, `Not enough Mana for Hexfire.`, `Too far for Hexfire. Move within 5 tiles.`,
+`You can't see that target.`, `You are silenced.` and so on.
 
 `rejoin` takes back your place after your connection drops: send it instead of `join`, with the
 `token` from your last `welcome`. You get the same necromancer, legion, soul and record, and any
@@ -203,11 +249,13 @@ or `A save called "crypt" already exists. Save again with force to replace it`.
 The server sends four kinds of message:
 
 - `welcome`, after a successful `join` or `rejoin`: your `playerId`, `name`, `token`, the map,
-  the rules and the stats of every unit type. The `token` is a 22-character secret for `rejoin`.
+  the rules, the stats of every unit type, your `commander`'s kit and the `roster` of kits you may
+  pick (empty in a campaign). The `token` is a 22-character secret for `rejoin`.
   It stays the same for as long as you hold your place, and it is sent only to you, so keep it
   private.
-- `state`, every tick: your soul, level and notices (`you`), the units, corpses and traps you can
-  see, what happened this tick (`events`), the scoreboard (`players`: each necromancer's name, colour,
+- `state`, every tick: your energy (`soul`, called `energy`), level, `commander`, the `next` one
+  you'll rise as, each ability's `cooldowns` in seconds, and notices (`you`); the units (with their
+  `statuses` and `shield`), corpses and traps you can see, what happened this tick (`events`, a `CAST` among them), the scoreboard (`players`: each necromancer's name, colour,
   level, kills, deaths, whether they're `alive`, and whether they're `away` with their place held), and `fog`, a base64 bitmask of
   visible tiles, one bit per tile, row by row, lowest bit first. If a client falls behind, it skips
   stale states rather than queueing them. While the world is stopped, `state` also carries
@@ -219,7 +267,8 @@ The server sends four kinds of message:
   `state` also carries `story`: chapter, objective and progress. A second `welcome` means the
   campaign has moved to the next chapter's map.
 - `error`, when a message can't be acted on: `Unsupported command`, `Could not parse arguments`,
-  `Join the Dominion first`, `You have already joined`, `Too many of you in this world` (name
+  `Join the Dominion first`, `You have already joined`, `No commander called WIZARD`,
+  `The Necromancer walks only in the campaign`, `The campaign is played as the Necromancer`, `Too many of you in this world` (name
   taken), `No more space in this world` (server full) or `That session has ended. Join again` (a
   `rejoin` whose token is unknown, expired or purged). After a refused `join` or `rejoin`, the
   socket stays open, so you can send `join` on it.
@@ -233,15 +282,17 @@ checks every field the server sends against it, so the document can't drift from
 
 ### A sample bot
 
-`SampleBot` is an AI necromancer that plays over this protocol and nothing else (it imports nothing
-from the server). It summons and raises while its legion has room, sends the legion at the nearest
-enemy necromancer or creature, keeps its own necromancer out of reach, and walks the map when there's
+`SampleBot` is an AI player that plays over this protocol and nothing else (it imports nothing
+from the server). It joins as a commander (the Hexer unless you name another; a campaign makes it
+the necromancer), casts its basic ability at the nearest enemy in range, summons its retinue (and
+raises, as the necromancer) while its legion has room, sends the legion at the nearest enemy
+commander or creature, keeps its own commander out of reach, and walks the map when there's
 nothing to fight. If its connection drops it rejoins with its token; if its place is gone it joins
 again. Start a server, then:
 
 ```bash
 java -cp server/target/undying-dominion-0.1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.undyingdominion.bot.SampleBot ws://localhost:5000/ws Bonewright
+  com.undyingdominion.bot.SampleBot ws://localhost:5000/ws Bonewright HEXER
 ```
 
 Its source, `server/src/main/java/com/undyingdominion/bot/`, is the place to start a bot of your own.

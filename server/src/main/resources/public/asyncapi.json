@@ -82,6 +82,12 @@
         },
         "dismiss": {
           "$ref": "#/components/messages/dismiss"
+        },
+        "pick": {
+          "$ref": "#/components/messages/pick"
+        },
+        "cast": {
+          "$ref": "#/components/messages/cast"
         }
       }
     }
@@ -306,6 +312,28 @@
           "$ref": "#/channels/dominion/messages/dismiss"
         }
       ]
+    },
+    "sendPick": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/pick"
+        }
+      ]
+    },
+    "sendCast": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/cast"
+        }
+      ]
     }
   },
   "components": {
@@ -322,6 +350,10 @@
             "name": {
               "type": "string",
               "description": "1 to 16 letters, digits, spaces, _ or -."
+            },
+            "commander": {
+              "type": "string",
+              "description": "The commander to field, an id from welcome.roster, e.g. BULWARK. Without it the free-for-all gives you a random one and says which. A campaign ignores it: you are the Necromancer. An unknown id answers `No commander called {id}`, and NECROMANCER answers `The Necromancer walks only in the campaign`; the socket stays open to try again."
             }
           },
           "required": [
@@ -333,7 +365,8 @@
           {
             "payload": {
               "command": "join",
-              "name": "Vesper"
+              "name": "Vesper",
+              "commander": "BULWARK"
             }
           }
         ]
@@ -368,7 +401,7 @@
       },
       "summon": {
         "name": "summon",
-        "summary": "Summon a unit beside your necromancer, paying its summonCost in soul.",
+        "summary": "Summon or call a unit of your commander's retinue beside your commander, paying its summonCost in energy.",
         "payload": {
           "type": "object",
           "properties": {
@@ -377,7 +410,7 @@
             },
             "unit": {
               "type": "string",
-              "description": "A unit type with summonCost >= 0, e.g. SKELETON_WARRIOR."
+              "description": "A type in your commander's retinue (welcome.commander.retinue), e.g. SHIELDBEARER for the Bulwark or SKELETON_WARRIOR for the Necromancer. Another type answers `{label} doesn't answer to {name}.`, and a SEALED commander hears `You are sealed and cannot {verb}.`"
             }
           },
           "required": [
@@ -389,7 +422,7 @@
           {
             "payload": {
               "command": "summon",
-              "unit": "SKELETON_WARRIOR"
+              "unit": "SHIELDBEARER"
             }
           }
         ]
@@ -929,6 +962,17 @@
                 },
                 "description": "summonCost and raiseCost are -1 where the unit can't be summoned or raised."
               }
+            },
+            "commander": {
+              "$ref": "#/components/schemas/kit",
+              "description": "Your commander's kit; the Necromancer's in a campaign."
+            },
+            "roster": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/kit"
+              },
+              "description": "Every commander you may pick or join as, by role. Empty in a campaign."
             }
           },
           "required": [
@@ -939,7 +983,9 @@
             "tickRate",
             "map",
             "rules",
-            "unitTypes"
+            "unitTypes",
+            "commander",
+            "roster"
           ]
         },
         "examples": [
@@ -1015,7 +1061,8 @@
                   "type": "integer"
                 },
                 "soul": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Your energy, named by you.energy."
                 },
                 "soulMax": {
                   "type": "integer"
@@ -1041,11 +1088,11 @@
                     "integer",
                     "null"
                   ],
-                  "description": "null while fallen."
+                  "description": "Your commander's unit (the name is kept from when everyone was a necromancer); null while fallen."
                 },
                 "respawnIn": {
                   "type": "integer",
-                  "description": "Ticks until your necromancer rises again; 0 while standing."
+                  "description": "Ticks until your commander rises again; 0 while standing."
                 },
                 "notices": {
                   "type": "array",
@@ -1057,6 +1104,31 @@
                 "raised": {
                   "type": "integer",
                   "description": "Legion members raised from corpses. They take no room under legionCap."
+                },
+                "commander": {
+                  "type": "string",
+                  "description": "Your commander's id."
+                },
+                "next": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The commander you'll rise as after a `pick`, or null."
+                },
+                "energy": {
+                  "type": "string",
+                  "description": "What your energy (soul) is called: Soul, Mana, Valor..."
+                },
+                "cooldowns": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": [
+                      "integer",
+                      "number"
+                    ]
+                  },
+                  "description": "Seconds until each of your abilities is ready, by ability id; 0 when ready. All 0 after a rise."
                 }
               }
             },
@@ -1106,9 +1178,52 @@
                   "expiresIn": {
                     "type": "integer",
                     "description": "Present on a unit raised from a corpse: ticks until it returns to the dead. A raised unit lasts 120 s plus 30 s per level of the necromancer who raised it."
+                  },
+                  "statuses": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "enum": [
+                            "might",
+                            "ward",
+                            "haste",
+                            "slow",
+                            "weakened",
+                            "exposed",
+                            "rooted",
+                            "silenced",
+                            "sealed",
+                            "stealthed",
+                            "taunted",
+                            "unstoppable",
+                            "empowered",
+                            "regen",
+                            "burning",
+                            "cleaving",
+                            "evading"
+                          ]
+                        },
+                        "for": {
+                          "type": [
+                            "integer",
+                            "number"
+                          ],
+                          "description": "Seconds left."
+                        }
+                      }
+                    },
+                    "description": "Statuses on the unit. On your own units, all of them; on others', only might, ward, haste, slow, rooted, silenced, sealed, taunted, unstoppable, burning and evading."
+                  },
+                  "shield": {
+                    "type": "integer",
+                    "description": "Damage the unit's shield will still absorb; 0 without one."
                   }
                 }
-              }
+              },
+              "description": "A STEALTHED unit of another player is left out unless one of your units stands next to it, your commander sees through stealth within its range, or your reveal covers it."
             },
             "corpses": {
               "type": "array",
@@ -1174,7 +1289,8 @@
                       "TRAP_SET",
                       "TRAP_SPRUNG",
                       "LEVEL_UP",
-                      "EXPLOSION"
+                      "EXPLOSION",
+                      "CAST"
                     ]
                   },
                   "a": {
@@ -1194,9 +1310,17 @@
                   },
                   "y2": {
                     "type": "integer"
+                  },
+                  "ability": {
+                    "type": "string",
+                    "description": "CAST only: the ability id."
+                  },
+                  "radius": {
+                    "type": "integer",
+                    "description": "CAST only: the ability's radius."
                   }
                 },
-                "description": "ATTACK: a hits b, from x,y to x2,y2. DEATH, SUMMON, RAISE, FUSE, MEND, TRAP_SET, TRAP_SPRUNG: unit a at x,y. LEVEL_UP: player a reached level b. EXPLOSION: player a, radius b, at x,y."
+                "description": "ATTACK: a hits b, from x,y to x2,y2. DEATH, SUMMON, RAISE, FUSE, MEND, TRAP_SET, TRAP_SPRUNG: unit a at x,y. LEVEL_UP: player a reached level b. EXPLOSION: player a, radius b, at x,y. CAST: unit a cast `ability` from x,y at unit b (0 for a tile or itself) on tile x2,y2, over `radius`."
               },
               "description": "What happened this tick, where you could see it. Empty while paused."
             },
@@ -1506,6 +1630,480 @@
             }
           }
         ]
+      },
+      "pick": {
+        "name": "pick",
+        "summary": "Choose the commander you'll rise as after your next fall. While fielded you hear `You will rise as {name}, {title}.`; while fallen, `You rise as {name}, {title}.` In a campaign it answers `The campaign is played as the Necromancer`.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "pick"
+            },
+            "commander": {
+              "type": "string",
+              "description": "An id from welcome.roster."
+            }
+          },
+          "required": [
+            "command",
+            "commander"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "pick",
+              "commander": "HEXER"
+            }
+          }
+        ]
+      },
+      "cast": {
+        "name": "cast",
+        "summary": "Use one of your commander's three abilities, cast by your commander's unit. A cast that fails a check spends nothing and starts no cooldown, and a notice says why: on cooldown, energy, silenced, fallen, range, sight, or the wrong target. CORPSE and SELECTION abilities (the Necromancer's) keep their own commands: raise, explode, fuse.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "cast"
+            },
+            "ability": {
+              "type": "string",
+              "description": "An ability id from your kit, e.g. shield-bash. One not in your kit answers `Could not parse arguments`."
+            },
+            "target": {
+              "type": "integer",
+              "description": "A unit id, for an ability whose target is ENEMY, ENEMY_COMMANDER or ALLY."
+            },
+            "x": {
+              "type": "integer",
+              "description": "With y, the tile for a TILE ability."
+            },
+            "y": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command",
+            "ability"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "cast",
+              "ability": "shield-bash",
+              "target": 41
+            }
+          }
+        ]
+      }
+    },
+    "schemas": {
+      "kit": {
+        "type": "object",
+        "description": "A commander as commanders/roster.json writes it: who they are, their unit, the retinue they summon or call, three abilities on R, F and X, and a passive. Times are in seconds.",
+        "required": [
+          "id",
+          "name",
+          "title",
+          "role",
+          "blurb",
+          "energy",
+          "verb",
+          "campaignOnly",
+          "unit",
+          "retinue",
+          "abilities",
+          "passive"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SUMMONER",
+              "CASTER",
+              "FRONT_LINE",
+              "FIGHTER",
+              "ASSASSIN",
+              "SUPPORT",
+              "NECROMANCER"
+            ]
+          },
+          "blurb": {
+            "type": "string"
+          },
+          "energy": {
+            "type": "string",
+            "description": "What the energy pool (you.soul) is called for this commander."
+          },
+          "verb": {
+            "type": "string",
+            "description": "Summon or Call, as the HUD names summoning."
+          },
+          "campaignOnly": {
+            "type": "boolean"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/kitUnit",
+            "description": "The commander's own unit. A string names a type in welcome.unitTypes."
+          },
+          "retinue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/kitUnit"
+            },
+            "description": "What `summon` accepts. A string names a type in welcome.unitTypes."
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/kitUnit"
+            },
+            "description": "Types only an ability places, such as a decoy. Not summonable."
+          },
+          "abilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ability"
+            }
+          },
+          "passive": {
+            "$ref": "#/components/schemas/passive"
+          }
+        }
+      },
+      "kitUnit": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "description": "A unit type: its full stats, or an archetype (GRUNT, SHOT, ADEPT, SCOUT, GUARD) with the stats it changes. welcome.unitTypes has every type's final numbers.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "archetype": {
+            "type": "string",
+            "enum": [
+              "GRUNT",
+              "SHOT",
+              "ADEPT",
+              "SCOUT",
+              "GUARD"
+            ]
+          },
+          "look": {
+            "type": "string",
+            "enum": [
+              "UNDEAD",
+              "BEAST",
+              "GOBLIN",
+              "PLANT",
+              "HUMANOID",
+              "BEASTMAN",
+              "DEMON"
+            ]
+          },
+          "hp": {
+            "type": "integer"
+          },
+          "damage": {
+            "type": "integer"
+          },
+          "range": {
+            "type": "integer"
+          },
+          "attackCooldown": {
+            "type": "integer"
+          },
+          "moveCooldown": {
+            "type": "integer"
+          },
+          "aggro": {
+            "type": "integer"
+          },
+          "vision": {
+            "type": "integer"
+          },
+          "cost": {
+            "type": "integer"
+          }
+        }
+      },
+      "ability": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "slot",
+          "target",
+          "cost",
+          "cooldown",
+          "effects"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "BASIC",
+              "UTILITY",
+              "SIGNATURE"
+            ],
+            "description": "BASIC on R, UTILITY on F, SIGNATURE on X."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "SELF",
+              "AROUND_SELF",
+              "ALLY",
+              "ENEMY",
+              "ENEMY_COMMANDER",
+              "TILE",
+              "CORPSE",
+              "SELECTION"
+            ]
+          },
+          "cost": {
+            "type": "integer"
+          },
+          "cooldown": {
+            "type": [
+              "integer",
+              "number"
+            ],
+            "description": "Seconds."
+          },
+          "range": {
+            "type": "integer",
+            "description": "Tiles from the commander; 0 when absent."
+          },
+          "radius": {
+            "type": "integer",
+            "description": "Tiles around the target tile, or around the commander for AROUND_SELF."
+          },
+          "affects": {
+            "type": "string",
+            "enum": [
+              "TARGET",
+              "ENEMIES",
+              "OWN",
+              "CASTER"
+            ],
+            "description": "Who the effects land on, unless an effect names its own. TARGET when absent."
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/effect"
+            }
+          }
+        }
+      },
+      "effect": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "description": "One thing an ability does, in order. A dash resolves first, so later areas centre on the landing.",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "damage",
+              "heal",
+              "shield",
+              "status",
+              "taunt",
+              "dash",
+              "push",
+              "summon",
+              "cleanse",
+              "resetCooldowns",
+              "reveal",
+              "raise",
+              "detonate",
+              "fuse"
+            ]
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "stealthBonus": {
+            "type": "integer",
+            "description": "Percent more when cast from stealth."
+          },
+          "seconds": {
+            "type": [
+              "integer",
+              "number"
+            ]
+          },
+          "afterSeconds": {
+            "type": [
+              "integer",
+              "number"
+            ],
+            "description": "A status that lands this long after the cast."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "MIGHT",
+              "WARD",
+              "HASTE",
+              "SLOW",
+              "WEAKENED",
+              "EXPOSED",
+              "ROOTED",
+              "SILENCED",
+              "SEALED",
+              "STEALTHED",
+              "TAUNTED",
+              "UNSTOPPABLE",
+              "EMPOWERED",
+              "REGEN",
+              "BURNING",
+              "CLEAVING",
+              "EVADING"
+            ]
+          },
+          "magnitude": {
+            "type": "integer",
+            "description": "Percent, or hp per second for REGEN and BURNING."
+          },
+          "toward": {
+            "type": "string",
+            "enum": [
+              "caster",
+              "summoned"
+            ]
+          },
+          "tiles": {
+            "type": "integer"
+          },
+          "damage": {
+            "type": "integer"
+          },
+          "overTerrain": {
+            "type": "boolean"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "affects": {
+            "type": "string",
+            "enum": [
+              "TARGET",
+              "ENEMIES",
+              "OWN",
+              "CASTER"
+            ]
+          }
+        }
+      },
+      "passive": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "aura",
+              "self",
+              "seesStealth",
+              "energyRegen",
+              "energyOnKill",
+              "bonusVs",
+              "immune",
+              "soulHarvest"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "MIGHT",
+              "WARD",
+              "HASTE",
+              "SLOW",
+              "WEAKENED",
+              "EXPOSED",
+              "ROOTED",
+              "SILENCED",
+              "SEALED",
+              "STEALTHED",
+              "TAUNTED",
+              "UNSTOPPABLE",
+              "EMPOWERED",
+              "REGEN",
+              "BURNING",
+              "CLEAVING",
+              "EVADING"
+            ]
+          },
+          "magnitude": {
+            "type": "integer",
+            "description": "Percent; for energyRegen, tenths of energy per second."
+          },
+          "radius": {
+            "type": "integer"
+          },
+          "affects": {
+            "type": "string",
+            "enum": [
+              "TARGET",
+              "ENEMIES",
+              "OWN",
+              "CASTER"
+            ]
+          },
+          "against": {
+            "type": "string",
+            "enum": [
+              "RETINUE",
+              "COMMANDER"
+            ]
+          },
+          "who": {
+            "type": "string",
+            "enum": [
+              "OWN"
+            ]
+          }
+        }
       }
     }
   }

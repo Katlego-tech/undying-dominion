@@ -70,7 +70,7 @@ class ProtocolSpecTest {
     void everythingAFreeForAllSendsIsDocumented() throws Exception {
         dominion = Dominion.raise(ServerOptions.parse(new String[] {"-p", "0", "--db", db(), "--seed", "4"}));
         TestSocket player = socket(example("join"));
-        player.send(new JSONObject().put("command", "summon").put("unit", "SKELETON_WARRIOR"));
+        player.send(new JSONObject().put("command", "summon").put("unit", "SHIELDBEARER"));  // the example joins as the Bulwark
         player.awaitState(m -> m.getJSONArray("units").length() > 1);
         player.send(new JSONObject().put("command", "pause"));
         player.awaitState(m -> m.has("paused"));
@@ -110,6 +110,7 @@ class ProtocolSpecTest {
 
     /** Walks a value against its schema: its type, const and enum, and every field, noting any the schema doesn't name. */
     private void check(Object value, JSONObject schema, String path) {
+        if (schema.has("$ref")) schema = resolve(schema.getString("$ref"));
         if (schema.has("const")) assertEquals(schema.get("const"), value, path + " is not its const");
         if (schema.has("enum")) {
             assertTrue(schema.getJSONArray("enum").toList().contains(value), path + " = " + value + " is not in its enum");
@@ -137,6 +138,13 @@ class ProtocolSpecTest {
         } else if (value instanceof JSONArray array && schema.has("items")) {
             for (int i = 0; i < array.length(); i++) check(array.get(i), schema.getJSONObject("items"), path + "[]");
         }
+    }
+
+    /** A local reference such as {@code #/components/schemas/kit}. */
+    private JSONObject resolve(String ref) {
+        JSONObject at = spec;
+        for (String part : ref.substring(2).split("/")) at = at.getJSONObject(part);
+        return at;
     }
 
     private static String jsonType(Object value) {
