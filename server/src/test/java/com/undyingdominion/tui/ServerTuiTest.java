@@ -32,7 +32,7 @@ class ServerTuiTest {
 
     @Test
     void containerAndVirtualMachineBridgesAreNeverOfferedAsTheInviteAddress() {
-        for (String bridge : List.of("docker0", "br-7ce113a1c528", "virbr0", "veth12ab", "vmnet8", "vboxnet0")) {
+        for (String bridge : List.of("docker0", "br-7ce113a1c528", "virbr0", "veth12ab", "vmnet8", "vboxnet0", "tun0", "wg0", "tailscale0")) {
             assertFalse(ServerTui.invitable(bridge), bridge);
         }
         for (String nic : List.of("wlp1s0", "eth0", "enp3s0", "enx7aa679d12603", "wlan0")) {

@@ -197,9 +197,9 @@ public final class ServerTui {
         };
     }
 
-    /** Container and virtual-machine bridges: a phone on the same Wi-Fi can't reach them. */
+    /** Container and virtual-machine bridges, and VPN tunnels: a phone on the same Wi-Fi can't reach them. */
     static boolean invitable(String nicName) {
-        return !nicName.matches("(docker|br-|virbr|veth|vmnet|vboxnet).*");
+        return !nicName.matches("(docker|br-|virbr|veth|vmnet|vboxnet|tun|tap|wg|tailscale|utun|ppp).*");
     }
 
     /**
@@ -211,7 +211,9 @@ public final class ServerTui {
         try (DatagramSocket probe = new DatagramSocket()) {
             probe.connect(InetAddress.getByAddress(new byte[] {8, 8, 8, 8}), 53);
             InetAddress local = probe.getLocalAddress();
-            if (local instanceof Inet4Address && local.isSiteLocalAddress()) return local.getHostAddress();
+            NetworkInterface nic = local instanceof Inet4Address ? NetworkInterface.getByInetAddress(local) : null;
+            // A full-tunnel VPN owns the default route; its address is no use to a phone, so scan instead.
+            if (local.isSiteLocalAddress() && nic != null && invitable(nic.getName())) return local.getHostAddress();
         } catch (IOException | RuntimeException ignored) {
             // no default route; fall back to the interfaces
         }
@@ -224,7 +226,7 @@ public final class ServerTui {
                     }
                 }
             }
-        } catch (SocketException ignored) {
+        } catch (SocketException | RuntimeException ignored) {
             // no network information; no invite link
         }
         return null;
