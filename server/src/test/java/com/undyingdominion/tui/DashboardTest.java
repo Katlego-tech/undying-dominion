@@ -8,6 +8,8 @@ import com.googlecode.lanterna.terminal.virtual.DefaultVirtualTerminal;
 import com.undyingdominion.game.Command;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.GameRules;
+import com.undyingdominion.game.UnitType;
+import com.undyingdominion.net.AdminConsole;
 import com.undyingdominion.world.GameMap;
 import com.undyingdominion.world.MapConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +63,19 @@ class DashboardTest {
         assertTrue(screen.contains("Corvin"));
         assertTrue(screen.contains("Vesper joined the Dominion"));
         assertTrue(screen.contains("▀"), "the map is drawn in half blocks");
+    }
+
+    @Test
+    void theLegionColumnCountsTheRaisedBesideTheSummoned() throws IOException {
+        int vesper = engine.getPlayers().iterator().next().getId();
+        engine.submit(new Command.Restore(vesper, 1, 0, 0, 0, List.of(),
+                List.of(UnitType.SKELETON_WARRIOR, UnitType.SKELETON_WARRIOR)));
+        engine.tick();
+        dashboard.setSnapshot(WorldSnapshot.of(engine, 1.5));
+
+        assertTrue(render(140, 42).contains("0/10+2"), "two raised beside an empty legion");
+        assertEquals("0/10 +2 raised", AdminConsole.legionColumn(0, 10, 2));
+        assertEquals("3/10", AdminConsole.legionColumn(3, 10, 0));
     }
 
     @Test

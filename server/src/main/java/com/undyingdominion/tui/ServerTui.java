@@ -17,6 +17,7 @@ import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -25,7 +26,10 @@ import java.net.SocketException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -112,6 +116,7 @@ public final class ServerTui {
 
         screen.startScreen();
         screen.setCursorPosition(null);
+        Set<String> failedFrames = new HashSet<>();
         try {
             while (running.get()) {
                 KeyStroke key;
@@ -120,9 +125,15 @@ public final class ServerTui {
                 }
                 dashboard.setSnapshot(latest.get());
                 dashboard.setPaused(pauseLabel(server.pause()));
-                screen.doResizeIfNecessary();
-                dashboard.draw(screen);
-                screen.refresh();
+                drawSafely(() -> {
+                    try {
+                        screen.doResizeIfNecessary();
+                        dashboard.draw(screen);
+                        screen.refresh();
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                }, log::add, failedFrames);
                 Thread.sleep(FRAME_MILLIS);
             }
         } finally {
@@ -171,6 +182,21 @@ public final class ServerTui {
             // fall through to telling the keeper the address
         }
         return "No browser available here. Open " + url + " yourself.";
+    }
+
+    /**
+     * Draws one frame; a frame that throws is skipped, so one bad snapshot can't close the Dominion.
+     * Each kind of failure is logged once. Returns whether the frame drew.
+     */
+    static boolean drawSafely(Runnable frame, Consumer<String> log, Set<String> logged) {
+        try {
+            frame.run();
+            return true;
+        } catch (RuntimeException e) {
+            String what = e.toString();
+            if (logged.add(what)) log.accept("The dashboard skipped a frame: " + what);
+            return false;
+        }
     }
 
     /** How often the invite link is looked up again, so it follows the machine onto a new network. */
