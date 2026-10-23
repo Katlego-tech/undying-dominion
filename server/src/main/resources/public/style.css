@@ -853,6 +853,7 @@ body.phone.touch .thumbs .ability.passive { display: none; }
 #hud .label, #hud .value, #hud .caption, #hud .selection, #hud .scores h2,
 #hud .scores li .kd, #hud .card-top .level { color: var(--hud-dim); }
 #hud .value b, #hud .selection b, #hud .scores li.me .who { color: var(--hud-text); }
+#hud .scores li.fallen .who { color: var(--hud-faint); }
 #hud .bar { background: rgba(255, 255, 255, 0.14); }
 #hud .pause-button { border-color: var(--hud-edge); color: var(--hud-dim); }
 
@@ -866,13 +867,14 @@ body.phone.touch .thumbs .ability.passive { display: none; }
   background: var(--hud-fill-hover);
   border-color: rgba(255, 255, 255, 0.55);
 }
+#hud .ability.signature { border-color: rgba(251, 191, 36, 0.65); }
 #hud .cmd.active, #hud .ability.aiming {
   background: rgba(94, 234, 212, 0.24);
   border-color: var(--soul);
 }
 #hud .chip:active { border-color: var(--soul); }
 #hud .cmd .key, #hud .ability .key, #hud .ability .slot { color: var(--hud-faint); }
-#hud .ability.signature { border-color: rgba(251, 191, 36, 0.65); }
+#hud .ability.signature .slot { color: rgba(251, 191, 36, 0.75); }
 #hud .ability.blocked { background: rgba(206, 211, 220, 0.08); }
 #hud .ability.passive { background: transparent; border-color: rgba(255, 255, 255, 0.24); }
 
@@ -880,8 +882,13 @@ body.phone.touch .thumbs .ability.passive { display: none; }
   border-color: rgba(255, 255, 255, 0.32);
   background: radial-gradient(circle, rgba(206, 211, 220, 0.08) 0%, rgba(206, 211, 220, 0.2) 70%);
 }
+#hud .stick.engaged { border-color: var(--soul); }
 #hud .stick::before { border-color: rgba(255, 255, 255, 0.18); }
 #hud .stick-knob { background: radial-gradient(circle at 35% 30%, #ffffff, #e3e7ee 50%, #aab1bd); }
 
 #hud .notice { background: rgba(206, 211, 220, 0.18); color: var(--hud-text); backdrop-filter: blur(6px); }
+/* The thumb buttons stand alone over the field, so their gray is deeper, to keep small type readable. */
+#hud .thumbs .ability { background: rgba(120, 126, 138, 0.46); }
+#hud .thumbs .ability.blocked { background: rgba(120, 126, 138, 0.26); }
+#hud .thumbs .ability.aiming { background: rgba(94, 234, 212, 0.3); }
 #hud .camera-hint { background: var(--hud-fill); border-color: var(--hud-edge); color: var(--hud-dim); }
