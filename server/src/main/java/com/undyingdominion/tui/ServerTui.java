@@ -17,7 +17,6 @@ import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -125,13 +124,14 @@ public final class ServerTui {
                 }
                 dashboard.setSnapshot(latest.get());
                 dashboard.setPaused(pauseLabel(server.pause()));
+                // A drawing bug skips the frame; a terminal that's gone (IOException) closes the Dominion as before.
                 drawSafely(() -> {
                     try {
                         screen.doResizeIfNecessary();
                         dashboard.draw(screen);
                         screen.refresh();
                     } catch (IOException e) {
-                        throw new UncheckedIOException(e);
+                        running.set(false);
                     }
                 }, log::add, failedFrames);
                 Thread.sleep(FRAME_MILLIS);
