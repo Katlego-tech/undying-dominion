@@ -100,6 +100,27 @@ class SaveGameRoundTripTest {
     }
 
     @Test
+    void theOssuaryIsSavedAndASaveFromBeforeItLoadsWithNone() {
+        PlayerState carrying = new PlayerState(7, "Vesper", "#a78bfa", null, -1, 80, 0, 1, 0, 0,
+                List.of(UnitType.WOLF, UnitType.KNIGHT));
+        EngineState captured = engine.capture();
+        EngineState withCorpses = new EngineState(captured.tick(), 8, captured.nextUnitId(), captured.nextCorpseId(),
+                captured.nextTrapId(), captured.startArea(), List.of(carrying), List.of(), List.of(), List.of());
+        SaveGame save = new SaveGame(SaveGame.FORMAT, "crypt", Instant.parse("2026-10-23T09:00:00Z"),
+                "/somewhere/trial", campaign.title(), "9f2c", RandomState.of(random),
+                new StoryState(0, -1, 0, run.capture()), withCorpses);
+
+        String json = SaveGameCodec.toJson(save);
+        assertEquals(save, SaveGameCodec.fromJson(json));
+        assertEquals(List.of(UnitType.WOLF, UnitType.KNIGHT),
+                GameEngine.rebuild(engine.getMap(), engine.getRules(), new Random(), withCorpses).getPlayer(7).ossuary());
+
+        String before = json.replaceAll(",?\"ossuary\":\\[[^\\]]*\\]", "");
+        assertEquals(List.of(), SaveGameCodec.fromJson(before).engine().players().getFirst().ossuary(),
+                "a save from before the ossuary carried no corpses");
+    }
+
+    @Test
     void aStoryDirectorResumesFromItsCapture() {
         StoryDirector director = new StoryDirector(campaign, random);
         director.firstEngine();

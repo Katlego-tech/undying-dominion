@@ -1,6 +1,7 @@
 package com.undyingdominion.game;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,8 @@ public class Player {
     private int soul;
     private int xp;
     private int level = 1;
+    /** Corpses carried to detonate later, strongest kept in the order collected. */
+    private final List<UnitType> ossuary = new ArrayList<>();
     private int kills;
     private int deaths;
 
@@ -76,6 +79,32 @@ public class Player {
             levelled = true;
         }
         return levelled;
+    }
+
+    /** The corpses in the ossuary, in the order they were collected. */
+    public List<UnitType> ossuary() {
+        return Collections.unmodifiableList(ossuary);
+    }
+
+    /** How many corpses the ossuary holds: three at level 1, one more every two levels, seven at most. */
+    public int ossuaryCap() {
+        return Math.min(7, 3 + (level - 1) / 2);
+    }
+
+    public boolean store(UnitType corpse) {
+        if (ossuary.size() >= ossuaryCap()) return false;
+        ossuary.add(corpse);
+        return true;
+    }
+
+    public UnitType takeStored(int index) {
+        return index >= 0 && index < ossuary.size() ? ossuary.remove(index) : null;
+    }
+
+    /** Puts back what an earlier world, or a save, carried. */
+    public void restoreOssuary(List<UnitType> corpses) {
+        ossuary.clear();
+        ossuary.addAll(corpses);
     }
 
     /** Carries progress over from an earlier world. */
@@ -140,7 +169,7 @@ public class Player {
     }
 
     public PlayerState capture() {
-        return new PlayerState(id, name, color, necromancerId, respawnAtTick, soul, xp, level, kills, deaths);
+        return new PlayerState(id, name, color, necromancerId, respawnAtTick, soul, xp, level, kills, deaths, List.copyOf(ossuary));
     }
 
     /** The level goes back before the soul, because the soul is capped by the level. */
@@ -153,6 +182,7 @@ public class Player {
         player.kills = state.kills();
         player.deaths = state.deaths();
         player.setSoul(state.soul());
+        player.ossuary.addAll(state.ossuary());
         return player;
     }
 

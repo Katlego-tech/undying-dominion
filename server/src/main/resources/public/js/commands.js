@@ -1,7 +1,7 @@
 // Every order the player can give, used by the keyboard, the mouse and the command bar alike.
 
 import {
-  game, selectedUnits, myNecromancer, corpseNear, isMine, unitAtTile, canTarget, aimedAbility,
+  game, selectedUnits, myNecromancer, corpseNear, isMine, unitAtTile, canTarget, aimedAbility, explodeStage,
 } from './state.js';
 import { notice, showModeHint } from './hud.js';
 import { needsTarget } from './kits.js';
@@ -15,6 +15,8 @@ function marker(x, y, hostile) {
 }
 
 export function setMode(mode) {
+  // The corpse in hand belongs to Corpse Explosion's steps; any other mode lets it go.
+  if (!mode?.startsWith('explode')) game.explodeHand = null;
   game.mode = mode;
   showModeHint(mode);
 }
@@ -148,23 +150,121 @@ export function raiseAt(x, y) {
   return true;
 }
 
-/** Detonates the corpse on or next to this tile. Returns whether there was one. */
+// ---------------------------------------------------------------- Corpse Explosion (docs/design/corpse-explosion.md)
+
+/** X: opens the corpse picker (the stored corpses, and any on the field in reach). X again closes it. */
+export function beginExplode() {
+  if (!myNecromancer()) {
+    notice('The dead cannot detonate the dead.');
+    return;
+  }
+  if (game.mode === 'explode-target' && explodeStage() === 'SPLIT' && game.explodeHand?.marks.length) {
+    detonate();
+    return;
+  }
+  game.explodeHand = null;
+  setMode(game.mode?.startsWith('explode') ? null : 'explode');
+}
+
+/** A stored corpse chosen in the picker: at Burst it's dropped on a tile; later, it strikes from you. */
+export function pickStored(index) {
+  game.explodeHand = { stored: index, type: game.you?.ossuary?.[index]?.type, from: null, marks: [] };
+  setMode(explodeStage() === 'BURST' ? 'explode-drop' : 'explode-target');
+}
+
+/** A corpse on the field, picked while choosing. At Burst it goes off where it lies. Returns whether one was there. */
 export function explodeAt(x, y) {
   const corpse = corpseNear(x, y);
   if (!corpse) {
     notice('There is no corpse there.');
     return false;
   }
-  game.send({ command: 'explode', corpse: corpse.id });
+  if (explodeStage() === 'BURST') {
+    game.send({ command: 'explode', corpse: corpse.id });
+    game.explodeHand = null;
+    setMode(null);
+  } else {
+    game.explodeHand = { corpse: corpse.id, type: corpse.type, from: { x: corpse.x, y: corpse.y }, marks: [] };
+    setMode('explode-target');
+  }
   return true;
 }
 
-export function beginExplode() {
-  if (!myNecromancer()) {
-    notice('The dead cannot detonate the dead.');
+/** Burst with a stored corpse: drop it on this tile. */
+export function dropAt(x, y) {
+  const hand = game.explodeHand;
+  if (!hand) return;
+  game.send({ command: 'explode', stored: hand.stored, type: hand.type, x, y });
+  game.explodeHand = null;
+  setMode(null);
+}
+
+/**
+ * The target step: at Directed the enemy here takes the blast at once; at Split it's marked (or
+ * unmarked), and the blast goes off when the last mark is placed or on Detonate.
+ */
+export function markAt(x, y) {
+  const hand = game.explodeHand;
+  if (!hand) return;
+  const unit = unitAtTile(x, y);
+  if (!unit || isMine(unit)) {
+    notice('Choose who the corpse explodes at.');
     return;
   }
-  setMode(game.mode === 'explode' ? null : 'explode');
+  if (explodeStage() === 'DIRECTED') {
+    hand.marks = [unit.id];
+    detonate();
+    return;
+  }
+  const at = hand.marks.indexOf(unit.id);
+  if (at >= 0) hand.marks.splice(at, 1);
+  else hand.marks.push(unit.id);
+  if (hand.marks.length >= (game.rules.explodeSplitMax ?? 3)) detonate();
+  else setMode('explode-target');
+}
+
+/** Sends the corpse in hand at the marked enemies. */
+export function detonate() {
+  const hand = game.explodeHand;
+  if (!hand || hand.marks.length === 0) {
+    notice('Choose who the corpse explodes at.');
+    return;
+  }
+  const which = hand.stored != null ? { stored: hand.stored, type: hand.type } : { corpse: hand.corpse };
+  game.send({ command: 'explode', ...which, targets: hand.marks });
+  game.explodeHand = null;
+  setMode(null);
+}
+
+/** Esc or a right-click: back one step, from the target to the picker, then closed. */
+export function explodeBack() {
+  if (game.mode === 'explode-target' || game.mode === 'explode-drop') {
+    game.explodeHand = null;
+    setMode('explode');
+  } else {
+    game.explodeHand = null;
+    setMode(null);
+  }
+}
+
+/** B: then a corpse within raising range goes into the ossuary. */
+export function beginCollect() {
+  if (!myNecromancer()) {
+    notice('The dead cannot carry the dead.');
+    return;
+  }
+  setMode(game.mode === 'collect' ? null : 'collect');
+}
+
+/** Collects the corpse on or next to this tile. Returns whether there was one. */
+export function collectAt(x, y) {
+  const corpse = corpseNear(x, y);
+  if (!corpse) {
+    notice('There is no corpse there.');
+    return false;
+  }
+  game.send({ command: 'collect', corpse: corpse.id });
+  return true;
 }
 
 export function beginAttackMove() {

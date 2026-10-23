@@ -36,6 +36,10 @@
         <span class="raised-count" id="legion-raised" title="Raised from corpses: they take no room in the legion, and return to the dead in time"></span>
         <span class="value"><b id="legion-value">0</b>/<span id="legion-cap">10</span></span>
       </div>
+      <div class="legion-row ossuary-row" id="ossuary-row" hidden>
+        <span class="label">Ossuary</span>
+        <span class="value"><b id="ossuary-value">0</b>/<span id="ossuary-cap">3</span></span>
+      </div>
     </section>
 
     <section class="panel scores" id="scores">
@@ -52,6 +56,15 @@
     <div class="say" id="say" aria-live="polite" hidden></div>
 
     <section class="notices" id="notices" aria-live="polite"></section>
+
+    <section class="panel corpse-picker" id="corpse-picker" aria-label="Choose a corpse" hidden>
+      <header>
+        <h3>Corpse Explosion</h3>
+        <span class="stage" id="corpse-stage"></span>
+        <p id="corpse-picker-hint"></p>
+      </header>
+      <div class="corpse-cards" id="corpse-cards"></div>
+    </section>
 
     <section class="panel command" id="command">
       <div class="selection" id="selection">Nothing selected</div>
@@ -149,7 +162,8 @@
             <li>Left-drag to select your legion, right-click to move or attack.</li>
             <li>Everything that dies leaves a corpse. A green ring means you can raise it: <kbd>R</kbd> then click. Raised dead don't count against your legion, but return to the grave after a few minutes.</li>
             <li>Five warriors standing together <kbd>F</kbd>use into a Skeleton King.</li>
-            <li><kbd>X</kbd> then click a corpse: Corpse Explosion, damage to everything around it.</li>
+            <li><kbd>X</kbd> for Corpse Explosion: pick a corpse, stored or on the field. From level 6 you then pick the enemy it strikes; from level 9, up to three.</li>
+          <li><kbd>B</kbd> then click a corpse to collect it into your ossuary, to detonate later and elsewhere.</li>
             <li><kbd>M</kbd> mends selected units. Grave Wardens lay hidden <kbd>T</kbd>raps.</li>
             <li><kbd>G</kbd> gathers the selected units to your necromancer, or the whole legion if none are selected. Hold it to have them follow.</li>
             <li><kbd>C</kbd> then click to attack-move, <kbd>H</kbd> to stop.</li>

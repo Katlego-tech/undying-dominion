@@ -100,7 +100,8 @@ public final class SaveGameCodec {
                     .put("xp", p.xp())
                     .put("level", p.level())
                     .put("kills", p.kills())
-                    .put("deaths", p.deaths()));
+                    .put("deaths", p.deaths())
+                    .put("ossuary", new JSONArray(p.ossuary().stream().map(UnitType::name).toList())));
         }
         JSONArray units = new JSONArray();
         for (UnitState u : engine.units()) {
@@ -162,10 +163,19 @@ public final class SaveGameCodec {
                 .put("traps", traps);
     }
 
+    /** A save from before the ossuary has none: the player carried no corpses. */
+    private static List<UnitType> ossuary(JSONArray names) {
+        List<UnitType> corpses = new ArrayList<>();
+        if (names == null) return corpses;
+        for (int i = 0; i < names.length(); i++) corpses.add(UnitType.valueOf(names.getString(i)));
+        return List.copyOf(corpses);
+    }
+
     private static EngineState engine(JSONObject json) {
         List<PlayerState> players = list(json.getJSONArray("players"), p -> new PlayerState(p.getInt("id"),
                 p.getString("name"), p.getString("color"), optInt(p, "necromancerId"), p.getLong("respawnAtTick"),
-                p.getInt("soul"), p.getInt("xp"), p.getInt("level"), p.getInt("kills"), p.getInt("deaths")));
+                p.getInt("soul"), p.getInt("xp"), p.getInt("level"), p.getInt("kills"), p.getInt("deaths"),
+                ossuary(p.optJSONArray("ossuary"))));
         List<UnitState> units = list(json.getJSONArray("units"), u -> {
             List<Position> path = new ArrayList<>();
             JSONArray steps = u.getJSONArray("path");

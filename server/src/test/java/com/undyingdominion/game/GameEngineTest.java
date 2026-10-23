@@ -441,6 +441,141 @@ class GameEngineTest {
         assertTrue(vesper.takeNotices().stream().anyMatch(n -> n.startsWith("Too far away")));
     }
 
+    // ------------------------------------------------------------------ Corpse Explosion grows (docs/design/corpse-explosion.md)
+
+    @Test
+    void atDirectedTheCorpseStrikesOnlyTheChosenEnemy() {
+        vesper.restoreProgress(6, 0, 0, 0);
+        Corpse corpse = corpseOfWolfAt(3);
+        Unit beside = engine.spawn(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position().offset(0, 1));
+        Unit chosen = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 5, 3);
+        vesper.setSoul(50);
+
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id(), null, null, List.of(chosen.getId())));
+        engine.tick();
+
+        // Knights and the necromancer trade blows in the same tick, so the blast is the bound, not the total.
+        int blast = UnitType.WOLF.maxHp * engine.getRules().explodeTargetPercent() / 100;
+        assertTrue(chosen.getHp() <= UnitType.KNIGHT.maxHp - blast, "the chosen enemy takes the whole blast");
+        assertTrue(beside.getHp() > UnitType.KNIGHT.maxHp - blast, "standing by the corpse no longer means being hit");
+        assertEquals(50 - engine.getRules().explodeSoulCost(), vesper.getSoul());
+        assertTrue(engine.getCorpses().isEmpty());
+    }
+
+    @Test
+    void atDirectedACorpseWithNoTargetOrOneOutOfReachIsKept() {
+        vesper.restoreProgress(6, 0, 0, 0);
+        Corpse corpse = corpseOfWolfAt(3);
+        int reach = engine.getRules().explodeTargetRange();
+        Unit far = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), reach + 2, 0);
+        vesper.setSoul(50);
+        vesper.takeNotices();
+
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id(), null, null, List.of()));
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id(), null, null, List.of(far.getId())));
+        engine.tick();
+
+        assertEquals(List.of("Choose who the corpse explodes at.",
+                "Too far from the corpse. Targets must be within " + reach + " tiles of it."), vesper.takeNotices());
+        assertEquals(1, engine.getCorpses().size());
+        assertEquals(50, vesper.getSoul(), "nothing is spent on a refused blast");
+    }
+
+    @Test
+    void atSplitTheBlastIsSharedBetweenUpToThreeEnemies() {
+        vesper.restoreProgress(9, 0, 0, 0);
+        Corpse corpse = corpseOfWolfAt(3);
+        List<Unit> knights = List.of(spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 4, 1),
+                spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 4, 3),
+                spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 4, 5),
+                spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, corpse.position(), 4, 7));
+        vesper.setSoul(50);
+        vesper.takeNotices();
+
+        List<Integer> four = knights.stream().map(Unit::getId).toList();
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id(), null, null, four));
+        engine.tick();
+        assertEquals(List.of("Corpse Explosion can strike 3 at once."), vesper.takeNotices());
+
+        engine.submit(new Command.Explode(vesper.getId(), corpse.id(), null, null, four.subList(0, 2)));
+        engine.tick();
+        int share = UnitType.WOLF.maxHp * engine.getRules().explodeSplitPercent() / 100 / 2;
+        assertTrue(knights.get(0).getHp() <= UnitType.KNIGHT.maxHp - share);
+        assertTrue(knights.get(1).getHp() <= UnitType.KNIGHT.maxHp - share);
+        assertTrue(knights.get(2).getHp() > UnitType.KNIGHT.maxHp - share, "an unmarked enemy is spared");
+    }
+
+    @Test
+    void theOssuaryCollectsCorpsesUpToItsCapacityAndBurstsOneOnATile() {
+        int cap = vesper.ossuaryCap();
+        assertEquals(3, cap, "three at level 1");
+        vesper.takeNotices();
+        for (int i = 0; i < cap + 1; i++) {
+            Corpse corpse = corpseOfWolfAt(2);
+            engine.submit(new Command.Collect(vesper.getId(), corpse.id()));
+            engine.tick();
+        }
+        assertEquals(cap, vesper.ossuary().size());
+        assertEquals(1, engine.getCorpses().size(), "the last one stays on the field");
+        List<String> notices = vesper.takeNotices();
+        assertTrue(notices.contains("Collected: " + UnitType.WOLF.label + ". Its blast: "
+                + Math.max(10, UnitType.WOLF.maxHp * engine.getRules().explodeDamagePercent() / 100) + "."), notices.toString());
+        assertTrue(notices.contains("Your ossuary is full (" + cap + "). Detonate one first."), notices.toString());
+
+        Position spot = necromancerOf(vesper).getPosition().offset(3, 0);
+        Unit near = engine.spawn(UnitType.KNIGHT, Unit.NEUTRAL, spot.offset(1, 0));
+        vesper.setSoul(50);
+        engine.submit(new Command.Explode(vesper.getId(), null, 0, spot, List.of()));
+        engine.tick();
+
+        int blast = UnitType.WOLF.maxHp * engine.getRules().explodeDamagePercent() / 100;
+        assertTrue(near.getHp() <= UnitType.KNIGHT.maxHp - blast, "a stored corpse bursts where it's dropped");
+        assertEquals(cap - 1, vesper.ossuary().size());
+    }
+
+    @Test
+    void aStoredCorpseStrikesFromTheNecromancerAtDirected() {
+        vesper.restoreProgress(6, 0, 0, 0);
+        Corpse corpse = corpseOfWolfAt(2);
+        engine.submit(new Command.Collect(vesper.getId(), corpse.id()));
+        engine.tick();
+        Unit chosen = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, necromancerOf(vesper).getPosition(), 8, 2);
+        vesper.setSoul(50);
+
+        engine.submit(new Command.Explode(vesper.getId(), null, 0, null, List.of(chosen.getId())));
+        engine.tick();
+
+        assertTrue(chosen.getHp() <= UnitType.KNIGHT.maxHp - UnitType.WOLF.maxHp * engine.getRules().explodeTargetPercent() / 100);
+        assertTrue(vesper.ossuary().isEmpty());
+    }
+
+    @Test
+    void aStoredCorpseIsRefusedWhenItsSlotNoLongerHoldsTheOneChosen() {
+        vesper.restoreProgress(6, 0, 0, 0);
+        vesper.restoreOssuary(List.of(UnitType.WOLF, UnitType.KNIGHT));
+        Unit chosen = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, necromancerOf(vesper).getPosition(), 6, 2);
+        vesper.setSoul(50);
+        vesper.takeNotices();
+
+        engine.submit(new Command.Explode(vesper.getId(), null, 0, null, List.of(chosen.getId()), UnitType.KNIGHT.name()));
+        engine.tick();
+
+        assertEquals(List.of("That corpse has already gone."), vesper.takeNotices());
+        assertEquals(2, vesper.ossuary().size(), "nothing spent: the wolf in slot 0 isn't the knight they picked");
+        assertEquals(50, vesper.getSoul());
+    }
+
+    @Test
+    void theOssuaryGrowsWithLevelAndTheStageChangesAreAnnounced() {
+        vesper.restoreProgress(9, 0, 0, 0);
+        assertEquals(7, vesper.ossuaryCap());
+        vesper.restoreProgress(5, 0, 0, 0);
+        assertEquals(5, vesper.ossuaryCap());
+        assertEquals(GameEngine.ExplodeStage.BURST, engine.explodeStage(vesper));
+        vesper.restoreProgress(6, 0, 0, 0);
+        assertEquals(GameEngine.ExplodeStage.DIRECTED, engine.explodeStage(vesper));
+    }
+
     // ------------------------------------------------------------------ mend, from Robot Worlds' repair
 
     @Test

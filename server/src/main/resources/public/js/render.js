@@ -1,6 +1,6 @@
 import {
   game, TERRAIN, colorOf, renderPos, isMine, myNecromancer, levelledLabel, label, terrainAt, viewport as pageSize,
-  kitOf, aimedAbility, canTarget,
+  kitOf, aimedAbility, canTarget, blastOf,
 } from './state.js';
 import {
   roleOf, familyOf, FAMILY_COLORS, statusName,
@@ -682,18 +682,88 @@ export function createRenderer(canvas, minimap) {
     return !!necromancer && cost >= 0 && (game.you?.soul ?? 0) >= cost && withinRaiseRange(corpse, necromancer);
   }
 
-  function drawCorpseLabel(corpse) {
-    const text = `${label(corpse.type)} · ${game.unitTypes[corpse.type].raiseCost}`;
+  function drawCorpseLabel(corpse, text = `${label(corpse.type)} · ${game.unitTypes[corpse.type].raiseCost}`, color = '#4ade80') {
+    tag(corpse.x, corpse.y, text, color);
+  }
+
+  /** A small dark tag over a tile, in a colour: corpse costs, blasts, the damage a target would take. */
+  function tag(tx, ty, text, color, edge = false) {
     ctx.font = '600 9px Inter, system-ui, sans-serif';
     const w = ctx.measureText(text).width + 8;
-    const x = (corpse.x + 0.5) * TILE - w / 2;
-    const y = corpse.y * TILE - 12;
-    ctx.fillStyle = 'rgba(14, 12, 18, 0.85)';
+    const x = (tx + 0.5) * TILE - w / 2;
+    const y = ty * TILE - 12;
+    ctx.fillStyle = 'rgba(14, 12, 18, 0.88)';
     ctx.beginPath();
     ctx.roundRect(x, y, w, 12, 3);
     ctx.fill();
-    ctx.fillStyle = '#4ade80';
+    if (edge) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.fillStyle = color;
     ctx.fillText(text, x + 4, y + 9);
+  }
+
+  const EMBER = '251, 146, 60';
+
+  /** Corpse Explosion's target step: the reach, who can be hit, who's marked, and what each takes. */
+  function drawExplodeTarget(necromancer, now) {
+    const hand = game.explodeHand;
+    if (!hand) return;
+    const from = hand.from ?? renderPos(necromancer, now);
+    const reach = game.rules.explodeTargetRange ?? 10;
+    ctx.strokeStyle = `rgba(${EMBER}, 0.55)`;
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect((from.x - reach) * TILE, (from.y - reach) * TILE, (reach * 2 + 1) * TILE, (reach * 2 + 1) * TILE);
+    ctx.setLineDash([]);
+    ctx.fillStyle = `rgba(${EMBER}, 0.035)`;
+    ctx.fillRect((from.x - reach) * TILE, (from.y - reach) * TILE, (reach * 2 + 1) * TILE, (reach * 2 + 1) * TILE);
+    const type = hand.stored != null ? game.you?.ossuary?.[hand.stored]?.type : hand.type;
+    const blast = type ? blastOf(type) : 0;
+    const marks = hand.marks;
+    const { tx, ty, inside } = game.pointer;
+    for (const u of game.units.values()) {
+      if (isMine(u) || Math.max(Math.abs(u.x - from.x), Math.abs(u.y - from.y)) > reach) continue;
+      const p = renderPos(u, now);
+      const cx = (p.x + 0.5) * TILE, cy = (p.y + 0.5) * TILE + TILE * 0.2;
+      const marked = marks.indexOf(u.id);
+      const hovered = inside && u.x === tx && u.y === ty;
+      ctx.strokeStyle = `rgba(${EMBER}, ${marked >= 0 || hovered ? 0.95 : 0.4})`;
+      ctx.lineWidth = marked >= 0 || hovered ? 2 : 1.2;
+      ctx.setLineDash(marked >= 0 || hovered ? [] : [3, 3]);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, TILE * 0.46, TILE * 0.2, 0, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (marked >= 0) {
+        ctx.fillStyle = `rgb(${EMBER})`;
+        ctx.beginPath();
+        ctx.arc(cx + TILE * 0.42, cy - TILE * 0.62, 7, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#1c0a02';
+        ctx.font = '700 10px Inter, system-ui, sans-serif';
+        ctx.fillText(String(marked + 1), cx + TILE * 0.42 - 3, cy - TILE * 0.62 + 3.5);
+      }
+      if (marked >= 0 || hovered) {
+        const count = Math.max(1, marks.length + (marked >= 0 ? 0 : 1));
+        tag(p.x, p.y - 0.6, `−${Math.floor(blast / count)}`, `rgb(${EMBER})`, true);
+      }
+    }
+  }
+
+  /** Burst with a stored corpse: where it can be dropped, and the blast around the tile under the pointer. */
+  function drawExplodeDrop(necromancer, now) {
+    drawRaiseRange(necromancer, now, EMBER);
+    const { tx, ty, inside } = game.pointer;
+    if (!inside) return;
+    const r = game.rules.explodeRadius ?? 2;
+    ctx.fillStyle = `rgba(${EMBER}, 0.14)`;
+    ctx.strokeStyle = `rgba(${EMBER}, 0.85)`;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect((tx - r) * TILE, (ty - r) * TILE, (r * 2 + 1) * TILE, (r * 2 + 1) * TILE);
+    ctx.strokeRect((tx - r) * TILE, (ty - r) * TILE, (r * 2 + 1) * TILE, (r * 2 + 1) * TILE);
   }
 
   function drawTrap(trap) {
@@ -792,6 +862,30 @@ export function createRenderer(canvas, minimap) {
             const d = k * radius * 1.1;
             ctx.fillStyle = `rgba(232, 226, 208, ${1 - k})`;
             ctx.fillRect(x + Math.cos(a) * d - 1.5, y + Math.sin(a) * d - 1.5, 3, 3);
+          }
+          break;
+        }
+        case 'corpse-strike': {
+          const x2 = (e.x2 + 0.5) * TILE, y2 = (e.y2 + 0.5) * TILE;
+          const fly = Math.min(1, k / 0.55);
+          const bx = x + (x2 - x) * fly, by = y + (y2 - y) * fly;
+          if (fly < 1) {
+            ctx.strokeStyle = `rgba(${EMBER}, 0.9)`;
+            ctx.lineWidth = 2.5;
+            line(x + (x2 - x) * Math.max(0, fly - 0.25), y + (y2 - y) * Math.max(0, fly - 0.25), bx, by, `rgba(${EMBER}, 0.9)`, 2.5);
+            ctx.fillStyle = BONE;
+            ctx.beginPath();
+            ctx.arc(bx, by, 3, 0, TAU);
+            ctx.fill();
+          } else {
+            const b = (k - 0.55) / 0.45;
+            const g = ctx.createRadialGradient(x2, y2, 0, x2, y2, TILE * (0.4 + b));
+            g.addColorStop(0, `rgba(254, 215, 170, ${0.9 * (1 - b)})`);
+            g.addColorStop(1, 'rgba(249, 115, 22, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(x2, y2, TILE * (0.4 + b), 0, TAU);
+            ctx.fill();
           }
           break;
         }
@@ -987,8 +1081,8 @@ export function createRenderer(canvas, minimap) {
     ctx.drawImage(terrainCanvas, 0, 0);
 
     const necromancer = myNecromancer();
-    const corpseMode = (game.mode === 'raise' || game.mode === 'explode') && necromancer;
-    const modeColor = game.mode === 'explode' ? '251, 146, 60' : '94, 234, 212';
+    const corpseMode = (game.mode === 'raise' || game.mode === 'explode' || game.mode === 'collect') && necromancer;
+    const modeColor = game.mode === 'explode' ? EMBER : game.mode === 'collect' ? '232, 226, 208' : '94, 234, 212';
     if (corpseMode) drawRaiseRange(necromancer, now, modeColor);
 
     const newestId = game.corpses.reduce((max, c) => Math.max(max, c.id), 0);
@@ -1007,6 +1101,15 @@ export function createRenderer(canvas, minimap) {
         if (canRaise(corpse, necromancer)) drawCorpseLabel(corpse);
       }
     }
+    // Choosing a corpse to blow up or to carry: each one in reach says what it's worth at your stage.
+    if ((game.mode === 'explode' || game.mode === 'collect') && necromancer) {
+      for (const corpse of game.corpses) {
+        if (!withinRaiseRange(corpse, necromancer)) continue;
+        drawCorpseLabel(corpse, `${label(corpse.type)} · ${blastOf(corpse.type)}`, game.mode === 'explode' ? `rgb(${EMBER})` : BONE);
+      }
+    }
+    if (game.mode === 'explode-target' && necromancer) drawExplodeTarget(necromancer, now);
+    if (game.mode === 'explode-drop' && necromancer) drawExplodeDrop(necromancer, now);
 
     // An ability in hand is drawn over the units, so its rings show who it would land on.
     const aimed = aimedAbility();

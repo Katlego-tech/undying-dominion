@@ -140,7 +140,8 @@ public class GameEngine {
             case Command.Attack attack -> attack(player, attack);
             case Command.Stop stop -> commandable(player, stop.unitIds()).forEach(Unit::orderIdle);
             case Command.Raise raise -> raise(player, raise.corpseId());
-            case Command.Explode explode -> explode(player, explode.corpseId());
+            case Command.Explode explode -> explode(player, explode);
+            case Command.Collect collect -> collect(player, collect.corpseId());
             case Command.Fuse fuse -> fuse(player, fuse.unitIds());
             case Command.Mend mend -> mend(player, mend.unitIds());
             case Command.SetTrap setTrap -> setTrap(player, setTrap.unitIds());
@@ -181,6 +182,7 @@ public class GameEngine {
 
     private void restore(Player player, Command.Restore restore) {
         player.restoreProgress(restore.level(), restore.xp(), restore.kills(), restore.deaths());
+        player.restoreOssuary(restore.ossuary());
         Unit necromancer = commanderOf(player);
         if (necromancer == null) return;
         for (UnitType type : restore.legion()) {
@@ -314,11 +316,133 @@ public class GameEngine {
         events.add(GameEvent.at(GameEvent.Kind.RAISE, unit));
     }
 
+    /** How far Corpse Explosion has grown for this player (docs/design/corpse-explosion.md). */
+    public enum ExplodeStage { BURST, DIRECTED, SPLIT }
+
+    public ExplodeStage explodeStage(Player player) {
+        if (player.getLevel() >= rules.explodeSplitLevel()) return ExplodeStage.SPLIT;
+        return player.getLevel() >= rules.explodeTargetLevel() ? ExplodeStage.DIRECTED : ExplodeStage.BURST;
+    }
+
+    /** What one corpse of this kind deals at the player's stage: a share of the dead creature's life. */
+    public int blastOf(Player player, UnitType corpse) {
+        int percent = switch (explodeStage(player)) {
+            case BURST -> rules.explodeDamagePercent();
+            case DIRECTED -> rules.explodeTargetPercent();
+            case SPLIT -> rules.explodeSplitPercent();
+        };
+        return Math.max(10, corpse.maxHp * percent / 100);
+    }
+
     /**
-     * Corpse Explosion: the necromancer detonates a corpse within raising range, and every enemy within
-     * the blast takes a share of the dead creature's life as damage.
+     * Corpse Explosion. At Burst a corpse (on the field within raising range, or stored and dropped on a
+     * tile within it) hurts every enemy around it. At Directed it strikes one chosen enemy within reach of
+     * the corpse (of the necromancer, for a stored one); at Split it shares a bigger blast between up to
+     * a few. Nothing is spent until the blast is sure to go off.
      */
-    private void explode(Player player, int corpseId) {
+    private void explode(Player player, Command.Explode order) {
+        Unit necromancer = commanderOf(player);
+        if (necromancer == null) {
+            player.notice("The dead cannot detonate the dead.");
+            return;
+        }
+        ExplodeStage stage = explodeStage(player);
+        Corpse corpse = null;
+        UnitType type;
+        Position from;
+        if (order.stored() != null) {
+            // The type the player chose must still be in that slot, or the list moved under them.
+            if (order.stored() < 0 || order.stored() >= player.ossuary().size()
+                    || (order.storedType() != null && !player.ossuary().get(order.stored()).name().equals(order.storedType()))) {
+                player.notice("That corpse has already gone.");
+                return;
+            }
+            type = player.ossuary().get(order.stored());
+            from = necromancer.getPosition();
+            if (stage == ExplodeStage.BURST) {
+                if (order.tile() == null || !map.inBounds(order.tile())) {
+                    player.notice("Choose where to drop the corpse.");
+                    return;
+                }
+                if (from.distanceTo(order.tile()) > rules.raiseRange()) {
+                    player.notice("Too far away. Move within " + rules.raiseRange() + " tiles of the spot.");
+                    return;
+                }
+                from = order.tile();
+            }
+        } else {
+            corpse = order.corpseId() == null ? null : corpses.get(order.corpseId());
+            if (corpse == null) {
+                player.notice("That corpse has already gone.");
+                return;
+            }
+            if (necromancer.getPosition().distanceTo(corpse.position()) > rules.raiseRange()) {
+                player.notice("Too far away. Move within " + rules.raiseRange() + " tiles of the corpse.");
+                return;
+            }
+            type = corpse.type();
+            from = corpse.position();
+        }
+
+        List<Unit> targets = new ArrayList<>();
+        if (stage != ExplodeStage.BURST) {
+            List<Integer> ids = order.targets() == null ? List.of() : order.targets();
+            int most = stage == ExplodeStage.SPLIT ? rules.explodeSplitMax() : 1;
+            if (ids.isEmpty()) {
+                player.notice("Choose who the corpse explodes at.");
+                return;
+            }
+            if (ids.size() > most) {
+                player.notice("Corpse Explosion can strike " + most + " at once.");
+                return;
+            }
+            Visibility sight = sightOf(player);
+            for (int id : ids.stream().distinct().toList()) {
+                Unit target = units.get(id);
+                if (target == null || !target.isAlive() || target.getOwnerId() == player.getId()) {
+                    player.notice("That target is gone.");
+                    return;
+                }
+                if (from.distanceTo(target.getPosition()) > rules.explodeTargetRange()) {
+                    player.notice("Too far from the corpse. Targets must be within " + rules.explodeTargetRange() + " tiles of it.");
+                    return;
+                }
+                if (!sight.shows(target)) {
+                    player.notice("You can't see that target.");
+                    return;
+                }
+                targets.add(target);
+            }
+        }
+        if (!player.spendSoul(rules.explodeSoulCost())) {
+            player.notice("Corpse Explosion needs " + rules.explodeSoulCost() + " soul energy.");
+            return;
+        }
+        if (corpse != null) corpses.remove(corpse.id());
+        else player.takeStored(order.stored());
+
+        int blast = blastOf(player, type);
+        if (stage == ExplodeStage.BURST) {
+            for (Unit unit : units.values()) {
+                if (unit.isAlive() && unit.getOwnerId() != player.getId()
+                        && unit.getPosition().distanceTo(from) <= rules.explodeRadius()) {
+                    unit.takeDamage(blast, player.getId());
+                }
+            }
+            events.add(new GameEvent(GameEvent.Kind.EXPLOSION, player.getId(), rules.explodeRadius(), from.x(), from.y(), 0, 0));
+            return;
+        }
+        int share = Math.max(1, blast / targets.size());
+        events.add(new GameEvent(GameEvent.Kind.EXPLOSION, player.getId(), 0, from.x(), from.y(), 0, 0));
+        for (Unit target : targets) {
+            Position at = target.getPosition();
+            target.takeDamage(share, player.getId());
+            events.add(new GameEvent(GameEvent.Kind.CORPSE_STRIKE, player.getId(), target.getId(), from.x(), from.y(), at.x(), at.y()));
+        }
+    }
+
+    /** Takes a corpse within raising range into the ossuary, to detonate later and elsewhere. */
+    private void collect(Player player, int corpseId) {
         Corpse corpse = corpses.get(corpseId);
         if (corpse == null) {
             player.notice("That corpse has already gone.");
@@ -326,27 +450,19 @@ public class GameEngine {
         }
         Unit necromancer = commanderOf(player);
         if (necromancer == null) {
-            player.notice("The dead cannot detonate the dead.");
+            player.notice("The dead cannot carry the dead.");
             return;
         }
         if (necromancer.getPosition().distanceTo(corpse.position()) > rules.raiseRange()) {
             player.notice("Too far away. Move within " + rules.raiseRange() + " tiles of the corpse.");
             return;
         }
-        if (!player.spendSoul(rules.explodeSoulCost())) {
-            player.notice("Corpse Explosion needs " + rules.explodeSoulCost() + " soul energy.");
+        if (!player.store(corpse.type())) {
+            player.notice("Your ossuary is full (" + player.ossuaryCap() + "). Detonate one first.");
             return;
         }
         corpses.remove(corpseId);
-        int damage = Math.max(10, corpse.type().maxHp * rules.explodeDamagePercent() / 100);
-        for (Unit unit : units.values()) {
-            if (unit.isAlive() && unit.getOwnerId() != player.getId()
-                    && unit.getPosition().distanceTo(corpse.position()) <= rules.explodeRadius()) {
-                unit.takeDamage(damage, player.getId());
-            }
-        }
-        events.add(new GameEvent(GameEvent.Kind.EXPLOSION, player.getId(), rules.explodeRadius(),
-                corpse.position().x(), corpse.position().y(), 0, 0));
+        player.notice("Collected: " + corpse.type().label + ". Its blast: " + blastOf(player, corpse.type()) + ".");
     }
 
     /**
@@ -623,9 +739,16 @@ public class GameEngine {
         Passive passive = killer.commander().passive();
         if (passive.kind() == Passive.Kind.ENERGY_ON_KILL) killer.addSoul(passive.magnitude());
         killer.addKill();
+        ExplodeStage before = explodeStage(killer);
         if (killer.addXp(victim.getType().xpValue)) {
             events.add(GameEvent.levelUp(killer));
             killer.notice("You reached level " + killer.getLevel() + ". Legion cap is now " + killer.legionCap() + ".");
+            ExplodeStage after = explodeStage(killer);
+            if (after != before && killer.commander().role() == Commander.Role.NECROMANCER) {
+                killer.notice(after == ExplodeStage.SPLIT
+                        ? "Corpse Explosion grows: one corpse can now strike " + rules.explodeSplitMax() + " enemies."
+                        : "Corpse Explosion grows: choose a corpse, then the enemy it strikes.");
+            }
         }
         if (victim.getType().isCommander()) {
             Player victimOwner = players.get(victim.getOwnerId());

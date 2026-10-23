@@ -221,7 +221,7 @@ public class GameServer {
                 // what they were carrying is carried on rather than lost.
                 Command.Restore restore = before != null
                         ? new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
-                                before.getDeaths(), previous.legionOf(id), previous.raisedOf(id))
+                                before.getDeaths(), previous.legionOf(id), previous.raisedOf(id), List.copyOf(before.ossuary()))
                         : carried.get(id);
                 if (restore != null) {
                     next.submit(restore);

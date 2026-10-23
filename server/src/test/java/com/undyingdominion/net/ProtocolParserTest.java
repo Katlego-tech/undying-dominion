@@ -34,6 +34,18 @@ class ProtocolParserTest {
     }
 
     @Test
+    void parsesEveryFormOfCorpseExplosionAndCollect() throws ProtocolException {
+        assertEquals(new Command.Explode(3, 12, null, null, List.of()), parse("{\"command\":\"explode\",\"corpse\":12}"));
+        assertEquals(new Command.Explode(3, 12, null, null, List.of(57)),
+                parse("{\"command\":\"explode\",\"corpse\":12,\"targets\":[57]}"));
+        assertEquals(new Command.Explode(3, null, 1, new Position(21, 9), List.of()),
+                parse("{\"command\":\"explode\",\"stored\":1,\"x\":21,\"y\":9}"));
+        assertEquals(new Command.Collect(3, 12), parse("{\"command\":\"collect\",\"corpse\":12}"));
+        assertThrows(ProtocolException.class, () -> parse("{\"command\":\"explode\"}"), "neither a corpse nor a stored one");
+        assertThrows(ProtocolException.class, () -> parse("{\"command\":\"explode\",\"corpse\":1,\"stored\":0}"), "not both");
+    }
+
+    @Test
     void commandNamesAreCaseInsensitive() throws ProtocolException {
         assertEquals(new Command.Raise(3, 9), parse("{\"command\":\"RAISE\",\"corpse\":9}"));
     }

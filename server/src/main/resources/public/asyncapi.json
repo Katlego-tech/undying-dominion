@@ -88,6 +88,9 @@
         },
         "cast": {
           "$ref": "#/components/messages/cast"
+        },
+        "collect": {
+          "$ref": "#/components/messages/collect"
         }
       }
     }
@@ -334,6 +337,17 @@
           "$ref": "#/channels/dominion/messages/cast"
         }
       ]
+    },
+    "sendCollect": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/collect"
+        }
+      ]
     }
   },
   "components": {
@@ -578,7 +592,7 @@
       },
       "explode": {
         "name": "explode",
-        "summary": "Corpse Explosion: blast a corpse within raiseRange, damaging everything within explodeRadius.",
+        "summary": "Corpse Explosion. It grows with the necromancer's level (you.explodeStage): BURST blasts everything within explodeRadius of the corpse; DIRECTED strikes one chosen enemy within explodeTargetRange of the corpse; SPLIT shares a bigger blast between up to explodeSplitMax enemies. A stored corpse (from you.ossuary) strikes from the necromancer, or at BURST is dropped on x,y within raiseRange.",
         "payload": {
           "type": "object",
           "properties": {
@@ -586,12 +600,34 @@
               "const": "explode"
             },
             "corpse": {
+              "type": "integer",
+              "description": "A corpse on the field within raiseRange. Give this or stored."
+            },
+            "stored": {
+              "type": "integer",
+              "description": "An index into you.ossuary. Give this or corpse."
+            },
+            "x": {
+              "type": "integer",
+              "description": "BURST with a stored corpse: where to drop it."
+            },
+            "y": {
               "type": "integer"
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "DIRECTED: one enemy unit id; SPLIT: one to explodeSplitMax. Ignored at BURST."
+            },
+            "type": {
+              "type": "string",
+              "description": "With stored: the corpse type chosen. If that slot no longer holds it, the blast is refused and nothing is spent."
             }
           },
           "required": [
-            "command",
-            "corpse"
+            "command"
           ]
         },
         "examples": [
@@ -599,6 +635,33 @@
             "payload": {
               "command": "explode",
               "corpse": 12
+            }
+          },
+          {
+            "payload": {
+              "command": "explode",
+              "corpse": 12,
+              "targets": [
+                57
+              ]
+            }
+          },
+          {
+            "payload": {
+              "command": "explode",
+              "stored": 0,
+              "targets": [
+                57,
+                58
+              ]
+            }
+          },
+          {
+            "payload": {
+              "command": "explode",
+              "stored": 1,
+              "x": 21,
+              "y": 9
             }
           }
         ]
@@ -908,6 +971,26 @@
                 "maxCorpses": {
                   "type": "integer",
                   "description": "The most corpses a world keeps. Past it the oldest crumble."
+                },
+                "explodeTargetRange": {
+                  "type": "integer",
+                  "description": "How far from the corpse (or the necromancer, for a stored one) a DIRECTED or SPLIT target may be."
+                },
+                "explodeSplitMax": {
+                  "type": "integer",
+                  "description": "How many enemies one corpse can strike at SPLIT."
+                },
+                "explodeDamagePercent": {
+                  "type": "integer",
+                  "description": "BURST: the share of the corpse's max HP each enemy in the blast takes."
+                },
+                "explodeTargetPercent": {
+                  "type": "integer",
+                  "description": "DIRECTED: the share of the corpse's max HP the chosen enemy takes."
+                },
+                "explodeSplitPercent": {
+                  "type": "integer",
+                  "description": "SPLIT: the share of the corpse's max HP shared out between the targets."
                 }
               }
             },
@@ -1018,7 +1101,12 @@
                 "trapSetTicks": 30,
                 "trapDamage": 30,
                 "explodeSoulCost": 10,
-                "explodeRadius": 2
+                "explodeRadius": 2,
+                "explodeTargetRange": 10,
+                "explodeSplitMax": 3,
+                "explodeDamagePercent": 40,
+                "explodeTargetPercent": 80,
+                "explodeSplitPercent": 120
               },
               "unitTypes": {
                 "SKELETON_WARRIOR": {
@@ -1129,6 +1217,38 @@
                     ]
                   },
                   "description": "Seconds until each of your abilities is ready, by ability id; 0 when ready. All 0 after a rise."
+                },
+                "ossuary": {
+                  "type": "array",
+                  "description": "Necromancer only: the corpses carried, in the order collected, each with its blast at the current stage.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "blast": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "blast"
+                    ]
+                  }
+                },
+                "ossuaryCap": {
+                  "type": "integer",
+                  "description": "Necromancer only: how many corpses the ossuary holds (3 at level 1, up to 7)."
+                },
+                "explodeStage": {
+                  "type": "string",
+                  "enum": [
+                    "BURST",
+                    "DIRECTED",
+                    "SPLIT"
+                  ],
+                  "description": "Necromancer only: how far Corpse Explosion has grown."
                 }
               }
             },
@@ -1695,6 +1815,33 @@
               "command": "cast",
               "ability": "shield-bash",
               "target": 41
+            }
+          }
+        ]
+      },
+      "collect": {
+        "name": "collect",
+        "summary": "Take a corpse within raiseRange into the necromancer's ossuary (up to you.ossuaryCap), to detonate later and elsewhere.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "collect"
+            },
+            "corpse": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command",
+            "corpse"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "collect",
+              "corpse": 12
             }
           }
         ]

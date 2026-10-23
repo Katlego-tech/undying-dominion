@@ -66,6 +66,11 @@ public final class SnapshotWriter {
                         .put("trapDamage", rules.trapDamage())
                         .put("explodeSoulCost", rules.explodeSoulCost())
                         .put("explodeRadius", rules.explodeRadius())
+                        .put("explodeTargetRange", rules.explodeTargetRange())
+                        .put("explodeDamagePercent", rules.explodeDamagePercent())
+                        .put("explodeTargetPercent", rules.explodeTargetPercent())
+                        .put("explodeSplitPercent", rules.explodeSplitPercent())
+                        .put("explodeSplitMax", rules.explodeSplitMax())
                         .put("maxCorpses", rules.maxCorpses()))
                 .put("unitTypes", unitTypes())
                 .put("commander", commander == null ? JSONObject.NULL : commander)
@@ -240,6 +245,16 @@ public final class SnapshotWriter {
                 .put("energy", commander.energy())
                 .put("cooldowns", cooldowns)
                 .put("notices", new JSONArray(player.takeNotices()));
+        // The necromancer's Corpse Explosion and the corpses it carries (docs/design/corpse-explosion.md).
+        if (commander.role() == Commander.Role.NECROMANCER) {
+            JSONArray ossuary = new JSONArray();
+            for (UnitType corpse : player.ossuary()) {
+                ossuary.put(new JSONObject().put("type", corpse.name()).put("blast", engine.blastOf(player, corpse)));
+            }
+            you.put("ossuary", ossuary)
+                    .put("ossuaryCap", player.ossuaryCap())
+                    .put("explodeStage", engine.explodeStage(player).name());
+        }
 
         JSONObject message = new JSONObject();
         if (story != null) message.put("story", story);

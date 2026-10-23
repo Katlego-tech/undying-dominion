@@ -51,7 +51,8 @@ public final class ProtocolParser {
                 case "attack" -> new Command.Attack(playerId, unitIds(message), message.getInt("target"));
                 case "stop" -> new Command.Stop(playerId, unitIds(message));
                 case "raise" -> new Command.Raise(playerId, message.getInt("corpse"));
-                case "explode" -> new Command.Explode(playerId, message.getInt("corpse"));
+                case "explode" -> explode(playerId, message);
+                case "collect" -> new Command.Collect(playerId, message.getInt("corpse"));
                 case "fuse" -> new Command.Fuse(playerId, unitIds(message));
                 case "mend" -> new Command.Mend(playerId, unitIds(message));
                 case "trap" -> new Command.SetTrap(playerId, unitIds(message));
@@ -64,6 +65,25 @@ public final class ProtocolParser {
         } catch (JSONException | IllegalArgumentException e) {
             throw new ProtocolException(BAD_ARGUMENTS);
         }
+    }
+
+    /**
+     * {@code explode}: a field {@code corpse} or a {@code stored} one, an {@code x}/{@code y} to drop a
+     * stored corpse on, and the {@code targets} it strikes once Corpse Explosion has grown.
+     */
+    private static Command.Explode explode(int playerId, JSONObject message) throws ProtocolException {
+        Integer corpse = message.has("corpse") ? message.getInt("corpse") : null;
+        Integer stored = message.has("stored") ? message.getInt("stored") : null;
+        if ((corpse == null) == (stored == null)) throw new ProtocolException(BAD_ARGUMENTS);
+        Position tile = message.has("x") && message.has("y") ? new Position(message.getInt("x"), message.getInt("y")) : null;
+        List<Integer> targets = new ArrayList<>();
+        JSONArray array = message.optJSONArray("targets");
+        if (array != null) {
+            if (array.length() > MAX_UNITS_PER_COMMAND) throw new ProtocolException(BAD_ARGUMENTS);
+            for (int i = 0; i < array.length(); i++) targets.add(array.getInt(i));
+        }
+        String type = message.has("type") ? message.getString("type") : null;
+        return new Command.Explode(playerId, corpse, stored, tile, List.copyOf(targets), type);
     }
 
     private static List<Integer> unitIds(JSONObject message) throws ProtocolException {

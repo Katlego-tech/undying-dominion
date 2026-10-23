@@ -905,3 +905,60 @@ body.phone.touch .thumbs .ability.passive { display: none; }
 #hud .thumbs .ability.blocked { background: rgba(120, 126, 138, 0.26); }
 #hud .thumbs .ability.aiming { background: rgba(94, 234, 212, 0.3); }
 #hud .camera-hint { background: var(--hud-fill); border-color: var(--hud-edge); color: var(--hud-dim); }
+
+/* ---------------------------------------------------------------- Corpse Explosion: the picker and the target step */
+
+/* The stored corpses, shown when the skill is used (docs/design/corpse-explosion.md, "The flow").
+   Gray glass like the rest of the HUD; the blast, the thing being chosen, in the explosion's ember. */
+:root { --ember: #fb923c; }
+
+#hud .ossuary-row { margin-top: 4px; }
+
+/* A slim column down the left edge, under the player card: the field around the necromancer, and
+   the corpses on it, stay in view while choosing. */
+.corpse-picker {
+  position: absolute;
+  top: 112px;
+  left: 16px;
+  width: 236px;
+  padding: 10px 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+.corpse-picker header { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.corpse-picker header p { flex-basis: 100%; order: 3; }
+.corpse-picker h3 { margin: 0; font: 700 15px var(--display); letter-spacing: 0.04em; color: var(--ember); }
+.corpse-picker header p { margin: 0; font-size: 12px; color: var(--hud-dim); }
+.corpse-picker header .stage {
+  margin-left: auto; padding: 1px 8px; border-radius: 99px; font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; border: 1px solid rgba(251, 146, 60, 0.5); color: var(--ember);
+}
+.corpse-cards { display: grid; gap: 6px; }
+.corpse-card {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; gap: 1px; padding: 8px 10px; text-align: left;
+  border-radius: 8px; border: 1px solid var(--hud-edge); background: var(--hud-fill);
+  color: var(--hud-text); font: 500 12px var(--ui); cursor: pointer;
+}
+.corpse-card .who { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.corpse-card .lv { font-size: 10px; color: var(--hud-faint); letter-spacing: 0.06em; }
+.corpse-card .blast { grid-row: 1 / span 2; grid-column: 2; font: 700 22px/1.1 var(--display); color: var(--ember); font-variant-numeric: tabular-nums; }
+.corpse-card .blast small { font: 500 10px var(--ui); color: var(--hud-dim); margin-left: 3px; }
+.corpse-card.strongest { border-color: rgba(251, 146, 60, 0.7); box-shadow: 0 0 16px rgba(251, 146, 60, 0.18); }
+.corpse-card:hover, .corpse-card:focus-visible { border-color: var(--ember); background: rgba(251, 146, 60, 0.14); outline: none; }
+
+/* Phone: one compact row of cards across the top, under the strip, clear of the minimap. */
+body.phone.touch .corpse-picker { top: 76px; left: 8px; right: 128px; width: auto; padding: 6px 8px; gap: 5px; }
+body.phone.touch .corpse-picker header p { display: none; }
+body.phone.touch .corpse-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+body.phone.touch .corpse-card { padding: 5px 8px; }
+body.phone.touch .corpse-card .lv { display: none; }
+body.phone.touch .corpse-card .who { font-size: 11px; }
+body.phone.touch .corpse-card .blast { font-size: 17px; }
+
+.corpse-card .lv { grid-column: 1; }
+#mode-hint.ember { background: rgba(124, 45, 18, 0.82); border-color: var(--ember); }
+#mode-hint .go {
+  margin-left: 10px; padding: 2px 12px; border-radius: 99px; border: 0; background: var(--ember);
+  color: #1c0a02; font: 700 12px var(--ui); cursor: pointer; pointer-events: auto;
+}
+#mode-hint.has-button { pointer-events: auto; }
