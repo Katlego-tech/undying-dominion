@@ -41,9 +41,9 @@ public final class Beacon implements AutoCloseable {
 
     /**
      * Starts announcing {@code payload} to {@code port} on each of {@code targets}, now and every two
-     * seconds. A network that refuses the datagrams costs one warning in the log, never the game.
+     * seconds. The targets are read again each time, so a network that comes up later is heard too. A network that refuses the datagrams costs one warning in the log, never the game.
      */
-    public static Beacon start(int port, List<InetAddress> targets, Supplier<String> payload) throws SocketException {
+    public static Beacon start(int port, Supplier<List<InetAddress>> targets, Supplier<String> payload) throws SocketException {
         DatagramSocket socket = new DatagramSocket();
         socket.setBroadcast(true);
         Beacon beacon = new Beacon(socket);
@@ -83,10 +83,10 @@ public final class Beacon implements AutoCloseable {
         return targets;
     }
 
-    private void announce(int port, List<InetAddress> targets, Supplier<String> payload) {
+    private void announce(int port, Supplier<List<InetAddress>> targets, Supplier<String> payload) {
         try {
             byte[] bytes = payload.get().getBytes(StandardCharsets.UTF_8);
-            for (InetAddress target : targets) {
+            for (InetAddress target : targets.get()) {
                 try {
                     socket.send(new DatagramPacket(bytes, bytes.length, target, port));
                 } catch (IOException e) {

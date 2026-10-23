@@ -17,12 +17,14 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 /**
  * The whole app: a fullscreen, landscape WebView that shows the finder, then the game served by the
  * Dominion the player picks (docs/design/android.md). Back in a game asks before leaving.
  */
-class MainActivity : Activity(), FinderBridge.Host {
+class MainActivity : Activity() {
 
     private lateinit var web: WebView
     private lateinit var finder: ServerFinder
@@ -31,10 +33,6 @@ class MainActivity : Activity(), FinderBridge.Host {
         WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
     }
 
-    @Volatile
-    override var showingFinder = false
-        private set
-
     /** The address of the game being played, while one is. */
     private var playing: String? = null
 
@@ -42,15 +40,22 @@ class MainActivity : Activity(), FinderBridge.Host {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        finder = ServerFinder(this) { servers -> found(servers) }
+        finder = ServerFinder(this, ::found, ::unavailable)
 
         web = WebView(this).apply {
             setBackgroundColor(Color.parseColor("#09080C"))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
-            addJavascriptInterface(FinderBridge(this@MainActivity), "Dominion")
             webViewClient = Client()
+        }
+        // window.Dominion exists only on the finder's own origin, so no page served by a PC can reach it.
+        // An old system WebView has no message channel: the finder still joins by a link the app
+        // catches (PLAY), and says that finding servers needs the WebView updated.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "Dominion", setOf(FINDER_ORIGIN)) { _, message, _, isMainFrame, _ ->
+                if (isMainFrame) FinderMessages.parse(message.data)?.let(::handle)
+            }
         }
         setContentView(web)
         immersive()
@@ -65,7 +70,7 @@ class MainActivity : Activity(), FinderBridge.Host {
     override fun onResume() {
         super.onResume()
         web.onResume()
-        if (showingFinder) finder.start()
+        if (showingFinder()) finder.start()
     }
 
     override fun onPause() {
@@ -98,10 +103,15 @@ class MainActivity : Activity(), FinderBridge.Host {
 
     // ---------------------------------------------------------------- the finder
 
+    /** Whether the page on show is the finder. UI thread. */
+    private fun showingFinder() = web.url?.startsWith(FINDER) == true
+
     private fun showFinder(unreachable: String?) {
         playing = null
-        showingFinder = true
-        val query = unreachable?.let { "?unreachable=" + Uri.encode(it) } ?: ""
+        val query = buildString {
+            append("?last=").append(Uri.encode(prefs.getString(LAST_SERVER, "") ?: ""))
+            unreachable?.let { append("&unreachable=").append(Uri.encode(it)) }
+        }
         web.loadUrl(FINDER + query)
         finder.start()
     }
@@ -109,20 +119,26 @@ class MainActivity : Activity(), FinderBridge.Host {
     private fun found(servers: List<Server>) {
         val json = Beacons.toJson(servers)
         runOnUiThread {
-            if (showingFinder) web.evaluateJavascript("window.finder && window.finder.found($json)", null)
+            if (showingFinder()) web.evaluateJavascript("window.finder && window.finder.found($json)", null)
         }
     }
 
-    override fun scan() = runOnUiThread { finder.start() }
+    private fun unavailable() = runOnUiThread {
+        if (showingFinder()) web.evaluateJavascript("window.finder && window.finder.unavailable()", null)
+    }
 
-    override fun stopScan() = runOnUiThread { finder.stop() }
+    /** A request from the finder page; the listener calls this on the UI thread. */
+    private fun handle(message: FinderMessage) {
+        when (message) {
+            FinderMessage.Scan -> finder.start()
+            FinderMessage.Stop -> finder.stop()
+            is FinderMessage.Play -> play(message.address)
+        }
+    }
 
-    override fun lastServer(): String = prefs.getString(LAST_SERVER, "") ?: ""
-
-    override fun play(address: String) = runOnUiThread {
+    private fun play(address: String) {
         prefs.edit().putString(LAST_SERVER, address).apply()
         finder.stop()
-        showingFinder = false
         playing = address
         web.loadUrl("http://$address/?app=1")
     }
@@ -158,9 +174,15 @@ class MainActivity : Activity(), FinderBridge.Host {
             assets.shouldInterceptRequest(request.url)
 
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            val url = request.url.toString()
             // The game's "Return" after a severed connection comes back to the finder.
-            if (request.url.toString().startsWith(FINDER)) {
+            if (url.startsWith(FINDER)) {
                 showFinder(null)
+                return true
+            }
+            // Joining without the message channel: honoured only from the finder itself.
+            if (url.startsWith(PLAY)) {
+                if (showingFinder()) Addresses.parse(request.url.getQueryParameter("address") ?: "")?.let(::play)
                 return true
             }
             return false
@@ -173,7 +195,9 @@ class MainActivity : Activity(), FinderBridge.Host {
     }
 
     private companion object {
-        const val FINDER = "https://appassets.androidplatform.net/assets/finder/index.html"
+        const val FINDER_ORIGIN = "https://appassets.androidplatform.net"
+        const val FINDER = "$FINDER_ORIGIN/assets/finder/index.html"
+        const val PLAY = "$FINDER_ORIGIN/play"
         const val LAST_SERVER = "lastServer"
     }
 }
