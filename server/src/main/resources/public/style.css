@@ -552,6 +552,19 @@ body.touch .notices { bottom: 300px; }
   letter-spacing: 0.08em;
   cursor: pointer;
 }
+/* Begin stays in reach: a story longer than the screen scrolls under it, so nobody is left in a
+   paused world with the button below the edge. */
+.story-box button { position: sticky; bottom: 0; }
+/* The fade over the text under Begin only while the story actually scrolls (hud.js marks it). */
+.story-box.scrolls button { box-shadow: 0 -18px 24px 10px rgba(9, 8, 12, 0.96); }
+body.phone .story { padding: 10px 16px; }
+body.phone .story-box { width: min(760px, 100%); max-height: calc(var(--page-h, 100vh) - 20px); }
+body.phone .story-kicker { font-size: 10px; letter-spacing: 0.12em; }
+body.phone .story-box h2 { margin-top: 2px; font-size: 24px; }
+body.phone .story-source { margin-bottom: 8px; font-size: 11px; }
+body.phone .story-lines p { margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+body.phone .story-objective { margin-top: 10px; padding: 6px 12px; font-size: 13px; }
+body.phone .story-box button { margin-top: 12px; padding: 10px 24px; }
 
 /* ---------------------------------------------------------------- commanders: the picker */
 

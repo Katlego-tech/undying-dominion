@@ -63,6 +63,15 @@ setTimeout(() => {
   }
 }, NOTHING_AFTER_MS);
 
+// While typing, the form sits at the top, above the keyboard. Leaving it waits a moment, so a tap on
+// Join lands before the layout moves back; a tap anywhere else closes the keyboard, since a Back
+// gesture can hide it without the field ever losing focus.
+$('address').addEventListener('focus', () => document.body.classList.add('typing'));
+$('address').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('typing'), 250));
+document.addEventListener('pointerdown', (e) => {
+  if (document.body.classList.contains('typing') && !$('manual').contains(e.target)) $('address').blur();
+});
+
 $('manual').addEventListener('submit', (e) => {
   e.preventDefault();
   const address = parseAddress($('address').value);

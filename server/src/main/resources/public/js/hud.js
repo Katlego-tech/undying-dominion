@@ -416,6 +416,8 @@ export function showStory(message) {
   $('story-objective').textContent = message.kind === 'briefing' ? `Objective: ${message.objective}` : '';
   $('story-close').textContent = message.kind === 'briefing' ? 'Begin' : 'Continue';
   $('story').hidden = false;
+  const box = document.querySelector('.story-box');
+  box.classList.toggle('scrolls', box.scrollHeight > box.clientHeight);
   document.body.classList.add('reading');
   game.send({ command: 'reading', open: true });
 }

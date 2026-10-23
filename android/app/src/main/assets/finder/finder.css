@@ -31,15 +31,15 @@ body {
 .finder {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 34vw);
+  gap: clamp(14px, 3vw, 28px);
   padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
 }
 .found { min-height: 0; overflow: auto; scrollbar-width: none; }
 
 h1 {
   margin: 0;
-  font: 700 26px/1.15 var(--display);
+  font: 700 clamp(20px, 7vh, 30px)/1.15 var(--display);
   letter-spacing: 0.04em;
   text-shadow: 0 0 32px rgba(167, 139, 250, 0.35);
 }
@@ -55,7 +55,7 @@ h1 {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 2px 14px;
-  padding: 10px 14px;
+  padding: clamp(7px, 2.4vh, 12px) 14px;
   border-radius: 10px;
   border: 1px solid rgba(232, 226, 208, 0.10);
   background: rgba(255, 255, 255, 0.03);
@@ -82,7 +82,13 @@ h1 {
   max-width: 460px;
 }
 
-.side { display: grid; align-content: center; gap: 18px; }
+.side { display: grid; align-content: center; gap: clamp(10px, 4vh, 18px); }
+
+/* Typing an address: a fullscreen app doesn't shrink for the keyboard, which covers the lower half
+   of a landscape screen, so the form moves to the top and the list steps aside until it closes. */
+body.typing .finder { grid-template-columns: minmax(0, 1fr); }
+body.typing .found, body.typing .rejoin { display: none; }
+body.typing .side { align-content: start; max-width: 560px; }
 .rejoin {
   padding: 14px;
   border: 0;
