@@ -50,6 +50,8 @@ class MainActivity : Activity() {
             webViewClient = Client()
         }
         // window.Dominion exists only on the finder's own origin, so no page served by a PC can reach it.
+        // An old system WebView has no message channel: the finder still joins by a link the app
+        // catches (PLAY), and says that finding servers needs the WebView updated.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "Dominion", setOf(FINDER_ORIGIN)) { _, message, _, isMainFrame, _ ->
                 if (isMainFrame) FinderMessages.parse(message.data)?.let(::handle)
@@ -172,9 +174,15 @@ class MainActivity : Activity() {
             assets.shouldInterceptRequest(request.url)
 
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            val url = request.url.toString()
             // The game's "Return" after a severed connection comes back to the finder.
-            if (request.url.toString().startsWith(FINDER)) {
+            if (url.startsWith(FINDER)) {
                 showFinder(null)
+                return true
+            }
+            // Joining without the message channel: honoured only from the finder itself.
+            if (url.startsWith(PLAY)) {
+                if (showingFinder()) Addresses.parse(request.url.getQueryParameter("address") ?: "")?.let(::play)
                 return true
             }
             return false
@@ -189,6 +197,7 @@ class MainActivity : Activity() {
     private companion object {
         const val FINDER_ORIGIN = "https://appassets.androidplatform.net"
         const val FINDER = "$FINDER_ORIGIN/assets/finder/index.html"
+        const val PLAY = "$FINDER_ORIGIN/play"
         const val LAST_SERVER = "lastServer"
     }
 }

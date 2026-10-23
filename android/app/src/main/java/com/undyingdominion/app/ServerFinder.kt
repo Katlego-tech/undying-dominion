@@ -8,10 +8,15 @@ class ServerFinder(context: Context, onServers: (List<Server>) -> Unit, onUnavai
 
     private val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val lock = wifi.createMulticastLock("undying-dominion-finder").apply { setReferenceCounted(false) }
-    private val listener = BeaconListener(Beacons.PORT, onServers, onUnavailable = {
-        if (lock.isHeld) lock.release()
-        onUnavailable()
-    })
+    private val listener: BeaconListener
+
+    init {
+        listener = BeaconListener(Beacons.PORT, onServers, onUnavailable = {
+            // Under this finder's lock, and only if no newer start() is listening, so its lock isn't taken away.
+            synchronized(this@ServerFinder) { if (!listener.listening && lock.isHeld) lock.release() }
+            onUnavailable()
+        })
+    }
 
     @Synchronized
     fun start() {

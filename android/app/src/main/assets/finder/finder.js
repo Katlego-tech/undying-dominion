@@ -6,7 +6,9 @@
 const $ = (id) => document.getElementById(id);
 const MODES = { 'free-for-all': 'Free-for-all', campaign: 'Campaign' };
 const NOTHING_AFTER_MS = 8000;
+// window.Dominion is missing on an old system WebView: joining then goes by a link the app catches.
 const bridge = { send: (message) => window.Dominion?.postMessage(JSON.stringify(message)) };
+const channel = typeof window.Dominion?.postMessage === 'function';
 const params = new URLSearchParams(location.search);
 let lookedLongEnough = false;
 
@@ -19,7 +21,8 @@ function parseAddress(text) {
 }
 
 function play(address) {
-  bridge.send({ do: 'play', address });
+  if (channel) bridge.send({ do: 'play', address });
+  else location.href = `/play?address=${encodeURIComponent(address)}`;
 }
 
 function row(server) {
@@ -105,5 +108,9 @@ if (last) {
 const unreachable = params.get('unreachable');
 if (unreachable) $('error').textContent = `${unreachable} didn't answer. Is the server running, and on this network?`;
 
-$('status').classList.add('looking');
-bridge.send({ do: 'scan' });
+if (channel) {
+  $('status').classList.add('looking');
+  bridge.send({ do: 'scan' });
+} else {
+  $('status').textContent = "Finding Dominions needs Android System WebView updated. You can still type the address.";
+}
