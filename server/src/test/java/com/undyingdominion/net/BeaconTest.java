@@ -23,7 +23,7 @@ class BeaconTest {
     void aListenerHearsTheDocumentedFields() throws Exception {
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
             listener.setSoTimeout(3000);
-            try (Beacon ignored = Beacon.start(listener.getLocalPort(), List.of(InetAddress.getLoopbackAddress()),
+            try (Beacon ignored = Beacon.start(listener.getLocalPort(), () -> List.of(InetAddress.getLoopbackAddress()),
                     () -> Beacon.payload("kirito-laptop", 5000, "free-for-all", 2, 8))) {
                 DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
                 listener.receive(packet);
@@ -44,7 +44,7 @@ class BeaconTest {
         int[] players = {0};
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
             listener.setSoTimeout(4000);
-            try (Beacon ignored = Beacon.start(listener.getLocalPort(), List.of(InetAddress.getLoopbackAddress()),
+            try (Beacon ignored = Beacon.start(listener.getLocalPort(), () -> List.of(InetAddress.getLoopbackAddress()),
                     () -> Beacon.payload("host", 5000, "campaign", ++players[0], 8))) {
                 DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
                 listener.receive(packet);
@@ -59,7 +59,7 @@ class BeaconTest {
     void closingItStopsTheAnnouncements() throws Exception {
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
             listener.setSoTimeout(3000);
-            Beacon beacon = Beacon.start(listener.getLocalPort(), List.of(InetAddress.getLoopbackAddress()),
+            Beacon beacon = Beacon.start(listener.getLocalPort(), () -> List.of(InetAddress.getLoopbackAddress()),
                     () -> Beacon.payload("host", 5000, "free-for-all", 0, 8));
             listener.receive(new DatagramPacket(new byte[1024], 1024));
             beacon.close();
@@ -75,6 +75,22 @@ class BeaconTest {
         assertEquals(5001, plain.beaconPort());
         assertFalse(ServerOptions.parse(new String[] {"--no-beacon"}).beacon());
         assertEquals(6001, ServerOptions.parse(new String[] {"--beacon-port", "6001"}).beaconPort());
+    }
+
+    @Test
+    void theTargetsAreReadAgainForEachAnnouncement() throws Exception {
+        int[] reads = {0};
+        try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
+            listener.setSoTimeout(4000);
+            try (Beacon ignored = Beacon.start(listener.getLocalPort(), () -> {
+                reads[0]++;
+                return List.of(InetAddress.getLoopbackAddress());
+            }, () -> Beacon.payload("host", 5000, "free-for-all", 0, 8))) {
+                listener.receive(new DatagramPacket(new byte[1024], 1024));
+                listener.receive(new DatagramPacket(new byte[1024], 1024));
+            }
+        }
+        assertTrue(reads[0] >= 2, "a network that comes up later is announced to");
     }
 
     @Test

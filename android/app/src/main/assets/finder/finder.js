@@ -1,11 +1,13 @@
 // The finder: Dominions heard on this network, the last one played, and a typed address
-// (docs/design/android.md §6). The app's Kotlin side listens and navigates through window.Dominion.
+// (docs/design/android.md §6). The app listens and navigates; the page asks it through window.Dominion,
+// a message channel the app opens only to this page's origin.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
 const MODES = { 'free-for-all': 'Free-for-all', campaign: 'Campaign' };
 const NOTHING_AFTER_MS = 8000;
-const bridge = window.Dominion;
+const bridge = { send: (message) => window.Dominion?.postMessage(JSON.stringify(message)) };
+const params = new URLSearchParams(location.search);
 let lookedLongEnough = false;
 
 /** host, or host:port with a port in range; null for anything else. */
@@ -17,7 +19,7 @@ function parseAddress(text) {
 }
 
 function play(address) {
-  bridge.play(address);
+  bridge.send({ do: 'play', address });
 }
 
 function row(server) {
@@ -53,6 +55,11 @@ window.finder = {
       ? `${servers.length === 1 ? 'One Dominion' : `${servers.length} Dominions`} on this network`
       : lookedLongEnough ? 'Still listening on this network' : 'Looking for Dominions on this network…';
   },
+  /** The app can't listen on this phone (another app holds the port): say so, and leave typing. */
+  unavailable() {
+    $('status').classList.remove('looking');
+    $('status').textContent = "This phone can't listen for Dominions right now. Type the address shown on the server's screen.";
+  },
 };
 
 setTimeout(() => {
@@ -74,7 +81,7 @@ $('manual').addEventListener('submit', (e) => {
   play(address);
 });
 
-const last = bridge.lastServer();
+const last = params.get('last') ?? '';
 if (last) {
   $('rejoin').hidden = false;
   // The address in the body face: Cinzel's numerals read 1 as I.
@@ -86,8 +93,8 @@ if (last) {
   $('rejoin').addEventListener('click', () => play(last));
 }
 // A failed connection comes back here with ?unreachable=<address>.
-const unreachable = new URLSearchParams(location.search).get('unreachable');
+const unreachable = params.get('unreachable');
 if (unreachable) $('error').textContent = `${unreachable} didn't answer. Is the server running, and on this network?`;
 
 $('status').classList.add('looking');
-bridge.scan();
+bridge.send({ do: 'scan' });

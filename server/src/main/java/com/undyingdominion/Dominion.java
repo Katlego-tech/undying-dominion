@@ -88,7 +88,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
         if (!options.beacon()) return null;
         String host = hostName();
         try {
-            return Beacon.start(options.beaconPort(), Beacon.targets(),
+            return Beacon.start(options.beaconPort(), Beacon::targets,
                     () -> Beacon.payload(host, server.port(), mode, server.joinedCount(), options.maxPlayers()));
         } catch (SocketException e) {
             log.warn("No LAN beacon: {}. Players can still type the address.", e.getMessage());
