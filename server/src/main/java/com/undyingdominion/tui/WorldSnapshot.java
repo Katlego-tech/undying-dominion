@@ -20,7 +20,7 @@ public record WorldSnapshot(long tick, double tickMillis, GameMap map, String st
                             List<UnitDot> units, List<CorpseDot> corpses, List<TrapDot> traps) {
 
     public record PlayerRow(int id, String name, String color, int level, int xp, int soul, int soulMax,
-                            int legion, int legionCap, int kills, int deaths, boolean alive,
+                            int legion, int legionCap, int raised, int kills, int deaths, boolean alive,
                             boolean away) {}
 
     public record UnitDot(int id, UnitType type, int owner, int x, int y, int hp) {}
@@ -45,7 +45,7 @@ public record WorldSnapshot(long tick, double tickMillis, GameMap map, String st
         List<PlayerRow> players = new ArrayList<>();
         for (Player p : engine.getPlayers()) {
             players.add(new PlayerRow(p.getId(), p.getName(), p.getColor(), p.getLevel(), p.getXp(), p.getSoul(),
-                    p.soulMax(), engine.legionSizeOf(p), p.legionCap(), p.getKills(), p.getDeaths(),
+                    p.soulMax(), engine.legionSizeOf(p), p.legionCap(), engine.raisedSizeOf(p), p.getKills(), p.getDeaths(),
                     p.getNecromancerId() != null, away.test(p.getId())));
         }
         List<UnitDot> units = new ArrayList<>();

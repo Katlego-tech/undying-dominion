@@ -4,6 +4,9 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -53,6 +56,22 @@ class ServerTuiTest {
         assertEquals("http://10.1.1.140:5000", link.get());
         now[0] += 5_000_000_000L;
         assertNull(link.get(), "no network, no link");
+    }
+
+    @Test
+    void aFrameThatThrowsIsLoggedOnceAndTheNextOneStillDraws() {
+        List<String> logged = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        Runnable broken = () -> { throw new IllegalStateException("a unit off the map"); };
+
+        assertFalse(ServerTui.drawSafely(broken, logged::add, seen));
+        assertFalse(ServerTui.drawSafely(broken, logged::add, seen));
+        int[] drawn = {0};
+        assertTrue(ServerTui.drawSafely(() -> drawn[0]++, logged::add, seen));
+
+        assertEquals(1, drawn[0], "the dashboard carries on");
+        assertEquals(List.of("The dashboard skipped a frame: java.lang.IllegalStateException: a unit off the map"), logged,
+                "the same failure is logged once, not ten times a second");
     }
 
     private static JSONObject pause(String reason, String by) {
