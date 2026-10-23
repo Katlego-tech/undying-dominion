@@ -15,6 +15,8 @@ function marker(x, y, hostile) {
 }
 
 export function setMode(mode) {
+  // The corpse in hand belongs to Corpse Explosion's steps; any other mode lets it go.
+  if (!mode?.startsWith('explode')) game.explodeHand = null;
   game.mode = mode;
   showModeHint(mode);
 }
@@ -166,7 +168,7 @@ export function beginExplode() {
 
 /** A stored corpse chosen in the picker: at Burst it's dropped on a tile; later, it strikes from you. */
 export function pickStored(index) {
-  game.explodeHand = { stored: index, from: null, marks: [] };
+  game.explodeHand = { stored: index, type: game.you?.ossuary?.[index]?.type, from: null, marks: [] };
   setMode(explodeStage() === 'BURST' ? 'explode-drop' : 'explode-target');
 }
 
@@ -192,7 +194,7 @@ export function explodeAt(x, y) {
 export function dropAt(x, y) {
   const hand = game.explodeHand;
   if (!hand) return;
-  game.send({ command: 'explode', stored: hand.stored, x, y });
+  game.send({ command: 'explode', stored: hand.stored, type: hand.type, x, y });
   game.explodeHand = null;
   setMode(null);
 }
@@ -228,7 +230,7 @@ export function detonate() {
     notice('Choose who the corpse explodes at.');
     return;
   }
-  const which = hand.stored != null ? { stored: hand.stored } : { corpse: hand.corpse };
+  const which = hand.stored != null ? { stored: hand.stored, type: hand.type } : { corpse: hand.corpse };
   game.send({ command: 'explode', ...which, targets: hand.marks });
   game.explodeHand = null;
   setMode(null);

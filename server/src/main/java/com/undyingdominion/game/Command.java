@@ -62,9 +62,14 @@ public sealed interface Command {
      * Corpse Explosion: a corpse on the field ({@code corpseId}) or the {@code stored}th one in the
      * ossuary; a {@code tile} to drop a stored corpse on at Burst; the {@code targets} at Directed or Split.
      */
-    record Explode(int playerId, Integer corpseId, Integer stored, Position tile, List<Integer> targets) implements Command {
+    record Explode(int playerId, Integer corpseId, Integer stored, Position tile, List<Integer> targets,
+                   String storedType) implements Command {
         public Explode(int playerId, int corpseId) {
-            this(playerId, corpseId, null, null, List.of());
+            this(playerId, corpseId, null, null, List.of(), null);
+        }
+
+        public Explode(int playerId, Integer corpseId, Integer stored, Position tile, List<Integer> targets) {
+            this(playerId, corpseId, stored, tile, targets, null);
         }
     }
 

@@ -182,6 +182,7 @@ public class GameEngine {
 
     private void restore(Player player, Command.Restore restore) {
         player.restoreProgress(restore.level(), restore.xp(), restore.kills(), restore.deaths());
+        player.restoreOssuary(restore.ossuary());
         Unit necromancer = commanderOf(player);
         if (necromancer == null) return;
         for (UnitType type : restore.legion()) {
@@ -191,7 +192,6 @@ public class GameEngine {
         for (UnitType type : restore.raised()) {
             if (!placeNear(necromancer, type, player, true)) break;
         }
-        player.restoreOssuary(restore.ossuary());
     }
 
     private boolean placeNear(Unit necromancer, UnitType type, Player player, boolean raised) {
@@ -351,7 +351,9 @@ public class GameEngine {
         UnitType type;
         Position from;
         if (order.stored() != null) {
-            if (order.stored() < 0 || order.stored() >= player.ossuary().size()) {
+            // The type the player chose must still be in that slot, or the list moved under them.
+            if (order.stored() < 0 || order.stored() >= player.ossuary().size()
+                    || (order.storedType() != null && !player.ossuary().get(order.stored()).name().equals(order.storedType()))) {
                 player.notice("That corpse has already gone.");
                 return;
             }

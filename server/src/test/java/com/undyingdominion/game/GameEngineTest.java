@@ -550,6 +550,22 @@ class GameEngineTest {
     }
 
     @Test
+    void aStoredCorpseIsRefusedWhenItsSlotNoLongerHoldsTheOneChosen() {
+        vesper.restoreProgress(6, 0, 0, 0);
+        vesper.restoreOssuary(List.of(UnitType.WOLF, UnitType.KNIGHT));
+        Unit chosen = spawnNear(UnitType.KNIGHT, Unit.NEUTRAL, necromancerOf(vesper).getPosition(), 6, 2);
+        vesper.setSoul(50);
+        vesper.takeNotices();
+
+        engine.submit(new Command.Explode(vesper.getId(), null, 0, null, List.of(chosen.getId()), UnitType.KNIGHT.name()));
+        engine.tick();
+
+        assertEquals(List.of("That corpse has already gone."), vesper.takeNotices());
+        assertEquals(2, vesper.ossuary().size(), "nothing spent: the wolf in slot 0 isn't the knight they picked");
+        assertEquals(50, vesper.getSoul());
+    }
+
+    @Test
     void theOssuaryGrowsWithLevelAndTheStageChangesAreAnnounced() {
         vesper.restoreProgress(9, 0, 0, 0);
         assertEquals(7, vesper.ossuaryCap());

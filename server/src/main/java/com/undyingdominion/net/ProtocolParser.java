@@ -82,7 +82,8 @@ public final class ProtocolParser {
             if (array.length() > MAX_UNITS_PER_COMMAND) throw new ProtocolException(BAD_ARGUMENTS);
             for (int i = 0; i < array.length(); i++) targets.add(array.getInt(i));
         }
-        return new Command.Explode(playerId, corpse, stored, tile, List.copyOf(targets));
+        String type = message.has("type") ? message.getString("type") : null;
+        return new Command.Explode(playerId, corpse, stored, tile, List.copyOf(targets), type);
     }
 
     private static List<Integer> unitIds(JSONObject message) throws ProtocolException {

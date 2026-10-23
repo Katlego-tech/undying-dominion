@@ -620,6 +620,10 @@
                 "type": "integer"
               },
               "description": "DIRECTED: one enemy unit id; SPLIT: one to explodeSplitMax. Ignored at BURST."
+            },
+            "type": {
+              "type": "string",
+              "description": "With stored: the corpse type chosen. If that slot no longer holds it, the blast is refused and nothing is spent."
             }
           },
           "required": [
