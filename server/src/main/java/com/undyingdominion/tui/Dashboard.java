@@ -341,7 +341,7 @@ public class Dashboard {
             g.setForegroundColor(p.alive() && !p.away() ? BONE : DIM);
             if (selected) g.enableModifiers(SGR.BOLD);
             put(g, x + 4, ry, row(p.name(), String.valueOf(p.level()), p.soul() + "/" + p.soulMax(),
-                    p.legion() + "/" + p.legionCap(), p.kills() + "/" + p.deaths(),
+                    p.legion() + "/" + p.legionCap() + (p.raised() > 0 ? "+" + p.raised() : ""), p.kills() + "/" + p.deaths(),
                     p.away() ? "away" : p.alive() ? "alive" : "fallen", inner - 2), inner - 2);
             g.disableModifiers(SGR.BOLD);
             g.setBackgroundColor(BG);
@@ -354,7 +354,8 @@ public class Dashboard {
 
     /** Lays the table columns out across the available width, giving the name what is left. */
     private static String row(String name, String level, String soul, String legion, String kd, String state, int width) {
-        String rest = String.format("%3s %8s %7s %6s %7s", level, soul, legion, kd, state);
+        // The legion column shows the raised after a +, since they don't count against the cap.
+        String rest = String.format("%3s %8s %9s %6s %7s", level, soul, legion, kd, state);
         int nameWidth = Math.max(4, width - rest.length() - 1);
         String clipped = name.length() > nameWidth ? name.substring(0, nameWidth - 1) + "…" : name;
         return String.format("%-" + nameWidth + "s %s", clipped, rest);

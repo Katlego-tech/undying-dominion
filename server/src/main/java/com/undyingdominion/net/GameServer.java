@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,8 @@ public class GameServer {
     private volatile SaveHandler saveHandler;
     /** True while a resumed game waits for its first join. */
     private volatile boolean held;
+    /** What the last engine swap queued for each player, for a second swap before it lands. Under the seats lock. */
+    private Map<Integer, Command.Restore> carried = Map.of();
     /** The commanders players pick from, or null where everyone is the necromancer, as in a campaign. */
     private volatile Roster roster;
     private final Random picks = new Random();
@@ -205,6 +208,7 @@ public class GameServer {
      */
     public void replaceEngine(GameEngine next) {
         GameEngine previous = engine;
+        Map<Integer, Command.Restore> carrying = new HashMap<>();
         seats.withLock(() -> {
             int highestId = seats.all().stream().mapToInt(seat -> seat.playerId).max().orElse(0);
             next.reservePlayerIds(Math.max(highestId + 1, previous.peekNextPlayerId()));
@@ -213,13 +217,20 @@ public class GameServer {
                 int id = seat.playerId;
                 Player before = previous.getPlayer(id);
                 next.submit(new Command.Join(id, seat.name, seat.commander));
-                if (before != null) {
-                    next.submit(new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
-                            before.getDeaths(), previous.legionOf(id), previous.raisedOf(id)));
+                // A second swap in the same step finds the previous world's joins still queued, so
+                // what they were carrying is carried on rather than lost.
+                Command.Restore restore = before != null
+                        ? new Command.Restore(id, before.getLevel(), before.getXp(), before.getKills(),
+                                before.getDeaths(), previous.legionOf(id), previous.raisedOf(id))
+                        : carried.get(id);
+                if (restore != null) {
+                    next.submit(restore);
+                    carrying.put(id, restore);
                 }
                 ClientConnection connection = seat.connection();
                 if (connection != null) connection.send(welcome(seat, next, roster));
             }
+            carried = carrying;
         });
         worldJson.set(describeWorld());
     }

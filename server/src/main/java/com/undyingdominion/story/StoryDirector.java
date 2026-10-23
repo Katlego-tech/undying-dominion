@@ -82,7 +82,13 @@ public class StoryDirector {
         server.addTickListener(engine -> update());
         server.addJoinListener(playerId -> server.sendTo(playerId, message("briefing", current().briefing())));
         publishStatus();
-        log.info("Campaign \"{}\" begins with chapter 1: {}", campaign.title(), current().title());
+        log.info(openingLine());
+    }
+
+    /** The log's first word on the campaign: where it begins, or for a save, where it resumes. */
+    public String openingLine() {
+        return "Campaign \"" + campaign.title() + "\" "
+                + (resumed != null ? "resumes at chapter " + chapterNumber() : "begins with chapter 1") + ": " + current().title();
     }
 
     public Campaign campaign() { return campaign; }

@@ -137,12 +137,17 @@ public class AdminConsole implements Runnable {
             out.println("No necromancers in the Dominion.");
             return;
         }
-        out.printf("%-4s %-16s %5s %6s %6s %6s %8s%n", "id", "name", "level", "soul", "legion", "kills", "status");
+        out.printf("%-4s %-16s %5s %6s %-15s %6s %8s%n", "id", "name", "level", "soul", "legion", "kills", "status");
         for (Player p : engine.getPlayers()) {
-            out.printf("%-4d %-16s %5d %6d %6s %6d %8s%n", p.getId(), p.getName(), p.getLevel(), p.getSoul(),
-                    engine.legionSizeOf(p) + "/" + p.legionCap(), p.getKills(),
+            out.printf("%-4d %-16s %5d %6d %-15s %6d %8s%n", p.getId(), p.getName(), p.getLevel(), p.getSoul(),
+                    legionColumn(engine.legionSizeOf(p), p.legionCap(), engine.raisedSizeOf(p)), p.getKills(),
                     p.getNecromancerId() == null ? "fallen" : "alive");
         }
+    }
+
+    /** "3/10", or "3/10 +2 raised" when some of the legion was raised, which takes no room in it. */
+    public static String legionColumn(int legion, int cap, int raised) {
+        return legion + "/" + cap + (raised > 0 ? " +" + raised + " raised" : "");
     }
 
     private void printDump() {

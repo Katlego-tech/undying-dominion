@@ -63,4 +63,45 @@ class StoryAcceptanceTest {
         JSONObject nextState = socket.awaitState(m -> m.getJSONObject("story").getString("title").equals("The Hall"));
         assertEquals(1, nextState.getJSONObject("you").getInt("legion"), "the summoned skeleton came along");
     }
+
+    @Test
+    void twoChapterJumpsInOneStepKeepTheLegionAndTheLevel() throws Exception {
+        StoryDirector director = new StoryDirector(Campaign.load(ChapterRunTest.folder()), new Random(4));
+        server = new GameServer(director.firstEngine(), 4);
+        server.start(0);
+        director.attach(server);
+        socket = TestSocket.join(server.port(), "Vesper");
+        socket.awaitType("state", m -> m.has("story"));
+        socket.send("{\"command\":\"summon\",\"unit\":\"SKELETON_WARRIOR\"}");
+        int level = socket.awaitType("state", m -> m.getJSONObject("you").getInt("legion") == 1)
+                .getJSONObject("you").getInt("level");
+
+        // The host's console can send two chapter commands that land on the same step.
+        server.runOnLoop(() -> {
+            director.jumpTo(2);
+            director.jumpTo(1);
+        });
+
+        JSONObject back = socket.awaitState(m -> m.getJSONObject("story").getInt("chapter") == 1
+                && !m.getJSONObject("you").isNull("necromancerId") && socket.collect(0).isEmpty());
+        assertEquals(1, back.getJSONObject("you").getInt("legion"), "the skeleton came through both jumps");
+        assertEquals(level, back.getJSONObject("you").getInt("level"));
+    }
+
+    @Test
+    void aResumedCampaignSaysWhichChapterItResumesAt() throws Exception {
+        Campaign campaign = Campaign.load(ChapterRunTest.folder());
+        assertEquals("Campaign \"" + campaign.title() + "\" begins with chapter 1: The Yard",
+                new StoryDirector(campaign, new Random(4)).openingLine());
+
+        StoryDirector director = new StoryDirector(campaign, new Random(4));
+        server = new GameServer(director.firstEngine(), 4);
+        server.start(0);
+        director.attach(server);
+        server.runOnLoop(() -> director.jumpTo(2));
+        socket = TestSocket.join(server.port(), "Vesper");
+        socket.awaitState(m -> m.has("story") && m.getJSONObject("story").getInt("chapter") == 2);
+        StoryDirector resumed = StoryDirector.resume(campaign, new Random(4), director.capture(), server.engine().capture());
+        assertEquals("Campaign \"" + campaign.title() + "\" resumes at chapter 2: The Hall", resumed.openingLine());
+    }
 }
