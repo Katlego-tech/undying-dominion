@@ -554,7 +554,9 @@ body.touch .notices { bottom: 300px; }
 }
 /* Begin stays in reach: a story longer than the screen scrolls under it, so nobody is left in a
    paused world with the button below the edge. */
-.story-box button { position: sticky; bottom: 0; box-shadow: 0 -18px 24px 10px rgba(9, 8, 12, 0.96); }
+.story-box button { position: sticky; bottom: 0; }
+/* The fade over the text under Begin only while the story actually scrolls (hud.js marks it). */
+.story-box.scrolls button { box-shadow: 0 -18px 24px 10px rgba(9, 8, 12, 0.96); }
 body.phone .story { padding: 10px 16px; }
 body.phone .story-box { width: min(760px, 100%); max-height: calc(var(--page-h, 100vh) - 20px); }
 body.phone .story-kicker { font-size: 10px; letter-spacing: 0.12em; }
