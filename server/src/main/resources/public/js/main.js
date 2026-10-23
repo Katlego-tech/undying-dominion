@@ -272,6 +272,9 @@ function applyState(message, now) {
         kind: 'attack', x: e.x, y: e.y, x2: e.x2, y2: e.y2, attackerType: attacker?.type,
         t0: now, duration: distance <= 1 ? 260 : 140 + distance * 45,
       });
+    } else if (e.kind === 'CORPSE_STRIKE') {
+      // Corpse Explosion grown: a bolt of bone from the corpse to each target, bursting on it.
+      game.effects.push({ kind: 'corpse-strike', x: e.x, y: e.y, x2: e.x2, y2: e.y2, t0: now, duration: 520 });
     } else if (e.kind === 'CAST') {
       // A short flash at the caster and a ring of the ability's radius where it lands (T085 makes them more).
       game.effects.push({ kind: 'cast-flash', x: e.x, y: e.y, t0: now, duration: 400 });

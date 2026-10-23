@@ -34,6 +34,8 @@ public record GameEvent(Kind kind, int a, int b, int x, int y, int x2, int y2, S
         LEVEL_UP,
         /** a = player id, b = blast radius, at x,y */
         EXPLOSION,
+        /** a = player id, b = target unit id; the corpse at x,y, the target at x2,y2 */
+        CORPSE_STRIKE,
         /** a = caster id, b = target unit id (0 for a tile or self), caster at x,y, target tile x2,y2; ability, radius */
         CAST
     }

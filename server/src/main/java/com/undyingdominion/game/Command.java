@@ -39,7 +39,11 @@ public sealed interface Command {
      * legion, which rises again around their necromancer. Server-side only.
      */
     record Restore(int playerId, int level, int xp, int kills, int deaths, List<UnitType> legion,
-                   List<UnitType> raised) implements Command {}
+                   List<UnitType> raised, List<UnitType> ossuary) implements Command {
+        public Restore(int playerId, int level, int xp, int kills, int deaths, List<UnitType> legion, List<UnitType> raised) {
+            this(playerId, level, xp, kills, deaths, legion, raised, List.of());
+        }
+    }
 
     record Summon(int playerId, UnitType type) implements Command {}
 
@@ -54,7 +58,18 @@ public sealed interface Command {
     record Raise(int playerId, int corpseId) implements Command {}
 
     /** Detonate a corpse near the necromancer, hurting every enemy around it. */
-    record Explode(int playerId, int corpseId) implements Command {}
+    /**
+     * Corpse Explosion: a corpse on the field ({@code corpseId}) or the {@code stored}th one in the
+     * ossuary; a {@code tile} to drop a stored corpse on at Burst; the {@code targets} at Directed or Split.
+     */
+    record Explode(int playerId, Integer corpseId, Integer stored, Position tile, List<Integer> targets) implements Command {
+        public Explode(int playerId, int corpseId) {
+            this(playerId, corpseId, null, null, List.of());
+        }
+    }
+
+    /** Takes a corpse within raising range into the necromancer's ossuary. */
+    record Collect(int playerId, int corpseId) implements Command {}
 
     /** Fuse skeleton warriors standing together into a Skeleton King. */
     record Fuse(int playerId, List<Integer> unitIds) implements Command {}

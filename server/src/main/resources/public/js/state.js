@@ -30,7 +30,9 @@ export const game = {
   fogVersion: 0,
 
   selection: new Set(),
-  mode: null,           // null | 'attack-move' | 'raise' | 'explode' | 'cast:<ability id>'
+  mode: null,           // null | 'attack-move' | 'raise' | 'collect' | 'explode' | 'explode-drop' | 'explode-target' | 'cast:<ability id>'
+  /** The corpse in hand while Corpse Explosion picks its target: {corpse | stored, type, from, marks}. */
+  explodeHand: null,
   story: null,          // the campaign's progress, from the latest state
   paused: null,         // { by, reason: 'player' | 'host' | 'story' } while the world is stopped
   effects: [],
@@ -103,6 +105,17 @@ export function canTarget(ability, unit) {
   return ability.target === 'ENEMY' && !isMine(unit);
 }
 
+/** How far Corpse Explosion has grown: BURST, DIRECTED or SPLIT. */
+export const explodeStage = () => game.you?.explodeStage ?? 'BURST';
+
+/** One corpse's blast at the player's stage: a share of the dead creature's life. */
+export function blastOf(type) {
+  const r = game.rules;
+  const percent = { BURST: r.explodeDamagePercent ?? 40, DIRECTED: r.explodeTargetPercent ?? 80,
+    SPLIT: r.explodeSplitPercent ?? 120 }[explodeStage()];
+  return Math.max(10, Math.floor((game.unitTypes[type]?.maxHp ?? 0) * percent / 100));
+}
+
 export function myNecromancer() {
   const id = game.you?.necromancerId;
   return id == null ? null : game.units.get(id) ?? null;
@@ -166,6 +179,7 @@ export function resetWorld() {
   game.effects = [];
   game.selection.clear();
   game.mode = null;
+  game.explodeHand = null;
 }
 
 // ---------------------------------------------------------------- landscape only

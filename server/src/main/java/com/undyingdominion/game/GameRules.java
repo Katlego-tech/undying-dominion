@@ -38,6 +38,15 @@ public final class GameRules {
     /** A corpse blast hurts enemies for this percentage of the dead creature's life. */
     private int explodeDamagePercent = 40;
     private int explodeRadius = 2;
+    /** Corpse Explosion grows with the necromancer (docs/design/corpse-explosion.md): a chosen target from this level, */
+    private int explodeTargetLevel = 6;
+    /** several targets sharing the blast from this one, */
+    private int explodeSplitLevel = 9;
+    /** each within this many tiles of the corpse, or of the necromancer for a stored one. */
+    private int explodeTargetRange = 10;
+    private int explodeTargetPercent = 80;
+    private int explodeSplitPercent = 120;
+    private int explodeSplitMax = 3;
     private int maxNeutrals = 14;
     private int neutralSpawnIntervalTicks = 40;
     /** Wild creatures never spawn closer than this to a necromancer. */
@@ -68,6 +77,12 @@ public final class GameRules {
     public int explodeSoulCost()           { return explodeSoulCost; }
     public int explodeDamagePercent()      { return explodeDamagePercent; }
     public int explodeRadius()             { return explodeRadius; }
+    public int explodeTargetLevel()        { return explodeTargetLevel; }
+    public int explodeSplitLevel()         { return explodeSplitLevel; }
+    public int explodeTargetRange()        { return explodeTargetRange; }
+    public int explodeTargetPercent()      { return explodeTargetPercent; }
+    public int explodeSplitPercent()       { return explodeSplitPercent; }
+    public int explodeSplitMax()           { return explodeSplitMax; }
     public int maxNeutrals()               { return maxNeutrals; }
     public int neutralSpawnIntervalTicks() { return neutralSpawnIntervalTicks; }
     public int neutralSpawnClearance()     { return neutralSpawnClearance; }

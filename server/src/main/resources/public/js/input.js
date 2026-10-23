@@ -153,7 +153,19 @@ export function createInput(canvas, minimap, renderer) {
         return;
       }
       if (game.mode === 'explode') {
-        if (cmd.explodeAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
+        cmd.explodeAt(tx, ty);
+        return;
+      }
+      if (game.mode === 'explode-drop') {
+        cmd.dropAt(tx, ty);
+        return;
+      }
+      if (game.mode === 'explode-target') {
+        cmd.markAt(tx, ty);
+        return;
+      }
+      if (game.mode === 'collect') {
+        if (cmd.collectAt(tx, ty) && !e.shiftKey) cmd.setMode(null);
         return;
       }
       if (game.mode?.startsWith('cast:')) {
@@ -166,6 +178,10 @@ export function createInput(canvas, minimap, renderer) {
       panning = { sx, sy, x: game.camera.x, y: game.camera.y };
       setFollow(false);
     } else if (e.button === 2) {
+      if (game.mode?.startsWith('explode')) {
+        cmd.explodeBack();
+        return;
+      }
       if (game.mode) {
         cmd.setMode(null);
         return;
@@ -399,7 +415,19 @@ export function createInput(canvas, minimap, renderer) {
       return;
     }
     if (game.mode === 'explode') {
-      if (cmd.explodeAt(tx, ty)) cmd.setMode(null);
+      cmd.explodeAt(tx, ty);
+      return;
+    }
+    if (game.mode === 'explode-drop') {
+      cmd.dropAt(tx, ty);
+      return;
+    }
+    if (game.mode === 'explode-target') {
+      cmd.markAt(tx, ty);
+      return;
+    }
+    if (game.mode === 'collect') {
+      if (cmd.collectAt(tx, ty)) cmd.setMode(null);
       return;
     }
     if (game.mode?.startsWith('cast:')) {
@@ -469,7 +497,12 @@ export function createInput(canvas, minimap, renderer) {
   window.addEventListener('blur', () => { if (stickFinger !== null) release(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && stickFinger !== null) release(); });
 
-  document.getElementById('mode-hint').addEventListener('click', () => cmd.setMode(null));
+  // On touch the hint is the way back: from Corpse Explosion's target to its picker, or out of a mode.
+  document.getElementById('mode-hint').addEventListener('click', (e) => {
+    if (e.target.closest('.go')) cmd.detonate();
+    else if (game.mode?.startsWith('explode')) cmd.explodeBack();
+    else cmd.setMode(null);
+  });
   document.getElementById('camera-hint').addEventListener('click', centerOnNecromancer);
   document.getElementById('select-legion').addEventListener('click', cmd.selectLegion);
   document.getElementById('select-necromancer').addEventListener('click', cmd.selectNecromancer);
@@ -544,6 +577,8 @@ export function createInput(canvas, minimap, renderer) {
       case 'r': if (playsNecromancer()) cmd.beginRaise(); else cmd.useAbility('BASIC'); break;
       case 'x': if (playsNecromancer()) cmd.beginExplode(); else cmd.useAbility('SIGNATURE'); break;
       case 'f': if (playsNecromancer()) cmd.fuse(); else cmd.useAbility('UTILITY'); break;
+      case 'b': if (playsNecromancer()) cmd.beginCollect(); break;
+      case 'enter': if (game.mode === 'explode-target') cmd.detonate(); break;
       case 'm': cmd.mend(); break;
       case 't': cmd.layTrap(); break;
       case 'h': cmd.stop(); break;
@@ -552,7 +587,8 @@ export function createInput(canvas, minimap, renderer) {
       case 'e': cmd.selectNecromancer(); break;
       case ' ': e.preventDefault(); centerOnNecromancer(); break;
       case 'escape':
-        if (game.mode) cmd.setMode(null);
+        if (game.mode?.startsWith('explode')) cmd.explodeBack();
+        else if (game.mode) cmd.setMode(null);
         else game.selection.clear();
         break;
       default: break;

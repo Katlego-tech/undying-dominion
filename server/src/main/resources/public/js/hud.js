@@ -1,4 +1,6 @@
-import { game, selectedUnits, myNecromancer, playsNecromancer, label, aimedAbility } from './state.js';
+import {
+  game, selectedUnits, myNecromancer, playsNecromancer, label, aimedAbility, blastOf, explodeStage,
+} from './state.js';
 import * as cmd from './commands.js';
 import {
   SLOTS, SLOT_KEYS, familyOf, statusName, describePassive,
@@ -10,14 +12,18 @@ const $ = (id) => document.getElementById(id);
 const MODE_HINTS = {
   'attack-move': 'Attack-move: click where to march. Right-click or Esc cancels.',
   raise: 'Raise the dead: click a corpse inside the dashed square. Shift-click to keep raising.',
-  explode: 'Corpse Explosion: click a corpse inside the dashed square. Everything around it takes the blast.',
+  explode: 'Corpse Explosion: click a corpse inside the dashed square. Esc cancels.',
+  collect: 'Collect: click a corpse inside the dashed square to carry it. Esc cancels.',
 };
 const TOUCH_MODE_HINTS = {
   'attack-move': 'Attack-move: tap where to march. Tap here to cancel.',
   raise: 'Raise the dead: tap a corpse inside the dashed square. Tap here to cancel.',
   explode: 'Corpse Explosion: tap a corpse inside the dashed square. Tap here to cancel.',
+  collect: 'Collect: tap a corpse inside the dashed square to carry it. Tap here to cancel.',
 };
 const touch = () => document.body.classList.contains('touch');
+/** Whether a mode belongs to a button: Corpse Explosion stays lit through its picker and target steps. */
+const inMode = (mode, id) => mode === id || !!mode?.startsWith(`${id}-`);
 const phone = () => document.body.classList.contains('phone');
 const NEEDS = { TILE: 'a tile', ENEMY: 'an enemy', ALLY: 'an ally', ENEMY_COMMANDER: 'an enemy commander' };
 
@@ -75,6 +81,7 @@ export function initHud() {
   const necromancy = playsNecromancer() ? [
     ['raise', 'Raise dead', 'R', cmd.beginRaise],
     ['explode', 'Corpse Explosion', 'X', cmd.beginExplode, `<span class="cost">${game.rules.explodeSoulCost} soul</span>`],
+    ['collect', 'Collect', 'B', cmd.beginCollect],
     ['fuse', 'Fuse king', 'F', cmd.fuse, `<span class="cost">${game.rules.fuseSoulCost} soul</span>`],
   ] : [];
   const abilities = [
@@ -136,6 +143,7 @@ export function updateHud() {
     'attack-move': selected.length > 0,
     raise: alive,
     explode: alive && you.soul >= game.rules.explodeSoulCost,
+    collect: alive && (you.ossuary?.length ?? 0) < (you.ossuaryCap ?? 0),
     fuse: warriors >= game.rules.fuseCount && you.soul >= game.rules.fuseSoulCost,
     mend: selected.some((u) => u.modeEndsIn == null && u.hp < game.unitTypes[u.type].maxHp),
     trap: selected.some((u) => game.unitTypes[u.type].laysTraps && u.modeEndsIn == null),
@@ -145,7 +153,7 @@ export function updateHud() {
   };
   for (const el of $('ability-buttons').children) {
     el.disabled = !enabled[el.dataset.ability];
-    el.classList.toggle('active', game.mode === el.dataset.ability);
+    el.classList.toggle('active', inMode(game.mode, el.dataset.ability));
   }
 
   $('selection').innerHTML = describeSelection(selected);
@@ -154,6 +162,7 @@ export function updateHud() {
 
   updateKitBar(alive);
   updateStatuses();
+  updateOssuary();
 
   $('fallen').hidden = alive || !!game.paused || risingAs();
   showPause();
@@ -324,13 +333,83 @@ export function showModeHint(mode) {
   hint.hidden = !mode;
   const aimed = aimedAbility();
   hint.textContent = aimed ? castHint(aimed) : (touch() ? TOUCH_MODE_HINTS : MODE_HINTS)[mode] ?? '';
+  hint.classList.toggle('ember', !!mode?.startsWith('explode'));
+  hint.classList.remove('has-button');
+  if (mode === 'explode-target' || mode === 'explode-drop') explodeHint(hint, mode);
+  $('corpse-picker').hidden = !(mode === 'explode' && game.you?.ossuary?.length);
   // Just above the command panel, however tall the kit makes it; touch layouts place it themselves.
   hint.style.bottom = touch() ? '' : `${$('command').offsetHeight + 28}px`;
   for (const el of $('ability-buttons').children) {
-    el.classList.toggle('active', mode === el.dataset.ability);
+    el.classList.toggle('active', inMode(mode, el.dataset.ability));
   }
   for (const el of $('kit-bar').querySelectorAll('button.ability')) {
     el.classList.toggle('aiming', mode === `cast:${el.dataset.ability}`);
+  }
+}
+
+// ---------------------------------------------------------------- Corpse Explosion and the ossuary
+
+let ossuaryKey = '';
+
+/** The ossuary's count in the soul panel, and the picker's cards, strongest first, when it changes. */
+function updateOssuary() {
+  const you = game.you;
+  $('ossuary-row').hidden = !you.ossuary;
+  if (!you.ossuary) return;
+  $('ossuary-value').textContent = you.ossuary.length;
+  $('ossuary-cap').textContent = you.ossuaryCap;
+  const key = `${you.explodeStage}|${you.ossuary.map((c) => c.type).join()}`;
+  if (key === ossuaryKey) return;
+  ossuaryKey = key;
+  const stage = you.explodeStage ?? 'BURST';
+  $('corpse-stage').textContent = stage.charAt(0) + stage.slice(1).toLowerCase();
+  $('corpse-picker-hint').textContent = `Choose a stored corpse, or ${touch() ? 'tap' : 'click'} one on the field`;
+  const order = you.ossuary.map((c, i) => ({ ...c, i })).sort((a, b) => b.blast - a.blast);
+  $('corpse-cards').replaceChildren(...order.map((c, rank) => {
+    const t = game.unitTypes[c.type] ?? { label: c.type, maxHp: '?' };
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `corpse-card${rank === 0 ? ' strongest' : ''}`;
+    card.innerHTML = '<span class="who"></span><span class="lv"></span><span class="blast"><small>dmg</small></span>';
+    card.querySelector('.who').textContent = t.label;
+    card.querySelector('.lv').textContent = `${t.level ? `Lv ${t.level} · ` : ''}${t.maxHp} hp`;
+    card.querySelector('.blast').prepend(String(c.blast));
+    card.addEventListener('click', () => cmd.pickStored(c.i));
+    return card;
+  }));
+  if (game.mode === 'explode') $('corpse-picker').hidden = you.ossuary.length === 0;
+}
+
+/** The target step's hint: the corpse in hand, what to do, how many are marked, and the way back. */
+function explodeHint(hint, mode) {
+  const hand = game.explodeHand;
+  if (!hand) return;
+  const type = hand.stored != null ? game.you.ossuary[hand.stored]?.type : hand.type;
+  const blast = blastOf(type);
+  const what = `${label(type)} corpse · ${blast}`;
+  const tap = touch() ? 'tap' : 'click';
+  const back = touch() ? 'tap here to choose another' : 'Esc to choose another';
+  if (mode === 'explode-drop') {
+    hint.textContent = `${what} · ${tap} a tile inside the dashed square to drop it · ${back}`;
+    return;
+  }
+  const reach = game.rules.explodeTargetRange ?? 10;
+  if (explodeStage() === 'DIRECTED') {
+    hint.textContent = `${what} · ${tap} an enemy within ${reach} tiles · ${back}`;
+    return;
+  }
+  const max = game.rules.explodeSplitMax ?? 3;
+  const marked = hand.marks.length;
+  hint.textContent = marked
+    ? `${what} · ${marked} of ${max} marked · ${Math.floor(blast / marked)} each${touch() ? '' : ' · X or Enter'}`
+    : `${what} · ${tap} up to ${max} enemies within ${reach} tiles · ${back}`;
+  if (marked) {
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'go';
+    go.textContent = 'Detonate';
+    hint.append(go);
+    hint.classList.add('has-button');
   }
 }
 

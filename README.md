@@ -78,7 +78,8 @@ docker run -p 5050:5050 -v dominion-data:/data undying-dominion
 | `C` then click | Attack-move: march there, fighting anything met on the way |
 | `R` then click | Raise the corpse there into your legion. Shift-click to keep raising |
 | `F` | Fuse five selected Skeleton Warriors standing together into a Skeleton King |
-| `X` then click | Corpse Explosion: detonate a corpse near your necromancer, hurting every enemy around it |
+| `X` | Corpse Explosion: choose a corpse (a stored one, or one near your necromancer), then its target. It grows with your level: up to 5 it bursts, hurting every enemy around it; from 6 you pick the one enemy it strikes; from 9, up to three that share a bigger blast. Stronger corpses hit harder |
+| `B` then click | Collect a corpse into your ossuary (3 at level 1, up to 7), to detonate later and elsewhere |
 | `M` | Mend: the selected units stand still until they are whole again |
 | `T` | Grave Wardens lay a hidden bone trap and step forward off it |
 | `G` | Gather the selected units to your necromancer, or the whole legion when none are selected. Hold to keep them following |
