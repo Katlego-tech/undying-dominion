@@ -63,6 +63,9 @@ setTimeout(() => {
   }
 }, NOTHING_AFTER_MS);
 
+$('address').addEventListener('focus', () => document.body.classList.add('typing'));
+$('address').addEventListener('blur', () => document.body.classList.remove('typing'));
+
 $('manual').addEventListener('submit', (e) => {
   e.preventDefault();
   const address = parseAddress($('address').value);
