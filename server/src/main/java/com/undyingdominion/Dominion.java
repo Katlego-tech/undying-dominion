@@ -6,6 +6,7 @@ import com.undyingdominion.game.Player;
 import com.undyingdominion.game.PlayerState;
 import com.undyingdominion.game.Roster;
 import com.undyingdominion.net.Beacon;
+import com.undyingdominion.net.Gateway;
 import com.undyingdominion.net.GameServer;
 import com.undyingdominion.persistence.SaveService;
 import com.undyingdominion.persistence.SaveDao;
@@ -28,8 +29,10 @@ import java.util.function.LongSupplier;
 /**
  * One running world: the server hosting it, the saves it can make and, for a campaign, the director
  * telling its story. {@code story} is null in a free-for-all. {@code beacon} is null with {@code --no-beacon}.
+ * {@code hub} is set on a plain start, where {@code server} is the free-for-all among every mode
+ * (docs/design/modes.md); it is null on a single-mode server.
  */
-public record Dominion(GameServer server, StoryDirector story, SaveService saves, Beacon beacon) {
+public record Dominion(GameServer server, StoryDirector story, SaveService saves, Beacon beacon, Hub hub) {
 
     private static final Logger log = LoggerFactory.getLogger(Dominion.class);
 
@@ -64,9 +67,21 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
         if (story == null) server.offerCommanders(Roster.builtIn());
         else server.mode("campaign");
         if (resumed != null) holdSeatFor(server, resumed);
+        Hub hub = options.hub()
+                ? new Hub(server, Hub.campaignIn(options.hubCampaignFolder()), dao, options.maxCampaigns(),
+                        Duration.ofSeconds(options.graceSeconds()), nanoClock)
+                : null;
         try {
-            server.start(options.port());
+            if (hub == null) {
+                server.start(options.port());
+            } else {
+                Gateway gateway = new Gateway(hub);
+                gateway.start(options.port());
+                server.servedBy(gateway);
+                server.startLoop();
+            }
         } catch (RuntimeException e) {
+            if (hub != null) hub.close();
             server.stop();
             throw e;
         }
@@ -81,7 +96,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             story.onChapterBegins(chapter -> server.runAfterStep(() -> saves.autosave(message ->
                     server.engine().getPlayers().forEach(player -> player.notice(message)))));
         }
-        return new Dominion(server, story, saves, announce(options, server, story == null ? "free-for-all" : "campaign"));
+        return new Dominion(server, story, saves, announce(options, server, story == null ? "free-for-all" : "campaign"), hub);
     }
 
     /** Starts the LAN beacon the Android app listens for, unless it's turned off. A refused socket costs only the beacon. */
@@ -106,7 +121,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
     }
 
     /** Keeps the saved player's seat for the first join, and greets them once they have taken it. */
-    private static void holdSeatFor(GameServer server, SaveService.Resumed resumed) {
+    static void holdSeatFor(GameServer server, SaveService.Resumed resumed) {
         PlayerState saved = resumed.save().engine().players().getFirst();
         server.holdSeat(saved.id(), saved.name());
         String greeting = "Resumed \"" + resumed.save().name() + "\": chapter " + resumed.director().chapterNumber()
@@ -131,6 +146,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
 
     public void close() {
         if (beacon != null) beacon.close();
+        if (hub != null) hub.close();
         server.stop();
     }
 }

@@ -87,6 +87,35 @@ public final class SaveService {
     /** The name every autosave is written under, replacing the last. */
     public static final String AUTOSAVE = "autosave";
 
+    /** This game's autosave name: {@link #AUTOSAVE}, or a hub campaign's {@code {player}-auto}. */
+    private String autosaveName = AUTOSAVE;
+
+    public SaveService autosaveAs(String name) {
+        autosaveName = name;
+        return this;
+    }
+
+    public String autosaveName() {
+        return autosaveName;
+    }
+
+    /**
+     * Loop thread, as the last player leaves a hub's campaign world: autosaves it whatever the seat
+     * count says (the seat is already gone; the player is still in the world until the next tick),
+     * then runs {@code done} on the loop.
+     */
+    public void saveOnLeaving(Runnable done) {
+        // Gone before their join reached the world: there's no game of theirs to keep.
+        if (story == null || server.engine().getPlayers().isEmpty()) {
+            done.run();
+            return;
+        }
+        write(autosaveName, true, message -> {
+            log.info("{}", message);
+            done.run();
+        });
+    }
+
     /**
      * Loop thread. Saves a solo campaign under {@link #AUTOSAVE}, replacing the last one, and tells
      * {@code reply} as {@code Autosaved: chapter N, Title.}. With anything but exactly one player it
@@ -95,8 +124,9 @@ public final class SaveService {
      */
     public void autosave(Consumer<String> reply) {
         if (story == null || server.joinedCount() != 1) return;
-        write(AUTOSAVE, true, message -> reply.accept(message.startsWith("Saved \"" + AUTOSAVE + "\"")
-                ? "Autosaved" + message.substring(("Saved \"" + AUTOSAVE + "\"").length())
+        String name = autosaveName;
+        write(name, true, message -> reply.accept(message.startsWith("Saved \"" + name + "\"")
+                ? "Autosaved" + message.substring(("Saved \"" + name + "\"").length())
                 : message));
     }
 
