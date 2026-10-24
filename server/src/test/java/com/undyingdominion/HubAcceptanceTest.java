@@ -68,6 +68,20 @@ class HubAcceptanceTest {
     }
 
     @Test
+    void leaveToTitleAutosavesTheCampaignAndClosesItsWorldWithoutWaitingOutTheGrace() throws Exception {
+        dominion = hub("--grace", "3600");
+        TestSocket lin = join(new JSONObject().put("command", "join").put("name", "Lin").put("mode", "campaign"));
+        lin.awaitState(m -> true);
+        await("the world running", () -> dominion.hub().campaignWorlds().size() == 1);
+
+        lin.send(new JSONObject().put("command", "leave"));
+
+        assertEquals("Left the Dominion", lin.awaitClose());
+        await("the world closed", () -> dominion.hub().campaignWorlds().isEmpty());
+        assertEquals("Lin-auto", campaignMode().getJSONArray("saves").getJSONObject(0).getString("name"));
+    }
+
+    @Test
     void aSaveCanBeContinuedButNotByTwoPlayersAtOnce() throws Exception {
         dominion = hub();
         TestSocket first = join(new JSONObject().put("command", "join").put("name", "Lin").put("mode", "campaign"));

@@ -144,11 +144,14 @@ function stopRejoining(reason) {
   $('join-button').disabled = false;
   $('join-button').focus();
   showPicker();
-  startTitle();
+  startTitle(reason);
 }
 
-/** On a hub, the title screen; on a single-mode server, nothing: its join form is already up. */
-function startTitle() {
+/**
+ * On a hub, the title screen, with {@code reason} if a rejoin just failed; on a single-mode server,
+ * nothing: its join form is already up.
+ */
+function startTitle(reason) {
   modesLoaded.then((modes) => {
     if (!modes || joined || rejoining) return;
     showTitle(modes, {
@@ -166,6 +169,7 @@ function startTitle() {
         else connect(join);
       },
     });
+    if (reason) titleError(reason);
   });
 }
 
@@ -256,7 +260,8 @@ function welcome(message) {
   }
   $('join').hidden = true;
   hideTitle();
-  $('leave-title').hidden = !hub;
+  // A rejoin on page load can be welcomed before /modes answers, so wait for it.
+  modesLoaded.then(() => { $('leave-title').hidden = !hub; });
 }
 
 const session = storedSession();

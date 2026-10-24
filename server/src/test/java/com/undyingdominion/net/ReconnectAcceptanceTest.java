@@ -95,6 +95,35 @@ class ReconnectAcceptanceTest {
     }
 
     @Test
+    void leavingGivesUpTheSeatAtOnceWithoutWaitingOutTheGrace() {
+        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
+        TestSocket vesper = join("Vesper");
+        JSONObject welcome = vesper.awaitType("welcome");
+        TestSocket watcher = join("Corvin");
+        watcher.awaitType("welcome");
+        vesper.send("{\"command\":\"pause\"}");
+        watcher.awaitState(m -> m.has("paused"));
+
+        vesper.send("{\"command\":\"leave\"}");
+
+        assertEquals("Left the Dominion", vesper.awaitClose());
+        watcher.awaitState(m -> !m.has("paused"));
+        TestSocket back = rejoin(welcome.getString("token"));
+        assertEquals(ENDED, back.awaitType("error").getString("message"), "no grace is held for a player who left");
+    }
+
+    @Test
+    void leavingBeforeJoiningIsRefused() {
+        dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
+        TestSocket stranger = TestSocket.open(dominion.server().port());
+        sockets.add(stranger);
+
+        stranger.send("{\"command\":\"leave\"}");
+
+        assertEquals("Join the Dominion first", stranger.awaitType("error").getString("message"));
+    }
+
+    @Test
     void aSecondWindowTakesTheSeatOver() {
         dominion = raise("-p", "0", "--db", db(), "--seed", "4", "--no-wild");
         TestSocket first = join("Vesper");

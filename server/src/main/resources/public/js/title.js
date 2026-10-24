@@ -129,7 +129,7 @@ export function showTitle(modes, { onFreeForAll, onCampaign }) {
     const tile = el('button', 'mode ffa');
     tile.type = 'button';
     tile.append(mark('free-for-all'), el('h2', null, 'Free-for-all'), el('span', 'sub', 'Every commander for themselves.'),
-      el('span', 'meta', `${f.players} playing · up to ${f.max}`));
+      el('span', 'meta', `${f.players} playing`));
     tile.addEventListener('click', () => {
       const who = name();
       if (who) onFreeForAll(who);
