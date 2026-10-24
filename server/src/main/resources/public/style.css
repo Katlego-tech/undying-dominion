@@ -962,3 +962,81 @@ body.phone.touch .corpse-card .blast { font-size: 17px; }
   color: #1c0a02; font: 700 12px var(--ui); cursor: pointer; pointer-events: auto;
 }
 #mode-hint.has-button { pointer-events: auto; }
+
+/* ---------------------------------------------------------------- the title screen (docs/design/modes.md) */
+
+/* The join overlay, grown into a title screen: the name once, then three ways to play side by side.
+   Each mode is a tall tile with its own mark; the one you can't play yet is shown, dimmed. */
+.title-screen { place-items: center; overflow: auto; }
+.title-box { width: min(980px, 100%); display: grid; gap: 22px; }
+.title-head { text-align: center; }
+.title-head h1 {
+  margin: 0; font: 700 clamp(30px, 5vw, 46px)/1.05 var(--display); letter-spacing: 0.04em;
+  text-shadow: 0 0 32px rgba(167, 139, 250, 0.35);
+}
+.title-head p { margin: 8px 0 0; color: var(--bone-dim); }
+.title-name { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.title-name label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone-dim); }
+.title-name input {
+  width: 260px; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(232, 226, 208, 0.18);
+  background: rgba(255, 255, 255, 0.04); color: var(--bone); font: 16px var(--ui); outline: none;
+}
+.title-name input:focus { border-color: var(--soul); box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18); }
+
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.mode {
+  position: relative; display: grid; align-content: start; gap: 6px; min-height: 230px;
+  padding: 18px 18px 16px; border-radius: 12px; text-align: left; color: var(--bone);
+  border: 1px solid rgba(232, 226, 208, 0.12); background: rgba(255, 255, 255, 0.03); cursor: pointer;
+  font: inherit;
+}
+.mode:hover, .mode:focus-visible { border-color: var(--mode-edge); background: var(--mode-wash); outline: none; }
+.mode .mark { width: 34px; height: 34px; fill: var(--mode-ink); }
+.mode h2 { margin: 6px 0 0; font: 700 22px var(--display); letter-spacing: 0.03em; }
+.mode .sub { color: var(--bone-dim); font-size: 13px; }
+.mode .meta { margin-top: auto; padding-top: 10px; font-size: 12px; color: var(--mode-ink); font-variant-numeric: tabular-nums; }
+.mode.campaign { --mode-ink: var(--gold); --mode-edge: rgba(251, 191, 36, 0.6); --mode-wash: rgba(251, 191, 36, 0.06); }
+.mode.ffa { --mode-ink: var(--soul); --mode-edge: rgba(94, 234, 212, 0.6); --mode-wash: rgba(94, 234, 212, 0.06); }
+.mode.match { --mode-ink: var(--bone-faint); cursor: default; opacity: 0.55; }
+.mode.closed { cursor: default; opacity: 0.55; }
+.mode.match:hover { border-color: rgba(232, 226, 208, 0.12); background: rgba(255, 255, 255, 0.03); }
+.mode .soon { position: absolute; top: 16px; right: 16px; padding: 1px 8px; border-radius: 99px; font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid rgba(232, 226, 208, 0.25); color: var(--bone-dim); }
+
+/* The Campaign tile, opened: Continue the saves on this server, or begin anew. */
+.mode.campaign.open { grid-column: span 2; cursor: default; border-color: var(--mode-edge); background: var(--mode-wash); }
+.saves { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.save {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 12px; align-items: center; width: 100%;
+  padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(232, 226, 208, 0.12);
+  background: rgba(9, 8, 12, 0.5); color: var(--bone); font: inherit; text-align: left; cursor: pointer;
+}
+.save:hover, .save:focus-visible { border-color: var(--gold); outline: none; }
+.save b { font-weight: 600; }
+.save .where { color: var(--bone-dim); font-size: 12px; }
+.save .when { grid-row: span 2; color: var(--bone-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.campaign-actions { display: flex; gap: 8px; margin-top: 10px; }
+.campaign-actions .new {
+  padding: 9px 16px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.55); background: transparent;
+  color: var(--gold); font: 600 13px var(--ui); cursor: pointer;
+}
+.campaign-actions .new:hover { border-color: var(--gold); }
+
+body.phone .title-screen { padding: 10px 16px; }
+body.phone .title-box { gap: 10px; }
+body.phone .title-head { display: flex; align-items: baseline; justify-content: space-between; text-align: left; gap: 12px; }
+body.phone .title-head h1 { font-size: 22px; }
+body.phone .title-head p { margin: 0; font-size: 12px; }
+body.phone .title-name { justify-content: flex-start; }
+body.phone .title-name input { width: 220px; padding: 7px 12px; font-size: 14px; }
+body.phone .mode { min-height: 0; padding: 12px 14px; gap: 3px; }
+body.phone .mode .mark { width: 24px; height: 24px; }
+body.phone .mode h2 { font-size: 17px; margin-top: 2px; }
+body.phone .mode .sub { font-size: 12px; }
+
+.title-screen .error { text-align: center; }
+#paused .leave-title {
+  margin-top: 10px; background: transparent; border: 1px solid var(--panel-edge); color: var(--bone-dim);
+  font: 600 13px var(--ui); letter-spacing: 0.02em;
+}
+#paused .leave-title:hover { border-color: var(--bone-faint); color: var(--bone); }

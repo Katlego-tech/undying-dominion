@@ -55,6 +55,14 @@ class ProtocolSpecTest {
 
         for (String name : clientMessages()) {
             if (name.equals("join")) continue;
+            if (name.equals("leave")) {
+                // Leaving ends the socket, so it is tried by a player of its own.
+                TestSocket leaver = socket(example("join").put("name", "Leaver"));
+                leaver.awaitType("welcome");
+                leaver.send(example(name));
+                assertEquals("Left the Dominion", leaver.awaitClose(), "the documented leave is understood");
+                continue;
+            }
             TestSocket socket = name.equals("rejoin") ? socket(example(name)) : player;
             if (socket == player) player.send(example(name));
             for (JSONObject reply : socket.collect(300)) {
