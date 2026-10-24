@@ -212,6 +212,19 @@ reading the same commands plus `quit` from standard input.
 `GET /api/world` returns the map and the scoreboard as JSON. Unit positions are deliberately left out
 so the API can't be used to see through the fog.
 
+`GET /modes` returns what this server offers, for the title screen:
+
+- the free-for-all, with how full it is;
+- the campaign, with its saves to continue (or why there's none);
+- matches, which aren't open yet.
+
+A plain start runs every mode at once: one shared free-for-all, and a private world for each player
+who starts or continues the campaign. That world autosaves as `{name}-auto` when its player leaves.
+The campaign is read from `story/arc1` beside the server, or from `--campaign-folder <dir>`.
+`--max-campaigns <n>` (default 4) caps how many campaign worlds run at once.
+
+`--campaign`, `--resume` and `-m` still give a single-mode server, as before.
+
 `GET /roster` returns `{"roster": [...], "unitTypes": {...}}`: every pickable kit, as in the welcome,
 and the unit types they name, so a join screen can show them before connecting. A campaign answers
 with both empty.

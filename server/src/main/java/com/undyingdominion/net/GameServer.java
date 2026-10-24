@@ -58,6 +58,7 @@ public class GameServer {
 
     private final List<Consumer<GameEngine>> tickListeners = new CopyOnWriteArrayList<>();
     private final List<IntConsumer> joinListeners = new CopyOnWriteArrayList<>();
+    private final List<IntConsumer> leaveListeners = new CopyOnWriteArrayList<>();
     private volatile double lastTickMillis;
 
     /** Who paused the world: a player's id, {@link #HOST}, or null while it runs. Loop thread only. */
@@ -122,8 +123,13 @@ public class GameServer {
         return this;
     }
 
+    /** A hub's Gateway serving this world among others, so {@link #port} answers. */
+    public void servedBy(Gateway shared) {
+        gateway = shared;
+    }
+
     /** This world's entry in {@code GET /modes}: what it is and how full. */
-    JSONObject modeEntry() {
+    public JSONObject modeEntry() {
         return new JSONObject().put("id", mode).put("open", true).put("players", seats.size()).put("max", seats.capacity());
     }
 
@@ -157,6 +163,14 @@ public class GameServer {
     }
 
     /** Calls {@code listener} with a player's id right after they join and are sent the welcome. */
+    /**
+     * Calls {@code listener} with a player's id when their seat goes for good (left, purged, or away past
+     * their grace), on whichever thread removed it. Work on the engine goes through {@link #runOnLoop}.
+     */
+    public void addLeaveListener(IntConsumer listener) {
+        leaveListeners.add(listener);
+    }
+
     public void addJoinListener(IntConsumer listener) {
         joinListeners.add(listener);
     }
@@ -413,7 +427,11 @@ public class GameServer {
 
     /** A seat is gone, however it went: the player leaves the world and lets go of what they held on the loop. */
     private void left(Seat seat) {
-        engine.submit(new Command.Leave(seat.playerId));
+        // Listeners first, and the Leave queued behind their loop tasks, so whatever they run on the loop
+        // (a campaign's autosave) still finds the player, whichever thread removed the seat and when.
+        for (IntConsumer listener : leaveListeners) listener.accept(seat.playerId);
+        if (leaveListeners.isEmpty()) engine.submit(new Command.Leave(seat.playerId));
+        else runOnLoop(() -> engine.submit(new Command.Leave(seat.playerId)));
         runOnLoop(() -> released(seat.playerId));
         log.info("{} left the Dominion", seat.name);
     }

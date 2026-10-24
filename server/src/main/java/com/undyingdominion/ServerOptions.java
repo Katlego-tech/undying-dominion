@@ -2,6 +2,8 @@ package com.undyingdominion;
 
 import com.undyingdominion.net.Beacon;
 
+import java.nio.file.Path;
+
 /** Command line options, parsed the Robot Worlds way: every flag optional, unknown flags rejected. */
 public class ServerOptions {
 
@@ -23,6 +25,8 @@ public class ServerOptions {
     private int graceSeconds = DEFAULT_GRACE_SECONDS;
     private boolean mapGiven;
     private boolean beacon = true;
+    private String hubCampaignFolder;
+    private int maxCampaigns = 4;
     private int beaconPort = Beacon.DEFAULT_PORT;
 
     /** Options built in code rather than read from the command line. */
@@ -57,6 +61,8 @@ public class ServerOptions {
                 case "--resume" -> options.resume = value(args, ++i, flag);
                 case "--grace" -> options.graceSeconds = grace(value(args, ++i, flag));
                 case "--no-beacon" -> options.beacon = false;
+                case "--campaign-folder" -> options.hubCampaignFolder = value(args, ++i, flag);
+                case "--max-campaigns" -> options.maxCampaigns = range(value(args, ++i, flag), flag, 0, 32);
                 case "--beacon-port" -> options.beaconPort = range(value(args, ++i, flag), flag, 1, 65535);
                 default -> throw new IllegalArgumentException("Unknown option: " + flag);
             }
@@ -123,4 +129,19 @@ public class ServerOptions {
     /** Whether the Dominion announces itself on the LAN for the Android app (docs/design/android.md). */
     public boolean beacon()       { return beacon; }
     public int beaconPort()       { return beaconPort; }
+    /**
+     * A plain start is a hub, every mode at once (docs/design/modes.md); a campaign, a resume or a map
+     * of the host's own gives a single-mode server, as before.
+     */
+    public boolean hub()          { return campaignFolder == null && resume == null && !mapGiven; }
+    /** Where a hub reads its campaign: --campaign-folder, else story/arc1 beside the server or one level up. */
+    public Path hubCampaignFolder() {
+        if (hubCampaignFolder != null) return Path.of(hubCampaignFolder);
+        for (String candidate : new String[] {"story/arc1", "../story/arc1"}) {
+            Path folder = Path.of(candidate);
+            if (folder.resolve("campaign.json").toFile().isFile()) return folder;
+        }
+        return null;
+    }
+    public int maxCampaigns()     { return maxCampaigns; }
 }

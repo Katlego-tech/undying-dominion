@@ -368,6 +368,19 @@
             "commander": {
               "type": "string",
               "description": "The commander to field, an id from welcome.roster, e.g. BULWARK. Without it the free-for-all gives you a random one and says which. A campaign ignores it: you are the Necromancer. An unknown id answers `No commander called {id}`, and NECROMANCER answers `The Necromancer walks only in the campaign`; the socket stays open to try again."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "free-for-all",
+                "campaign",
+                "match"
+              ],
+              "description": "On a hub (a plain start, docs/design/modes.md), which world to join. Without it, the free-for-all. GET /modes lists what's open."
+            },
+            "save": {
+              "type": "string",
+              "description": "With mode campaign: a save to continue, from GET /modes. Without it, a new campaign."
             }
           },
           "required": [
