@@ -44,7 +44,7 @@ class DashboardTest {
         log.add("12:00:01 INFO GameServer - Vesper joined the Dominion");
         dashboard = new Dashboard(map, "The Sundered Barrow", 5000, 8, () -> "http://192.168.1.5:5000", log,
                 new Dashboard.Actions() {
-                    public void purge(int playerId) { calls.add("purge " + playerId); }
+                    public void purge(int playerId, String name) { calls.add("purge " + playerId + " " + name); }
                     public void openInBrowser() { calls.add("open"); }
                     public void command(String line) { calls.add("command " + line); }
                     public void quit() { calls.add("quit"); }
@@ -87,13 +87,14 @@ class DashboardTest {
 
     @Test
     void purgingTheSelectedNecromancerNeedsConfirming() {
-        int first = engine.getPlayers().iterator().next().getId();
+        var firstPlayer = engine.getPlayers().iterator().next();
+        int first = firstPlayer.getId();
 
         dashboard.handle(KeyStroke.fromString("p"));
         assertEquals(Dashboard.Mode.CONFIRM_PURGE, dashboard.mode());
         dashboard.handle(KeyStroke.fromString("y"));
 
-        assertEquals(List.of("purge " + first), calls);
+        assertEquals(List.of("purge " + first + " " + firstPlayer.getName()), calls, "the name goes too, to check it's still them");
     }
 
     @Test
@@ -111,8 +112,8 @@ class DashboardTest {
         dashboard.handle(KeyStroke.fromString("p"));
         dashboard.handle(KeyStroke.fromString("y"));
 
-        int second = engine.getPlayers().stream().skip(1).findFirst().orElseThrow().getId();
-        assertEquals(List.of("purge " + second), calls);
+        var second = engine.getPlayers().stream().skip(1).findFirst().orElseThrow();
+        assertEquals(List.of("purge " + second.getId() + " " + second.getName()), calls);
     }
 
     @Test

@@ -28,7 +28,8 @@ public class Dashboard {
 
     /** What the keeper can do from the dashboard. */
     public interface Actions {
-        void purge(int playerId);
+        /** Purges {@code playerId} if they are still {@code name}: the world drawn may have changed since the prompt. */
+        void purge(int playerId, String name);
         void openInBrowser();
         /** Runs a line as an admin console command; its output goes to the log. */
         void command(String line);
@@ -126,7 +127,7 @@ public class Dashboard {
             case CONFIRM_PURGE -> {
                 PlayerRow selected = selected();
                 if (isChar(key, 'y') && selected != null) {
-                    actions.purge(selected.id());
+                    actions.purge(selected.id(), selected.name());
                     flash("Purged " + selected.name() + ".");
                 }
                 mode = Mode.NORMAL;

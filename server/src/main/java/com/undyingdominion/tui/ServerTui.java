@@ -106,11 +106,16 @@ public final class ServerTui {
         Dashboard dashboard = new Dashboard(dominion.map(), mapName(options), port, options.maxPlayers(), lanUrl, log,
                 new Dashboard.Actions() {
                     @Override
-                    public void purge(int playerId) {
+                    public void purge(int playerId, String name) {
+                        // Ids repeat across worlds; if the drawn world closed under the prompt, the name won't match.
                         GameServer world = watch.current(worlds.get());
                         world.runOnLoop(() -> {
                             Player player = world.engine().getPlayer(playerId);
-                            if (player != null) world.disconnect(playerId, "Purged by the Dominion's keeper");
+                            if (player != null && player.getName().equals(name)) {
+                                world.disconnect(playerId, "Purged by the Dominion's keeper");
+                            } else {
+                                log.add(name + " is no longer in the world drawn; nobody was purged.");
+                            }
                         });
                     }
 
