@@ -268,7 +268,7 @@ Connect a WebSocket to `ws://<host>:<port>/ws`. Every client message is a JSON o
 (a unit id) for one aimed at a unit, `x` and `y` for one aimed at a tile, and neither for one cast
 on yourself. A cast that can't go off spends nothing, and a notice says why: `Hexfire is ready in
 4s.`, `Not enough Mana for Hexfire.`, `Too far for Hexfire. Move within 5 tiles.`,
-`You can't see that target.`, `You are silenced.` and so on.
+`You can't see that target.`, `You are silenced.`, `You are rooted.` (a dash while rooted) and so on.
 
 `rejoin` takes back your place after your connection drops: send it instead of `join`, with the
 `token` from your last `welcome`. You get the same necromancer, legion, soul and record, and any

@@ -215,6 +215,7 @@ function updateKitBar(alive) {
   if (bar.hidden) return;
   const you = game.you;
   const silenced = myNecromancer()?.statuses?.some((s) => s.id === 'silenced');
+  const rooted = myNecromancer()?.statuses?.some((s) => s.id === 'rooted');
   const energy = game.commander.energy.toLowerCase();
   for (const el of bar.querySelectorAll('button.ability')) {
     const a = game.commander.abilities.find((x) => x.id === el.dataset.ability);
@@ -222,6 +223,7 @@ function updateKitBar(alive) {
     let why = '';
     if (!alive) why = 'Fallen';
     else if (silenced) why = 'Silenced';
+    else if (rooted && cmd.dashes(a)) why = 'Rooted';
     else if (left <= 0 && you.soul < a.cost) why = `Needs ${a.cost} ${energy}`;
     const cooling = !why && left > 0;
     el.classList.toggle('cooling', cooling);

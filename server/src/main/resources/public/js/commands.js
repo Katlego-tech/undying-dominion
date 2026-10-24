@@ -300,12 +300,18 @@ export function selectNecromancer() {
 
 const NEEDS = { ENEMY: 'an enemy', ALLY: 'an ally', ENEMY_COMMANDER: 'an enemy commander' };
 
+/** Whether the ability moves its caster: a rooted commander can't cast it. */
+export function dashes(ability) {
+  return ability.effects?.some((e) => e.kind === 'dash') ?? false;
+}
+
 /** Why the commander can't use this ability right now, in the server's own words, or null if it can. */
 export function refusal(ability) {
   const you = game.you;
   const commander = myNecromancer();
   if (!commander) return `The fallen cannot use ${ability.label}.`;
   if (commander.statuses?.some((s) => s.id === 'silenced')) return 'You are silenced.';
+  if (dashes(ability) && commander.statuses?.some((s) => s.id === 'rooted')) return 'You are rooted.';
   const left = you.cooldowns?.[ability.id] ?? 0;
   if (left > 0) return `${ability.label} is ready in ${Math.ceil(left)}s.`;
   if (you.soul < ability.cost) return `Not enough ${game.commander.energy} for ${ability.label}.`;
