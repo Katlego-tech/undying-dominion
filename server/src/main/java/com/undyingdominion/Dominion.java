@@ -62,6 +62,7 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
 
         GameServer server = new GameServer(engine, options.maxPlayers(), Duration.ofSeconds(options.graceSeconds()), nanoClock);
         if (story == null) server.offerCommanders(Roster.builtIn());
+        else server.mode("campaign");
         if (resumed != null) holdSeatFor(server, resumed);
         try {
             server.start(options.port());
