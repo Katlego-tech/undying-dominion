@@ -127,12 +127,13 @@ public final class Gateway {
     /** The world a socket's message belongs in: a join's mode, a rejoin's token, else the lobby, which answers it. */
     private GameServer route(String raw) throws ProtocolException {
         JSONObject message;
+        String command;
         try {
-            message = new JSONObject(raw);
-        } catch (JSONException e) {
-            return router.lobby();
+            message = ProtocolParser.read(raw);
+            command = ProtocolParser.commandName(message);
+        } catch (ProtocolException | JSONException e) {
+            return router.lobby();  // the lobby world reads it again and answers as it always has
         }
-        String command = message.optString("command", "").toLowerCase();
         if ("join".equals(command)) return router.forJoin(message);
         if ("rejoin".equals(command) && message.opt("token") instanceof String token) {
             for (GameServer world : router.worlds()) {

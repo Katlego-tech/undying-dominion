@@ -67,6 +67,9 @@ class GatewayAcceptanceTest {
 
         assertEquals(20, corvin.awaitType("welcome").getJSONObject("map").getInt("width"), "no mode: the free-for-all");
         assertEquals(12, lin.awaitType("welcome").getJSONObject("map").getInt("width"));
+        // The welcome goes out a moment before the seat is counted, so wait for the count.
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while ((wide.joinedCount() < 1 || narrow.joinedCount() < 1) && System.nanoTime() < deadline) Thread.onSpinWait();
         assertEquals(1, wide.joinedCount());
         assertEquals(1, narrow.joinedCount());
     }
