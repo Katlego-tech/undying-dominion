@@ -85,6 +85,11 @@ final class SeatTable {
         return new Joined(seat, wasHeld);
     }
 
+    /** Whether this table issued the token, so a rejoin can be routed to its world. */
+    synchronized boolean knows(String token) {
+        return byToken.containsKey(token);
+    }
+
     /**
      * Hands the seat with this token to {@code connection}. {@code onSeated} runs under the lock
      * before the hand-over, as for a join. Returns null if the socket closed first.
@@ -137,6 +142,10 @@ final class SeatTable {
     /** Every seat, connected or away. Safe to iterate while seats come and go. */
     Collection<Seat> all() {
         return byId.values();
+    }
+
+    int capacity() {
+        return maxPlayers;
     }
 
     int size() {

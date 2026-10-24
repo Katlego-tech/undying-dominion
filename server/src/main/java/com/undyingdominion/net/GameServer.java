@@ -6,15 +6,11 @@ import com.undyingdominion.game.Commander;
 import com.undyingdominion.game.GameEngine;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.game.Roster;
-import io.javalin.Javalin;
-import io.javalin.http.staticfiles.Location;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,8 +41,6 @@ import java.util.function.LongSupplier;
 public class GameServer {
 
     private static final Logger log = LoggerFactory.getLogger(GameServer.class);
-    /** When run from the server directory, serve the client straight from source so edits show on reload. */
-    private static final Path DEV_CLIENT = Path.of("src/main/resources/public");
 
     /** How long an away player's place is kept unless the server is told otherwise. */
     public static final Duration DEFAULT_GRACE = Duration.ofSeconds(30);
@@ -88,7 +82,9 @@ public class GameServer {
         void save(int playerId, String name, boolean force);
     }
 
-    private Javalin app;
+    /** The Gateway this world opened for itself with {@link #start}; null when a hub serves it. */
+    private Gateway gateway;
+    private volatile String mode = "free-for-all";
 
     public GameServer(GameEngine engine, int maxPlayers) {
         this(engine, maxPlayers, DEFAULT_GRACE);
@@ -105,38 +101,51 @@ public class GameServer {
         this.seats = new SeatTable(maxPlayers, grace, nanoClock, this::left);
     }
 
+    /**
+     * Opens this world alone on {@code port}: a Gateway with one world, as a single-mode server has
+     * always been. A hub starts its worlds with {@link #startLoop} and serves them from one Gateway.
+     */
     public void start(int port) {
-        app = Javalin.create(config -> {
-            config.startup.showJavalinBanner = false;
-            if (Files.isDirectory(DEV_CLIENT)) {
-                config.staticFiles.add(DEV_CLIENT.toAbsolutePath().toString(), Location.EXTERNAL);
-            } else {
-                config.staticFiles.add("/public", Location.CLASSPATH);
-            }
+        Gateway own = Gateway.single(this);
+        own.start(port);
+        gateway = own;
+        startLoop();
+    }
 
-            config.routes.ws("/ws", ws -> {
-                ws.onConnect(ctx -> connections.put(ctx.sessionId(), new ClientConnection(ctx)));
-                ws.onMessage(ctx -> onMessage(ctx.sessionId(), ctx.message()));
-                ws.onClose(ctx -> onClose(ctx.sessionId()));
-                ws.onError(ctx -> onClose(ctx.sessionId()));
-            });
+    /** The mode this world plays: {@code free-for-all} or {@code campaign} (docs/design/modes.md). */
+    public String mode() {
+        return mode;
+    }
 
-            // Robot Worlds' Web API iteration asked for GET /world: the world's layout as JSON.
-            // Unit positions are left out so the API cannot be used to see through the fog.
-            config.routes.get("/api/world", ctx -> ctx.contentType("application/json").result(worldJson.get()));
-            // The join form shows the kits before there's a socket (docs/design/characters.md §6 Client).
-            config.routes.get("/roster", ctx -> ctx.contentType("application/json").result(rosterJson()));
-        });
+    public GameServer mode(String mode) {
+        this.mode = mode;
+        return this;
+    }
 
-        app.start(port);
+    /** This world's entry in {@code GET /modes}: what it is and how full. */
+    JSONObject modeEntry() {
+        return new JSONObject().put("id", mode).put("open", true).put("players", seats.size()).put("max", seats.capacity());
+    }
+
+    /** Starts the tick loop. The world then plays whether or not a Gateway serves it. */
+    public void startLoop() {
         worldJson.set(describeWorld());
-
         long period = 1000L / engine.getRules().ticksPerSecond();
         loop.scheduleAtFixedRate(this::step, period, period, TimeUnit.MILLISECONDS);
     }
 
     public int port() {
-        return app.port();
+        return gateway.port();
+    }
+
+    /** The world's layout without anyone in it, for {@code GET /api/world}. */
+    String worldJson() {
+        return worldJson.get();
+    }
+
+    /** Whether a rejoin with this token belongs here. */
+    boolean knowsToken(String token) {
+        return seats.knows(token);
     }
 
     /**
@@ -274,13 +283,7 @@ public class GameServer {
         for (ClientConnection connection : connections.values()) {
             connection.close(1001, "The Dominion has fallen silent");
         }
-        if (app != null) {
-            try {
-                app.stop();
-            } catch (RuntimeException e) {
-                log.warn("Server did not stop cleanly: {}", e.getMessage());
-            }
-        }
+        if (gateway != null) gateway.stop();
     }
 
     /** Ends a player's session from the server side, e.g. the console's purge. Their seat goes at once, away or not. */
@@ -296,9 +299,18 @@ public class GameServer {
 
     // ------------------------------------------------------------------ network threads
 
-    private void onMessage(String sessionId, String raw) {
-        ClientConnection connection = connections.get(sessionId);
-        if (connection == null) return;
+    /** A socket the Gateway has routed here. Its messages and its close follow. */
+    void attach(ClientConnection connection) {
+        connections.put(connection.id(), connection);
+    }
+
+    /** A socket that never took a seat here, moving to another world. It stays open. */
+    void detach(ClientConnection connection) {
+        connections.remove(connection.id());
+    }
+
+    void onMessage(ClientConnection connection, String raw) {
+        if (!connections.containsKey(connection.id())) return;
         try {
             JSONObject message = ProtocolParser.read(raw);
             String command = ProtocolParser.commandName(message);
@@ -390,9 +402,8 @@ public class GameServer {
         log.info("{} rejoined the Dominion", rejoined.seat().name);
     }
 
-    private void onClose(String sessionId) {
-        ClientConnection connection = connections.remove(sessionId);
-        if (connection == null) return;
+    void onClose(ClientConnection connection) {
+        if (connections.remove(connection.id()) == null) return;
         connection.stop();
         if (!seats.drop(connection)) return;  // never joined, taken over by another socket, or a seat already removed
         int playerId = connection.getPlayerId();
@@ -408,7 +419,7 @@ public class GameServer {
     }
 
     /** The pickable kits and the unit types they name; nothing in a campaign, where the form is a name box. */
-    private String rosterJson() {
+    String rosterJson() {
         Roster roster = this.roster;
         return roster == null
                 ? new JSONObject().put("roster", new JSONArray()).put("unitTypes", new JSONObject()).toString()

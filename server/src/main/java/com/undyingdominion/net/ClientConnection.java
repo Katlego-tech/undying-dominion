@@ -32,6 +32,11 @@ public class ClientConnection {
     private volatile Integer playerId;
     private volatile String name;
 
+    /** The socket's id, unique among the server's connections. */
+    public String id() {
+        return transport.id();
+    }
+
     public ClientConnection(WsContext ctx) {
         this(new Transport() {
             @Override public String id()                       { return ctx.sessionId(); }
