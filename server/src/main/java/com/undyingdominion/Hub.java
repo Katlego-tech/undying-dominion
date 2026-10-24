@@ -4,6 +4,7 @@ import com.undyingdominion.game.Player;
 import com.undyingdominion.net.Gateway;
 import com.undyingdominion.net.GameServer;
 import com.undyingdominion.net.ProtocolException;
+import com.undyingdominion.net.ProtocolParser;
 import com.undyingdominion.persistence.SaveDao;
 import com.undyingdominion.persistence.SaveService;
 import com.undyingdominion.persistence.SaveSummary;
@@ -83,8 +84,10 @@ public final class Hub implements Gateway.Router {
     }
 
     /** A new campaign world for this player, or one continuing {@code save}. */
-    private synchronized GameServer campaignWorld(String name, String save) throws ProtocolException {
+    private synchronized GameServer campaignWorld(String requestedName, String save) throws ProtocolException {
         if (campaign == null) throw new ProtocolException("No campaign on this server");
+        // Checked here, before anything is built, so a refused join leaves no world behind it.
+        String name = ProtocolParser.validName(requestedName);
         if (save != null && campaigns.stream().anyMatch(c -> save.equals(c.save()))) {
             throw new ProtocolException("\"" + save + "\" is being played right now.");
         }
@@ -98,6 +101,9 @@ public final class Hub implements Gateway.Router {
             } catch (IllegalArgumentException e) {
                 throw new ProtocolException(e.getMessage());
             }
+            if (!resumed.save().campaignTitle().equals(campaign.title())) {
+                throw new ProtocolException("\"" + save + "\" is from another campaign.");
+            }
             story = resumed.director();
         } else {
             story = new StoryDirector(campaign, new Random());
@@ -105,7 +111,7 @@ public final class Hub implements Gateway.Router {
         GameServer world = new GameServer(story.firstEngine(), 1, grace, nanoClock).mode("campaign");
         if (resumed != null) Dominion.holdSeatFor(world, resumed);
         story.attach(world);
-        SaveService saves = new SaveService(world, story, dao).autosaveAs(autosaveName(name));
+        SaveService saves = new SaveService(world, story, dao).autosaveAs(freeAutosaveName(name));
         world.setSaveHandler((playerId, saveName, force) -> saves.save(saveName, force, message -> {
             Player player = world.engine().getPlayer(playerId);
             if (player != null) player.notice(message);
@@ -122,6 +128,18 @@ public final class Hub implements Gateway.Router {
         }, UNCLAIMED_SECONDS, TimeUnit.SECONDS);
         log.info("A campaign world opened for {}{}", name, save == null ? "" : " from \"" + save + "\"");
         return world;
+    }
+
+    /** {@link #autosaveName}, made distinct from every running world's, so two same-named players never share one. */
+    private String freeAutosaveName(String player) {
+        String base = autosaveName(player);
+        String name = base;
+        for (int n = 2; isTaken(name); n++) name = base.substring(0, base.length() - "-auto".length()) + "-" + n + "-auto";
+        return name;
+    }
+
+    private boolean isTaken(String autosave) {
+        return campaigns.stream().anyMatch(c -> c.saves().autosaveName().equalsIgnoreCase(autosave));
     }
 
     /** {@code {player}-auto}, in the letters a save name allows. */

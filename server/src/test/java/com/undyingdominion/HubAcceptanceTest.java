@@ -99,6 +99,25 @@ class HubAcceptanceTest {
     }
 
     @Test
+    void aRefusedNameBuildsNoWorldAndSameNamedPlayersKeepTheirOwnAutosaves() throws Exception {
+        dominion = hub();
+        TestSocket blank = join(new JSONObject().put("command", "join").put("name", "   ").put("mode", "campaign"));
+        blank.awaitType("error");
+        assertTrue(dominion.hub().campaignWorlds().isEmpty(), "no world is left behind a refused join");
+
+        TestSocket one = join(new JSONObject().put("command", "join").put("name", "Alex").put("mode", "campaign"));
+        TestSocket two = join(new JSONObject().put("command", "join").put("name", "Alex").put("mode", "campaign"));
+        one.awaitState(m -> true);
+        two.awaitState(m -> true);
+        one.abort();
+        two.abort();
+        await("both autosaves", () -> savesListed() == 2);
+        JSONArray saves = campaignMode().getJSONArray("saves");
+        assertEquals(java.util.Set.of("Alex-auto", "Alex-2-auto"),
+                java.util.Set.of(saves.getJSONObject(0).getString("name"), saves.getJSONObject(1).getString("name")));
+    }
+
+    @Test
     void withoutACampaignTheHubSaysSo() throws Exception {
         dominion = raise("-p", "0", "--no-wild", "--no-beacon", "--grace", "0", "--db", dir.resolve("s.db").toString(),
                 "--campaign-folder", dir.resolve("nothing-here").toString());

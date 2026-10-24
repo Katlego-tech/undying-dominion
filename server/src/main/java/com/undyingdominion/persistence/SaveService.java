@@ -56,7 +56,7 @@ public final class SaveService {
             reply.accept("Save names are 1 to 32 letters, digits, - or _");
             return;
         }
-        if (name.equalsIgnoreCase(AUTOSAVE)) {
+        if (name.equalsIgnoreCase(AUTOSAVE) || name.toLowerCase().endsWith("-auto")) {
             reply.accept("That name is kept for the autosave. Choose another");
             return;
         }
