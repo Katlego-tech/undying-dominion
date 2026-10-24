@@ -33,6 +33,8 @@ public class Dashboard {
         /** Runs a line as an admin console command; its output goes to the log. */
         void command(String line);
         void quit();
+        /** On a hub: draw the world {@code delta} places on (+1 for ], -1 for [). */
+        void cycleWorld(int delta);
     }
 
     enum Mode { NORMAL, CONFIRM_PURGE, CONFIRM_QUIT, COMMAND }
@@ -61,7 +63,7 @@ public class Dashboard {
     private GameMap map;
     private final String mapName;
     private final int port;
-    private final int maxPlayers;
+    private int maxPlayers;
     private final Supplier<String> lanUrl;
     private final LogBuffer log;
     private final Actions actions;
@@ -73,6 +75,9 @@ public class Dashboard {
     private String status = "";
     private String paused;
     private long statusUntil;
+    /** On a hub, a label per world and the index of the one drawn; empty on a single-mode server. */
+    private List<String> worlds = List.of();
+    private int drawnWorld;
 
     public Dashboard(GameMap map, String mapName, int port, int maxPlayers, Supplier<String> lanUrl, LogBuffer log, Actions actions) {
         this.map = map;
@@ -92,6 +97,17 @@ public class Dashboard {
         if (players.stream().noneMatch(p -> p.id() == selectedId)) {
             selectedId = players.isEmpty() ? -1 : players.get(0).id();
         }
+    }
+
+    /** On a hub: every world's label, first the free-for-all, and which one is drawn. Empty on a single-mode server. */
+    public void setWorlds(List<String> labels, int drawn) {
+        worlds = List.copyOf(labels);
+        drawnWorld = drawn;
+    }
+
+    /** How many players the drawn world seats, for the header and the necromancers' panel. */
+    public void setCapacity(int maxPlayers) {
+        this.maxPlayers = maxPlayers;
     }
 
     public void flash(String message) {
@@ -131,6 +147,7 @@ public class Dashboard {
             if (selected() == null) flash("No necromancer to purge.");
             else mode = Mode.CONFIRM_PURGE;
         } else if (isChar(key, 'o')) actions.openInBrowser();
+        else if ((isChar(key, '[') || isChar(key, ']')) && !worlds.isEmpty()) actions.cycleWorld(isChar(key, ']') ? 1 : -1);
         else if (isChar(key, ':')) {
             input.setLength(0);
             mode = Mode.COMMAND;
@@ -198,7 +215,8 @@ public class Dashboard {
         int mapCols = map.getWidth() + 2;
         int topHeight = (map.getHeight() + 1) / 2 + 3;
         int minWidth = mapCols + 44;
-        int minHeight = topHeight + 7;
+        int worldsLine = worlds.isEmpty() ? 0 : 1;
+        int minHeight = topHeight + 7 + worldsLine;
         if (width < minWidth || height < minHeight) {
             g.setForegroundColor(DIM);
             put(g, 2, 1, "Enlarge the terminal to at least " + minWidth + " x " + minHeight + ".", width - 4);
@@ -209,7 +227,8 @@ public class Dashboard {
         drawHeader(g, width);
         drawWorld(g, 0, 1, mapCols, topHeight);
         drawPlayers(g, mapCols, 1, width - mapCols, topHeight);
-        drawLog(g, 0, 1 + topHeight, width, height - topHeight - 2);
+        drawLog(g, 0, 1 + topHeight, width, height - topHeight - 2 - worldsLine);
+        if (worldsLine > 0) drawWorlds(g, height - 2, width);
         drawFooter(g, height - 1, width);
     }
 
@@ -372,6 +391,31 @@ public class Dashboard {
         }
     }
 
+    /** The hub's worlds, the drawn one marked: {@code Worlds  Free-for-all 2 · ▸ Campaign · Lin}. */
+    private void drawWorlds(TextGraphics g, int y, int width) {
+        g.setForegroundColor(FAINT);
+        g.putString(1, y, "Worlds");
+        int x = 9;
+        for (int i = 0; i < worlds.size(); i++) {
+            boolean drawn = i == drawnWorld;
+            String text = (drawn ? "▸ " : "") + worlds.get(i);
+            if (x + text.length() + 1 > width) {
+                g.setForegroundColor(DIM);
+                if (x + 1 < width) g.putString(x, y, "…");
+                break;
+            }
+            if (i > 0) {
+                g.setForegroundColor(FAINT);
+                g.putString(x - 2, y, "·");
+            }
+            g.setForegroundColor(drawn ? SOUL : DIM);
+            if (drawn) g.enableModifiers(SGR.BOLD);
+            g.putString(x, y, text);
+            g.disableModifiers(SGR.BOLD);
+            x += text.length() + 3;
+        }
+    }
+
     private void drawFooter(TextGraphics g, int y, int width) {
         g.setBackgroundColor(HEADER_BG);
         g.putString(0, y, " ".repeat(width));
@@ -395,16 +439,18 @@ public class Dashboard {
                     g.setForegroundColor(SOUL);
                     put(g, 1, y, status, width - 2);
                 } else {
-                    hints(g, y, width);
+                    hints(g, y, width, !worlds.isEmpty());
                 }
             }
         }
         g.setBackgroundColor(BG);
     }
 
-    private static void hints(TextGraphics g, int y, int width) {
+    private static void hints(TextGraphics g, int y, int width, boolean hub) {
         int x = 1;
-        String[][] keys = {{"↑↓", "select"}, {"p", "purge"}, {"o", "open game"}, {":", "command"}, {"q", "quit"}};
+        String[][] keys = hub
+                ? new String[][] {{"↑↓", "select"}, {"[ ]", "world"}, {"p", "purge"}, {"o", "open game"}, {":", "command"}, {"q", "quit"}}
+                : new String[][] {{"↑↓", "select"}, {"p", "purge"}, {"o", "open game"}, {":", "command"}, {"q", "quit"}};
         for (String[] key : keys) {
             if (x + key[0].length() + key[1].length() + 4 > width) break;
             g.setForegroundColor(BONE);

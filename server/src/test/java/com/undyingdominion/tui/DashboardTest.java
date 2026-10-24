@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DashboardTest {
@@ -47,6 +48,7 @@ class DashboardTest {
                     public void openInBrowser() { calls.add("open"); }
                     public void command(String line) { calls.add("command " + line); }
                     public void quit() { calls.add("quit"); }
+                    public void cycleWorld(int delta) { calls.add("world " + delta); }
                 });
         dashboard.setSnapshot(WorldSnapshot.of(engine, 1.5));
     }
@@ -130,6 +132,47 @@ class DashboardTest {
         dashboard.handle(KeyStroke.fromString("y"));
 
         assertEquals(List.of("quit"), calls);
+    }
+
+    @Test
+    void onAHubTheWorldsLineNamesEveryWorldAndMarksTheOneDrawn() throws IOException {
+        dashboard.setWorlds(List.of("Free-for-all 2", "Campaign · Lin", "Campaign · Mara"), 1);
+        dashboard.setCapacity(1);
+
+        String screen = render(140, 42);
+        String worlds = line(screen, "Worlds");
+        assertTrue(worlds.contains("Free-for-all 2"), worlds);
+        assertTrue(worlds.contains("▸ Campaign · Lin"), "the world drawn is marked: " + worlds);
+        assertTrue(worlds.contains("Campaign · Mara"), worlds);
+        assertFalse(worlds.contains("▸ Free-for-all"), worlds);
+        assertTrue(line(screen, "UNDYING DOMINION").contains("2/1 necromancers"), "the header counts against the drawn world's seats");
+        assertTrue(screen.contains("[ ] world"), "the footer says how to change it");
+    }
+
+    @Test
+    void theBracketsAskForThePreviousOrNextWorld() {
+        dashboard.setWorlds(List.of("Free-for-all 2", "Campaign · Lin"), 0);
+
+        dashboard.handle(KeyStroke.fromString("]"));
+        dashboard.handle(KeyStroke.fromString("["));
+
+        assertEquals(List.of("world 1", "world -1"), calls);
+    }
+
+    @Test
+    void aSingleWorldServerHasNoWorldsLineAndTheBracketsDoNothing() throws IOException {
+        dashboard.handle(KeyStroke.fromString("]"));
+
+        String screen = render(140, 42);
+        assertTrue(calls.isEmpty());
+        assertFalse(screen.contains("Worlds"));
+        assertFalse(screen.contains("[ ] world"));
+    }
+
+    /** The screen row holding {@code text}, or a failure naming it. */
+    private static String line(String screen, String text) {
+        return screen.lines().filter(l -> l.contains(text)).findFirst()
+                .orElseGet(() -> org.junit.jupiter.api.Assertions.fail("no line with " + text + " in\n" + screen));
     }
 
     private String render(int columns, int rows) throws IOException {

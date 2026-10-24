@@ -7,10 +7,12 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal;
 import com.undyingdominion.Dominion;
+import com.undyingdominion.Hub;
 import com.undyingdominion.ServerOptions;
 import com.undyingdominion.game.Player;
 import com.undyingdominion.net.AdminConsole;
 import com.undyingdominion.net.GameServer;
+import com.undyingdominion.story.StoryDirector;
 import org.json.JSONObject;
 
 import java.awt.Desktop;
@@ -25,10 +27,15 @@ import java.net.SocketException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -70,16 +77,29 @@ public final class ServerTui {
         }
 
         GameServer server = dominion.server();
+        Hub hub = dominion.hub();
         int port = server.port();
-        AtomicReference<WorldSnapshot> latest = new AtomicReference<>(WorldSnapshot.EMPTY);
-        server.addTickListener(e -> {
-            if (e.getTick() % 2 == 0) latest.set(WorldSnapshot.of(e, server.lastTickMillis(),
-                    dominion.story() == null ? null : dominion.story().headline(), server::isAway));
-        });
-
         AtomicReference<Boolean> running = new AtomicReference<>(true);
-        AdminConsole console = new AdminConsole(server, InputStream.nullInputStream(), captured,
-                () -> running.set(false)).withStory(dominion.story()).withSaves(dominion.saves());
+
+        // On a hub every world gets its own snapshot and console, made when the world is first seen;
+        // the dashboard draws and acts on whichever one [ and ] have chosen (docs/design/modes.md §7).
+        Supplier<List<GameServer>> worlds = () -> hub == null ? List.of(server) : hub.worlds();
+        Map<GameServer, AtomicReference<WorldSnapshot>> snapshots = new ConcurrentHashMap<>();
+        Map<GameServer, AdminConsole> consoles = new HashMap<>();
+        WorldWatch<GameServer> watch = new WorldWatch<>();
+        Function<GameServer, AtomicReference<WorldSnapshot>> snapshotOf = world -> snapshots.computeIfAbsent(world, w -> {
+            StoryDirector story = w == server ? dominion.story() : hub.storyOf(w);
+            AtomicReference<WorldSnapshot> latest = new AtomicReference<>(WorldSnapshot.EMPTY);
+            w.addTickListener(e -> {
+                if (e.getTick() % 2 == 0) latest.set(WorldSnapshot.of(e, w.lastTickMillis(),
+                        story == null ? null : story.headline(), w::isAway));
+            });
+            return latest;
+        });
+        Function<GameServer, AdminConsole> consoleOf = world -> consoles.computeIfAbsent(world, w ->
+                new AdminConsole(w, InputStream.nullInputStream(), captured, () -> running.set(false))
+                        .withStory(w == server ? dominion.story() : hub.storyOf(w))
+                        .withSaves(w == server ? dominion.saves() : hub.savesOf(w)));
         Supplier<String> lanUrl = inviteLink(ServerTui::lanAddress, port, System::nanoTime);
 
         Dashboard[] holder = new Dashboard[1];
@@ -87,9 +107,10 @@ public final class ServerTui {
                 new Dashboard.Actions() {
                     @Override
                     public void purge(int playerId) {
-                        server.runOnLoop(() -> {
-                            Player player = server.engine().getPlayer(playerId);
-                            if (player != null) server.disconnect(playerId, "Purged by the Dominion's keeper");
+                        GameServer world = watch.current(worlds.get());
+                        world.runOnLoop(() -> {
+                            Player player = world.engine().getPlayer(playerId);
+                            if (player != null) world.disconnect(playerId, "Purged by the Dominion's keeper");
                         });
                     }
 
@@ -100,12 +121,18 @@ public final class ServerTui {
 
                     @Override
                     public void command(String line) {
-                        console.handle(line);
+                        consoleOf.apply(watch.current(worlds.get())).handle(line);
                     }
 
                     @Override
                     public void quit() {
                         running.set(false);
+                    }
+
+                    @Override
+                    public void cycleWorld(int delta) {
+                        GameServer world = watch.cycle(worlds.get(), delta);
+                        holder[0].flash("Watching " + worldLabel(world == server, snapshotOf.apply(world).get().players()) + ".");
                     }
                 });
         holder[0] = dashboard;
@@ -122,8 +149,17 @@ public final class ServerTui {
                 while ((key = screen.pollInput()) != null) {
                     dashboard.handle(key);
                 }
-                dashboard.setSnapshot(latest.get());
-                dashboard.setPaused(pauseLabel(server.pause()));
+                List<GameServer> all = worlds.get();
+                snapshots.keySet().retainAll(all);
+                consoles.keySet().retainAll(all);
+                GameServer drawn = watch.current(all);
+                if (hub != null) {
+                    dashboard.setWorlds(all.stream().map(w -> worldLabel(w == server, snapshotOf.apply(w).get().players())).toList(),
+                            all.indexOf(drawn));
+                }
+                dashboard.setSnapshot(snapshotOf.apply(drawn).get());
+                dashboard.setCapacity(drawn.capacity());
+                dashboard.setPaused(pauseLabel(drawn.pause()));
                 // A drawing bug skips the frame; a terminal that's gone (IOException) closes the Dominion as before.
                 drawSafely(() -> {
                     try {
@@ -162,6 +198,12 @@ public final class ServerTui {
             case "away" -> "everyone is away";
             default -> reason;
         };
+    }
+
+    /** A world's name on the dashboard: {@code Free-for-all 2}, or {@code Campaign · Lin} after the player in it. */
+    static String worldLabel(boolean freeForAll, List<WorldSnapshot.PlayerRow> players) {
+        if (freeForAll) return "Free-for-all " + players.size();
+        return "Campaign · " + (players.isEmpty() ? "starting" : players.getFirst().name());
     }
 
     private static String mapName(ServerOptions options) {

@@ -34,7 +34,8 @@ function row(server) {
   name.textContent = server.name;
   const mode = document.createElement('span');
   mode.className = 'mode';
-  mode.textContent = MODES[server.mode] ?? server.mode;
+  // A hub offers several modes: Free-for-all · Campaign (docs/design/modes.md §6 Beacon).
+  mode.textContent = (server.modes ?? [server.mode]).map((m) => MODES[m] ?? m).join(' · ');
   const where = document.createElement('span');
   where.className = 'where';
   where.textContent = `${server.host}:${server.port}`;

@@ -177,7 +177,8 @@ your network by itself.
    Or copy the file to the phone and open it, allowing installs from that app when Android asks.
 3. **Start the server on your PC** as usual (`java -jar …`). While it runs, it announces itself on the
    network every 2 s (UDP port 5001; `--no-beacon` turns that off).
-4. **Open Undying Dominion on the phone.** Your PC is listed under *Find a Dominion*; tap it. The app
+4. **Open Undying Dominion on the phone.** Your PC is listed under *Find a Dominion* with the modes
+   it offers (*Free-for-all · Campaign* on a plain start) and how many are playing; tap it. The app
    remembers it, so next time it's one tap on **Rejoin**.
 
 If nothing is listed, the phone and PC aren't on the same network, or the Wi-Fi keeps devices apart
@@ -194,16 +195,20 @@ Started in a terminal, the server takes over the window with a live dashboard:
 - **Log:** joins, leaves, warnings and the output of your commands.
 - **Header:** the port, the tick time, a link other players on your network can open, and who has
   paused the world, when someone has.
+- **Worlds** (on a plain start): every world running, the free-for-all first and then each player's
+  campaign, with the one drawn marked: `Worlds  ▸ Free-for-all 2 · Campaign · Lin`. Press `[` or `]`
+  to watch another. The panels, purging and console commands all follow the world drawn.
 
 | Key | Action |
 |---|---|
 | `↑` `↓` | Select a necromancer |
+| `[` `]` | On a plain start: watch the previous or next world |
 | `p` | Purge the selected necromancer (asks to confirm): their legion crumbles and they are disconnected |
 | `o` | Open the game in your browser |
 | `:` | Type a console command: `players`, `dump`, `pause`, `resume`, `purge <name>`, `chapter <n>`, `save <name>`, `save --force <name>`, `saves`, `help` |
 | `q` | Close the Dominion (asks to confirm) |
 
-The dashboard needs a terminal of at least 94 x 26. When output isn't an interactive terminal (piped,
+The dashboard needs a terminal of at least 94 x 26, or 94 x 27 on a plain start for the Worlds line. When output isn't an interactive terminal (piped,
 a service, a container without `-t`), or with `--plain`, the server runs a plain line console instead,
 reading the same commands plus `quit` from standard input.
 
