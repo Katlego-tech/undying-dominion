@@ -51,14 +51,17 @@ public final class Beacon implements AutoCloseable {
         return beacon;
     }
 
-    /** What the app reads: who is hosting, where to connect, what is being played and how full it is. */
-    public static String payload(String name, int port, String mode, long players, int max) {
+    /**
+     * What the app reads: who is hosting, where to connect, the modes a player can start there, and how
+     * full it is. On a hub {@code players} and {@code max} count every world (docs/design/modes.md).
+     */
+    public static String payload(String name, int port, List<String> modes, long players, int max) {
         return new JSONObject()
                 .put("game", "undying-dominion")
                 .put("v", 1)
                 .put("name", name)
                 .put("port", port)
-                .put("mode", mode)
+                .put("modes", modes)
                 .put("players", players)
                 .put("max", max)
                 .toString();

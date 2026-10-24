@@ -128,6 +128,11 @@ public class GameServer {
         gateway = shared;
     }
 
+    /** How many players this world seats. */
+    public int capacity() {
+        return seats.capacity();
+    }
+
     /** This world's entry in {@code GET /modes}: what it is and how full. */
     public JSONObject modeEntry() {
         return new JSONObject().put("id", mode).put("open", true).put("players", seats.size()).put("max", seats.capacity());

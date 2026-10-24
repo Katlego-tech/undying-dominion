@@ -9,7 +9,7 @@ data class Server(
     val name: String,
     val host: String,
     val port: Int,
-    val mode: String,
+    val modes: List<String>,
     val players: Int,
     val max: Int,
     val seenAt: Long,
@@ -32,7 +32,7 @@ object Beacons {
                 name = json.getString("name"),
                 host = host,
                 port = port,
-                mode = json.optString("mode", "free-for-all"),
+                modes = modesOf(json),
                 players = json.optInt("players", 0),
                 max = json.optInt("max", 0),
                 seenAt = now,
@@ -42,6 +42,13 @@ object Beacons {
         null
     }
 
+    /** A hub lists `modes`; a server from before the hub names one `mode` (docs/design/modes.md §6 Beacon). */
+    private fun modesOf(json: JSONObject): List<String> {
+        val modes = json.optJSONArray("modes")
+        val listed = if (modes == null) emptyList() else (0 until modes.length()).mapNotNull { modes.optString(it).ifEmpty { null } }
+        return listed.ifEmpty { listOf(json.optString("mode", "free-for-all")) }
+    }
+
     /** What finder.found() takes: the servers without the time they were heard. */
     fun toJson(servers: List<Server>): String {
         val array = JSONArray()
@@ -49,7 +56,7 @@ object Beacons {
             array.put(
                 JSONObject()
                     .put("name", s.name).put("host", s.host).put("port", s.port)
-                    .put("mode", s.mode).put("players", s.players).put("max", s.max),
+                    .put("modes", JSONArray(s.modes)).put("players", s.players).put("max", s.max),
             )
         }
         return array.toString()

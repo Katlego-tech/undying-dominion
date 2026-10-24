@@ -77,4 +77,14 @@ class ServerTuiTest {
     private static JSONObject pause(String reason, String by) {
         return new JSONObject().put("reason", reason).put("by", by == null ? JSONObject.NULL : by);
     }
+
+    @Test
+    void aWorldIsLabelledByItsModeAndWhoIsInIt() {
+        WorldSnapshot.PlayerRow lin = new WorldSnapshot.PlayerRow(1, "Lin", "#5eead4", 1, 0, 0, 10, 0, 10, 0, 0, 0, true, false);
+
+        assertEquals("Free-for-all 1", ServerTui.worldLabel(true, List.of(lin)));
+        assertEquals("Free-for-all 0", ServerTui.worldLabel(true, List.of()));
+        assertEquals("Campaign · Lin", ServerTui.worldLabel(false, List.of(lin)));
+        assertEquals("Campaign · starting", ServerTui.worldLabel(false, List.of()), "before its player is in");
+    }
 }

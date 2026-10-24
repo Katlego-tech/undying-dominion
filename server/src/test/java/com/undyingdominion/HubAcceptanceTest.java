@@ -132,6 +132,37 @@ class HubAcceptanceTest {
     }
 
     @Test
+    void theBeaconOffersEveryModeAndCountsEveryoneOnTheServer() throws Exception {
+        dominion = hub();
+        TestSocket corvin = join(new JSONObject().put("command", "join").put("name", "Corvin"));
+        TestSocket lin = join(new JSONObject().put("command", "join").put("name", "Lin").put("mode", "campaign"));
+        corvin.awaitType("welcome");
+        lin.awaitType("welcome");
+        await("both players counted", () -> beacon().getInt("players") == 2);
+
+        JSONObject beacon = beacon();
+        assertEquals(List.of("free-for-all", "campaign"), beacon.getJSONArray("modes").toList());
+        assertEquals(8 + 4, beacon.getInt("max"), "the free-for-all's seats and one per campaign world");
+    }
+
+    @Test
+    void withoutACampaignTheBeaconOffersOnlyTheFreeForAll() throws Exception {
+        dominion = raise("-p", "0", "--no-wild", "--no-beacon", "--db", dir.resolve("s.db").toString(),
+                "--campaign-folder", dir.resolve("nothing-here").toString());
+        JSONObject beacon = beacon();
+        assertEquals(List.of("free-for-all"), beacon.getJSONArray("modes").toList());
+        assertEquals(8, beacon.getInt("max"));
+    }
+
+    @Test
+    void aSingleModeServersBeaconNamesItsOneMode() throws Exception {
+        dominion = raise("-p", "0", "--no-beacon", "--db", dir.resolve("s.db").toString(), "--campaign", trialCampaign().toString());
+        JSONObject beacon = beacon();
+        assertEquals(List.of("campaign"), beacon.getJSONArray("modes").toList());
+        assertEquals(8, beacon.getInt("max"));
+    }
+
+    @Test
     void withoutACampaignTheHubSaysSo() throws Exception {
         dominion = raise("-p", "0", "--no-wild", "--no-beacon", "--grace", "0", "--db", dir.resolve("s.db").toString(),
                 "--campaign-folder", dir.resolve("nothing-here").toString());
@@ -170,6 +201,10 @@ class HubAcceptanceTest {
         sockets.add(socket);
         socket.send(message);
         return socket;
+    }
+
+    private JSONObject beacon() {
+        return new JSONObject(dominion.beaconPayload("host"));
     }
 
     private JSONArray modes() throws Exception {

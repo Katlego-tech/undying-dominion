@@ -9,7 +9,7 @@ class BeaconsTest {
 
     private fun beacon(json: String) = json.toByteArray(Charsets.UTF_8)
 
-    private val good = """{"game":"undying-dominion","v":1,"name":"kirito-laptop","port":5000,"mode":"free-for-all","players":2,"max":8}"""
+    private val good = """{"game":"undying-dominion","v":1,"name":"kirito-laptop","port":5000,"modes":["free-for-all","campaign"],"players":2,"max":12}"""
 
     @Test
     fun aBeaconBecomesAServerAtTheSendersAddress() {
@@ -17,10 +17,18 @@ class BeaconsTest {
         assertEquals("kirito-laptop", server.name)
         assertEquals("10.1.1.140", server.host)
         assertEquals(5000, server.port)
-        assertEquals("free-for-all", server.mode)
+        assertEquals(listOf("free-for-all", "campaign"), server.modes)
         assertEquals(2, server.players)
-        assertEquals(8, server.max)
+        assertEquals(12, server.max)
         assertEquals("10.1.1.140:5000", server.address)
+    }
+
+    @Test
+    fun aServerFromBeforeTheHubStillReadsAsItsOneMode() {
+        val older = """{"game":"undying-dominion","v":1,"name":"den","port":5000,"mode":"campaign","players":1,"max":8}"""
+        assertEquals(listOf("campaign"), Beacons.parse(beacon(older), "10.1.1.141", 0)!!.modes)
+        assertEquals(listOf("free-for-all"), Beacons.parse(beacon("""{"game":"undying-dominion","v":1,"name":"den","port":5000}"""), "10.1.1.142", 0)!!.modes)
+        assertEquals(listOf("free-for-all"), Beacons.parse(beacon("""{"game":"undying-dominion","v":1,"name":"den","port":5000,"modes":[]}"""), "10.1.1.142", 0)!!.modes)
     }
 
     @Test
@@ -66,7 +74,8 @@ class BeaconsTest {
     fun theServerListIsHandedToTheFinderAsJson() {
         val server = Beacons.parse(beacon(good), "10.1.1.140", 0)!!
         val row = org.json.JSONArray(Beacons.toJson(listOf(server))).getJSONObject(0)
-        assertEquals(setOf("name", "host", "port", "mode", "players", "max"), row.keySet())
+        assertEquals(setOf("name", "host", "port", "modes", "players", "max"), row.keySet())
+        assertEquals(listOf("free-for-all", "campaign"), row.getJSONArray("modes").toList())
         assertEquals("10.1.1.140", row.getString("host"))
         assertEquals(5000, row.getInt("port"))
     }

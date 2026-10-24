@@ -23,6 +23,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Random;
 import java.util.function.LongSupplier;
 
@@ -96,16 +97,27 @@ public record Dominion(GameServer server, StoryDirector story, SaveService saves
             story.onChapterBegins(chapter -> server.runAfterStep(() -> saves.autosave(message ->
                     server.engine().getPlayers().forEach(player -> player.notice(message)))));
         }
-        return new Dominion(server, story, saves, announce(options, server, story == null ? "free-for-all" : "campaign"), hub);
+        return new Dominion(server, story, saves, announce(options, server, hub), hub);
+    }
+
+    /** What the LAN beacon says now, naming the host {@code host}. */
+    public String beaconPayload(String host) {
+        return beaconPayload(host, server, hub);
+    }
+
+    /** A hub offers its modes and counts every world; a single-mode server names its one mode and counts its own seats. */
+    private static String beaconPayload(String host, GameServer server, Hub hub) {
+        return hub == null
+                ? Beacon.payload(host, server.port(), List.of(server.mode()), server.joinedCount(), server.capacity())
+                : Beacon.payload(host, server.port(), hub.beaconModes(), hub.players(), hub.capacity());
     }
 
     /** Starts the LAN beacon the Android app listens for, unless it's turned off. A refused socket costs only the beacon. */
-    private static Beacon announce(ServerOptions options, GameServer server, String mode) {
+    private static Beacon announce(ServerOptions options, GameServer server, Hub hub) {
         if (!options.beacon()) return null;
         String host = hostName();
         try {
-            return Beacon.start(options.beaconPort(), Beacon::targets,
-                    () -> Beacon.payload(host, server.port(), mode, server.joinedCount(), options.maxPlayers()));
+            return Beacon.start(options.beaconPort(), Beacon::targets, () -> beaconPayload(host, server, hub));
         } catch (SocketException e) {
             log.warn("No LAN beacon: {}. Players can still type the address.", e.getMessage());
             return null;

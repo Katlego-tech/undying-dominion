@@ -171,6 +171,33 @@ public final class Hub implements Gateway.Router {
         return freeForAll;
     }
 
+    /** The modes a player can start here, for the LAN beacon: the free-for-all, and the campaign if there is one. */
+    public List<String> beaconModes() {
+        return campaign == null ? List.of("free-for-all") : List.of("free-for-all", "campaign");
+    }
+
+    /** Everyone playing on this server, in every world. */
+    public long players() {
+        return worlds().stream().mapToLong(GameServer::joinedCount).sum();
+    }
+
+    /** How many this server can hold: the free-for-all's seats and, with a campaign, one player per campaign world. */
+    public int capacity() {
+        return freeForAll.capacity() + (campaign == null ? 0 : maxCampaigns);
+    }
+
+    /** The story a campaign world is telling, or null for the free-for-all or a world that has closed. */
+    public StoryDirector storyOf(GameServer world) {
+        for (CampaignWorld c : campaigns) if (c.server() == world) return c.story();
+        return null;
+    }
+
+    /** Where a world's saves go: a campaign world's own, or null for the free-for-all or a world that has closed. */
+    public SaveService savesOf(GameServer world) {
+        for (CampaignWorld c : campaigns) if (c.server() == world) return c.saves();
+        return null;
+    }
+
     /** The campaign worlds running now, for the dashboard. */
     public List<GameServer> campaignWorlds() {
         return campaigns.stream().map(CampaignWorld::server).toList();

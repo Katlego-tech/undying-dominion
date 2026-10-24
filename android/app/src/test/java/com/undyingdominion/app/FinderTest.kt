@@ -48,7 +48,7 @@ class FinderTest {
         held.set(false)
         listener.start()
         assertTrue(listener.listening)
-        val beacon = """{"game":"undying-dominion","v":1,"name":"kirito-laptop","port":5000,"mode":"free-for-all","players":1,"max":8}"""
+        val beacon = """{"game":"undying-dominion","v":1,"name":"kirito-laptop","port":5000,"modes":["free-for-all"],"players":1,"max":8}"""
             .toByteArray()
         DatagramSocket().use { sender ->
             val deadline = System.currentTimeMillis() + 3000
