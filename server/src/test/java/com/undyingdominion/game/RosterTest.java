@@ -155,6 +155,32 @@ class RosterTest {
     }
 
     @Test
+    void theFlameDancerReplacesTheGroveCallerAsTheDesignsEntryToTheLetter() {
+        assertNull(roster.get("GROVE_CALLER"), "the book's Blade Dancer replaced the Elf Summoner (characters.md §7.3)");
+        Commander liora = roster.get("FLAME_DANCER");
+        assertEquals("Liora", liora.name());
+        assertEquals("the Flame Dancer", liora.title());
+        assertEquals(Commander.Role.FIGHTER, liora.role());
+        assertEquals("Tempo", liora.energy());
+        assertEquals("Call", liora.verb());
+        assertEquals(215, liora.unit().maxHp, "tuned from 200 with move cd 3 by the balance report (34 % then 49 %)");
+        assertEquals(4, liora.unit().moveCooldown);
+        assertEquals(List.of("ACADEMY_DUELIST", "ACADEMY_ARCHER"), liora.retinue().stream().map(UnitType::name).toList());
+        assertEquals(51, liora.retinue().getFirst().maxHp);
+        assertEquals(3, liora.retinue().getFirst().moveCooldown);
+        assertEquals(new Ability("twin-cut", "Twin Cut", Ability.Slot.BASIC, Ability.Target.ENEMY, 12, 60, 1, 0,
+                Ability.Affects.TARGET, List.of(new Effect.Damage(24, 0, null))), liora.ability("twin-cut"));
+        assertEquals(new Ability("flame-waltz", "Flame Waltz", Ability.Slot.UTILITY, Ability.Target.TILE, 20, 150, 4, 1,
+                Ability.Affects.ENEMIES, List.of(new Effect.Dash(4, 12, false),
+                        new Effect.Apply(Status.BURNING, 4, 30, 0, null))), liora.ability("flame-waltz"));
+        assertEquals(new Ability("thousand-burning-blades", "Thousand Burning Blades", Ability.Slot.SIGNATURE,
+                Ability.Target.TILE, 40, 600, 6, 2, Ability.Affects.ENEMIES, List.of(new Effect.Damage(30, 0, null),
+                        new Effect.Apply(Status.BURNING, 5, 40, 0, null))), liora.ability("thousand-burning-blades"));
+        assertEquals(new Passive("sword-shadows", "Sword Shadows", Passive.Kind.AURA, Status.MIGHT, 10, 2,
+                Ability.Affects.OWN, null), liora.passive());
+    }
+
+    @Test
     void mixedTargetsAndDelayedStatusesReadAsWritten() {
         Ability ironStance = roster.get("BULWARK").ability("iron-stance");
         assertEquals(Ability.Affects.ENEMIES, ironStance.affects());

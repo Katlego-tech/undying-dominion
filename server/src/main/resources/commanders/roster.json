@@ -1,27 +1,5 @@
 [
 {
-  "id": "GROVE_CALLER",
-  "name": "Sylvane",
-  "title": "the Grove Caller",
-  "role": "SUMMONER",
-  "blurb": "Calls the spirits of the wood and keeps them standing.",
-  "energy": "Spirit",
-  "verb": "Summon",
-  "campaignOnly": false,
-  "unit": {"name": "GROVE_CALLER", "label": "Sylvane", "look": "HUMANOID", "hp": 250, "damage": 9, "range": 3, "attackCooldown": 12, "moveCooldown": 4, "aggro": 3, "vision": 8},
-  "retinue": [
-    {"name": "WISP", "label": "Wisp", "archetype": "SHOT", "look": "PLANT", "cost": 24, "hp": 28},
-    {"name": "GROVE_SENTINEL", "label": "Grove Sentinel", "archetype": "GUARD", "look": "PLANT"},
-    {"name": "ELDER_SPIRIT", "label": "Elder Spirit", "archetype": "ADEPT", "look": "PLANT"}
-  ],
-  "abilities": [
-    {"id": "spirit-bloom", "label": "Spirit Bloom", "slot": "BASIC", "target": "ALLY", "cost": 12, "cooldown": 6, "range": 5, "effects": [{"kind": "heal", "amount": 24}]},
-    {"id": "wisp-swarm", "label": "Wisp Swarm", "slot": "UTILITY", "target": "SELF", "cost": 25, "cooldown": 20, "effects": [{"kind": "summon", "unit": "WISP", "count": 2, "seconds": 12}]},
-    {"id": "groves-embrace", "label": "Grove's Embrace", "slot": "SIGNATURE", "target": "TILE", "cost": 40, "cooldown": 60, "range": 6, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 20}, {"kind": "status", "status": "ROOTED", "magnitude": 0, "seconds": 2}]}
-  ],
-  "passive": {"id": "living-wood", "label": "Living Wood", "kind": "aura", "status": "REGEN", "magnitude": 1, "radius": 3, "affects": "OWN"}
-},
-{
   "id": "DAWN_RIDER",
   "name": "Aurelle",
   "title": "the Dawn Rider",
@@ -277,6 +255,27 @@
     {"id": "holy-edge", "label": "Holy Edge", "slot": "SIGNATURE", "target": "SELF", "cost": 35, "cooldown": 50, "effects": [{"kind": "status", "status": "MIGHT", "magnitude": 40, "seconds": 8}, {"kind": "status", "status": "CLEAVING", "magnitude": 0, "seconds": 8}]}
   ],
   "passive": {"id": "steady-blade", "label": "Steady Blade", "kind": "self", "status": "WARD", "magnitude": 10}
+},
+{
+  "id": "FLAME_DANCER",
+  "name": "Liora",
+  "title": "the Flame Dancer",
+  "role": "FIGHTER",
+  "blurb": "Dances between two burning blades and lifts every sword beside her.",
+  "energy": "Tempo",
+  "verb": "Call",
+  "campaignOnly": false,
+  "unit": {"name": "FLAME_DANCER", "label": "Liora", "look": "HUMANOID", "hp": 215, "damage": 14, "range": 1, "attackCooldown": 10, "moveCooldown": 4, "aggro": 4, "vision": 7},
+  "retinue": [
+    {"name": "ACADEMY_DUELIST", "label": "Academy Duelist", "archetype": "GRUNT", "look": "HUMANOID", "moveCooldown": 3, "hp": 51},
+    {"name": "ACADEMY_ARCHER", "label": "Academy Archer", "archetype": "SHOT", "look": "HUMANOID"}
+  ],
+  "abilities": [
+    {"id": "twin-cut", "label": "Twin Cut", "slot": "BASIC", "target": "ENEMY", "cost": 12, "cooldown": 6, "range": 1, "effects": [{"kind": "damage", "amount": 24}]},
+    {"id": "flame-waltz", "label": "Flame Waltz", "slot": "UTILITY", "target": "TILE", "cost": 20, "cooldown": 15, "range": 4, "radius": 1, "affects": "ENEMIES", "effects": [{"kind": "dash", "tiles": 4, "damage": 12}, {"kind": "status", "status": "BURNING", "magnitude": 4, "seconds": 3}]},
+    {"id": "thousand-burning-blades", "label": "Thousand Burning Blades", "slot": "SIGNATURE", "target": "TILE", "cost": 40, "cooldown": 60, "range": 6, "radius": 2, "affects": "ENEMIES", "effects": [{"kind": "damage", "amount": 30}, {"kind": "status", "status": "BURNING", "magnitude": 5, "seconds": 4}]}
+  ],
+  "passive": {"id": "sword-shadows", "label": "Sword Shadows", "kind": "aura", "status": "MIGHT", "magnitude": 10, "radius": 2, "affects": "OWN"}
 },
 {
   "id": "SHADE",

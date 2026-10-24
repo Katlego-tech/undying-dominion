@@ -250,6 +250,22 @@ class AbilitiesTest {
     }
 
     @Test
+    void flameWaltzCutsWhatItPassesAndBurnsAroundTheLandingNotTheStart() {
+        Player liora = join("Liora", "FLAME_DANCER", 5, 15);
+        Unit behind = engine.spawn(UnitType.WOLF, Unit.NEUTRAL, new Position(4, 15));
+        Unit passed = engine.spawn(UnitType.WOLF, Unit.NEUTRAL, new Position(7, 16));
+        Unit atLanding = engine.spawn(UnitType.WOLF, Unit.NEUTRAL, new Position(10, 16));
+
+        cast(liora, "flame-waltz", null, new Position(9, 15));
+
+        assertEquals(new Position(9, 15), unit(liora).getPosition());
+        assertEquals(45 - 13, passed.getHp(), "cut once in passing: 12, plus her own Sword Shadows' 10 %");
+        assertTrue(atLanding.has(Status.BURNING), "burns beside where she lands");
+        assertFalse(passed.has(Status.BURNING), "two tiles from the landing: not burned");
+        assertFalse(behind.has(Status.BURNING), "where she began: not burned");
+    }
+
+    @Test
     void aDashMidWalkDoesntSnapBackAlongTheOldPath() {
         Player thessa = join("Thessa", "GROVE_KNIGHT", 5, 25);
         engine.submit(new Command.Move(thessa.getId(), List.of(unit(thessa).getId()), new Position(25, 25), false));
