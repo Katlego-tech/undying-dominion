@@ -109,6 +109,7 @@
       <h2>Paused</h2>
       <p id="paused-by"></p>
       <button type="button" id="resume-button">Resume</button>
+      <button type="button" class="leave-title" id="leave-title" hidden>Leave to title</button>
       <p class="paused-hint">or press <kbd>P</kbd></p>
       <form class="save-form" id="save-form" autocomplete="off" hidden>
         <label for="save-name">Save this game as</label>
@@ -129,6 +130,18 @@
       <p>Your legion crumbles to bone. You rise again in <b id="respawn-in">6</b>s.</p>
       <p class="rising" id="rising" hidden></p>
       <button type="button" class="rise-as" id="rise-as" hidden>Rise as…</button>
+    </div>
+  </div>
+
+  <div class="overlay join title-screen" id="title" hidden>
+    <div class="title-box">
+      <header class="title-head"><h1>Undying Dominion</h1><p>Choose how to play.</p></header>
+      <div class="title-name">
+        <label for="title-name">Your name</label>
+        <input id="title-name" name="title-name" maxlength="16" placeholder="Vesper" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="modes" id="modes"></div>
+      <p class="error" id="title-error" role="alert"></p>
     </div>
   </div>
 

@@ -10,6 +10,9 @@ import {
   initPicker, showPicker, chosenKit, closeRiseAs, risingAs,
 } from './picker.js';
 import { pick, setMode } from './commands.js';
+import {
+  loadModes, showTitle, titleError, hideTitle,
+} from './title.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,6 +25,14 @@ let socket = null;
 let joined = false;
 let rejoining = null;
 let followedNecromancer = null;
+/** On a hub (docs/design/modes.md): the title screen comes first, and joins say their mode. */
+let hub = false;
+/** Leave to title was pressed: the socket's close goes back to the title, not to "severed". */
+let leaving = false;
+const modesLoaded = loadModes().then((modes) => {
+  hub = !!modes;
+  return modes;
+});
 
 // The seat's token, kept per tab so a refresh takes the same necromancer back (docs/design/reconnect.md).
 const SESSION_KEY = 'undying-dominion.session';
@@ -86,6 +97,7 @@ $('join-form').addEventListener('submit', (e) => {
 
   const commander = chosenKit();
   const join = commander ? { command: 'join', name, commander } : { command: 'join', name };
+  if (hub) join.mode = 'free-for-all';
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(join));
     return;
@@ -132,7 +144,45 @@ function stopRejoining(reason) {
   $('join-button').disabled = false;
   $('join-button').focus();
   showPicker();
+  startTitle();
 }
+
+/** On a hub, the title screen; on a single-mode server, nothing: its join form is already up. */
+function startTitle() {
+  modesLoaded.then((modes) => {
+    if (!modes || joined || rejoining) return;
+    showTitle(modes, {
+      onFreeForAll(name) {
+        hideTitle();
+        $('name').value = name;
+        $('join').hidden = false;
+        showPicker();
+      },
+      onCampaign(name, save) {
+        game.name = name;
+        lockLandscape();
+        const join = { command: 'join', name, mode: 'campaign', ...(save ? { save } : {}) };
+        if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(join));
+        else connect(join);
+      },
+    });
+  });
+}
+
+/** Why a join didn't take, where the player is looking: the title screen or the join form. */
+function joinRefused(text) {
+  if (!$('title').hidden) titleError(text);
+  else $('join-error').textContent = text;
+  $('join-button').disabled = false;
+}
+
+// Leave to title: the seat goes at once, and a campaign world saves and closes behind it.
+$('leave-title').addEventListener('click', () => {
+  leaving = true;
+  forgetSession();
+  game.send({ command: 'leave' });
+  setTimeout(() => location.reload(), 1500);
+});
 
 function connect(first) {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -143,15 +193,16 @@ function connect(first) {
   socket.addEventListener('open', () => socket.send(JSON.stringify(first)));
   socket.addEventListener('message', (e) => handle(JSON.parse(e.data)));
   socket.addEventListener('close', (e) => {
-    if (joined) {
+    if (leaving) {
+      location.reload();
+    } else if (joined) {
       $('lost-reason').textContent = e.reason || 'The Dominion is unreachable.';
       $('lost').hidden = false;
     } else if (rejoining) {
       // The session is kept, so a later refresh tries again.
       stopRejoining('Could not reach the Dominion. Is the server running?');
     } else {
-      $('join-error').textContent = 'Could not reach the Dominion. Is the server running?';
-      $('join-button').disabled = false;
+      joinRefused('Could not reach the Dominion. Is the server running?');
     }
   });
 }
@@ -168,8 +219,7 @@ function handle(message) {
         forgetSession();
         stopRejoining(message.message);
       } else {
-        $('join-error').textContent = message.message;
-        $('join-button').disabled = false;
+        joinRefused(message.message);
       }
       return undefined;
     default: return undefined;
@@ -205,10 +255,13 @@ function welcome(message) {
     initRiseAs();
   }
   $('join').hidden = true;
+  hideTitle();
+  $('leave-title').hidden = !hub;
 }
 
 const session = storedSession();
 if (session) rejoin(session);
+else startTitle();
 
 // ---------------------------------------------------------------- world state
 

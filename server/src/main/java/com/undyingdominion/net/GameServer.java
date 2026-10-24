@@ -357,6 +357,10 @@ public class GameServer {
                 String name = message.optString("name", null);
                 boolean force = message.optBoolean("force", false);
                 afterStepTasks.add(() -> handler.save(playerId, name, force));
+            } else if ("leave".equals(command)) {
+                // Leave to title: the seat goes now, not after the rejoin grace (docs/design/modes.md).
+                if (seats.remove(playerId)) log.info("{} left for the title screen", connection.getName());
+                connection.close(1000, "Left the Dominion");
             } else if ("reading".equals(command)) {
                 boolean open = message.optBoolean("open", false);
                 runOnLoop(() -> {
