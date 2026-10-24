@@ -91,6 +91,9 @@
         },
         "collect": {
           "$ref": "#/components/messages/collect"
+        },
+        "leave": {
+          "$ref": "#/components/messages/leave"
         }
       }
     }
@@ -346,6 +349,17 @@
       "messages": [
         {
           "$ref": "#/channels/dominion/messages/collect"
+        }
+      ]
+    },
+    "sendLeave": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/dominion"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/dominion/messages/leave"
         }
       ]
     }
@@ -1855,6 +1869,28 @@
             "payload": {
               "command": "collect",
               "corpse": 12
+            }
+          }
+        ]
+      },
+      "leave": {
+        "name": "leave",
+        "summary": "Leave the world now, giving up the seat at once rather than after the rejoin grace (the title screen's Leave to title). A hub's campaign world then autosaves and closes.",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "const": "leave"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        },
+        "examples": [
+          {
+            "payload": {
+              "command": "leave"
             }
           }
         ]
