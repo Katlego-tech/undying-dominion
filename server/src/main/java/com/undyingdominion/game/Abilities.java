@@ -34,6 +34,11 @@ final class Abilities {
             player.notice("You are silenced.");
             return;
         }
+        // A rooted unit can't move, and a dash is a move (Katlego, 2026-10-24; characters.md §3 statuses).
+        if (caster.has(Status.ROOTED) && ability.effects().stream().anyMatch(e -> e instanceof Effect.Dash)) {
+            player.notice("You are rooted.");
+            return;
+        }
         long tick = engine.getTick();
         long left = player.cooldownLeft(ability.id(), tick);
         if (left > 0) {

@@ -55,6 +55,9 @@ public final class DuelBrain {
         int soul = me.getSoul();
         for (Ability ability : kit.abilities()) {
             if (me.cooldownLeft(ability.id(), tick) > 0 || soul < ability.cost()) continue;
+            // What the server would refuse, a player doesn't press: silenced, or a dash while rooted.
+            if (self.has(Status.SILENCED)
+                    || self.has(Status.ROOTED) && ability.effects().stream().anyMatch(e -> e instanceof Effect.Dash)) continue;
             boolean signature = ability.slot() == Ability.Slot.SIGNATURE;
             Command.Cast cast = aim(ability, self, foe, signature);
             if (cast == null) continue;

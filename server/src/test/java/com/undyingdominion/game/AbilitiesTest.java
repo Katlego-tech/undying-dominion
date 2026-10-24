@@ -266,6 +266,27 @@ class AbilitiesTest {
     }
 
     @Test
+    void aRootedCommanderCantDashButCanStillCastTheRest() {
+        Player thessa = join("Thessa", "GROVE_KNIGHT", 5, 15);
+        engine.applyStatus(unit(thessa), Status.ROOTED, 0, engine.getTick() + 50, null);
+        int soul = thessa.getSoul();
+
+        cast(thessa, "charge", null, new Position(11, 15));
+
+        assertTrue(thessa.takeNotices().contains("You are rooted."));
+        assertEquals(new Position(5, 15), unit(thessa).getPosition(), "she stays put");
+        assertEquals(soul, thessa.getSoul(), "a refused dash costs nothing");
+        assertEquals(0, thessa.cooldownLeft("charge", engine.getTick()), "and starts no cooldown");
+
+        cast(thessa, "taunt");
+        assertTrue(thessa.getSoul() < soul, "an ability without a dash still casts while rooted");
+
+        pass(50);
+        cast(thessa, "charge", null, new Position(11, 15));
+        assertEquals(new Position(11, 15), unit(thessa).getPosition(), "free again once the root ends");
+    }
+
+    @Test
     void aDashMidWalkDoesntSnapBackAlongTheOldPath() {
         Player thessa = join("Thessa", "GROVE_KNIGHT", 5, 25);
         engine.submit(new Command.Move(thessa.getId(), List.of(unit(thessa).getId()), new Position(25, 25), false));
