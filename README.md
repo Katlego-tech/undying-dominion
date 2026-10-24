@@ -140,10 +140,10 @@ necromancer walks only in the campaign.
 
 | Role | Commanders |
 |---|---|
-| Summoner | Sylvane, the Grove Caller · Aurelle, the Dawn Rider · Hollin, the Paper Binder |
+| Summoner | Aurelle, the Dawn Rider · Hollin, the Paper Binder |
 | Caster | Brisa, the Elementalist · Morrow, the Hexer · Calder, the Ward Mage |
 | Front line | Thessa, the Grove Knight · Dunstan, the Bulwark · Osric, the Lightward · Lucan, the Sunward |
-| Fighter | Ignar, the Pyre Champion · Garrick, the Berserker · Seren, the Bright Blade |
+| Fighter | Ignar, the Pyre Champion · Garrick, the Berserker · Seren, the Bright Blade · Liora, the Flame Dancer |
 | Assassin | Vey, the Shade · Kestrel, the Knife |
 | Support | Elowen, the Grove Elder · Rowena, the Spring Elder · Pell, the Seer · Varro, the Warlord |
 
