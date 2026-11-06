@@ -1,0 +1,9 @@
+# False positives, checked 2026-11-06: the example rejoin and welcome payloads in README.md and
+# the AsyncAPI spec carry a sample player-session value, which the server issues per session
+# at run time. Not a credential for any service (rule generic-api-key).
+3e89fecef37b51cba87f0065fc97c4a3b1cdf3a5:README.md:generic-api-key:135
+ade01697ae27a22c18d1a91e55db60c827d4469b:server/src/main/resources/public/asyncapi.json:generic-api-key:350
+ade01697ae27a22c18d1a91e55db60c827d4469b:server/src/main/resources/public/asyncapi.json:generic-api-key:933
+bb39c592b9482a6f3859653aa9bec87d9a7a6147:README.md:generic-api-key:135
+1480c61f6c78433bd440f0b5b378396a6aa748d1:server/src/main/resources/public/asyncapi.json:generic-api-key:350
+1480c61f6c78433bd440f0b5b378396a6aa748d1:server/src/main/resources/public/asyncapi.json:generic-api-key:933
